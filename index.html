@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5ef">
+  <meta name="description" content="拍间：为卡林巴日常练习准备的轻巧节拍器。支持重拍、细分节奏、敲击测速和练习计时。">
+  <title>拍间 · 卡林巴节拍器</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script src="engine.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="4"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="m11 5-6 4H2v6h3l6 4ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24"><path d="m11 5-6 4H2v6h3l6 4Zm5 4 6 6m0-6-6 6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2 7M4 5v6h6"/></symbol>
+    <symbol id="i-tap" viewBox="0 0 24 24"><path d="M8 12V5a2 2 0 0 1 4 0v7-2a2 2 0 0 1 4 0v2-1a2 2 0 0 1 4 0v5c0 4-3 6-6 6h-2c-2 0-3-1-4-3l-4-5a2 2 0 0 1 3-2l1 1"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 4C8 2 2 8 6 16s16 4 14-12ZM5 20 16 9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  </defs></svg>
+
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="./index.html" aria-label="拍间首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>拍间<span class="brand-en">TEMPO</span></span></a>
+      <span class="header-tag"><span></span>给每天的一点练习</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div><p class="eyebrow">YOUR LITTLE PRACTICE COMPANION</p><h1 id="page-title">慢一点，也在进步。</h1><p class="intro-copy">拨动琴键，把每一拍弹得刚刚好。</p></div>
+        <div class="instrument-tag"><span class="mini-kalimba" aria-hidden="true">▥</span> 卡林巴练习</div>
+      </section>
+
+      <div class="workspace">
+        <section class="metronome-card" aria-label="节拍器">
+          <div class="card-topline"><span class="section-label">节拍器 <span>METRONOME</span></span><span id="play-status" class="play-status"><i></i><span>准备好了</span></span></div>
+          <div class="tempo-control">
+            <button id="decrease" class="step-button" type="button" aria-label="降低速度 1 BPM">−</button>
+            <div class="tempo-display"><label class="sr-only" for="bpm-input">速度，每分钟拍数</label><input id="bpm-input" type="number" min="30" max="240" step="1" value="60" inputmode="numeric"><span class="bpm-unit">BPM</span><span id="tempo-name" class="tempo-name">Largo · 舒缓地</span></div>
+            <button id="increase" class="step-button" type="button" aria-label="提高速度 1 BPM">+</button>
+          </div>
+          <div class="tempo-slider-wrap"><label for="bpm-slider" class="sr-only">拖动调整速度</label><input id="bpm-slider" class="range" type="range" min="30" max="240" value="60"><div class="range-endpoints"><span>30 <small>BPM</small></span><span>240 <small>BPM</small></span></div></div>
+          <div class="tempo-presets" aria-label="常用练习速度"><span>循序渐进</span><button type="button" data-tempo="60">60</button><button type="button" data-tempo="72">72</button><button type="button" data-tempo="84">84</button><button type="button" data-tempo="96">96</button></div>
+          <div class="beat-section"><div id="beat-dots" class="beat-dots" aria-label="各拍重音，点击可切换"></div><p class="beat-help"><span class="legend-dot accent"></span>重拍<span class="legend-dot"></span>轻拍<span class="legend-dot muted"></span>静音<span class="beat-help-divider">·</span>点击拍点切换</p></div>
+          <div class="transport"><button id="toggle-play" class="play-button" type="button" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg><span>开始练习</span><kbd>Space</kbd></button><button id="tap-tempo" class="tap-button" type="button" aria-label="敲击测速，跟着节奏连续点击，快捷键 T"><svg class="icon" aria-hidden="true"><use href="#i-tap"></use></svg><span>敲击测速</span><kbd>T</kbd></button></div>
+          <p id="tap-hint" class="transport-hint" role="status">跟着熟悉的旋律敲几下，找到它的速度。</p>
+        </section>
+
+        <aside class="settings-column" aria-label="练习设置">
+          <section class="settings-card rhythm-card" aria-labelledby="rhythm-title">
+            <div class="settings-heading"><h2 id="rhythm-title">找到你的节奏</h2><span>01</span></div>
+            <div class="field-heading"><label for="meter">拍号</label><span id="meter-caption">每小节 4 拍</span></div>
+            <select id="meter"><option value="2/4">2/4 · 两拍子</option><option value="3/4">3/4 · 三拍子</option><option value="4/4" selected>4/4 · 四拍子</option><option value="6/8">6/8 · 六个八分音符</option></select>
+            <p id="meter-note" class="field-note">BPM 以四分音符为一拍。</p>
+            <div class="field-heading subdivision-heading"><span id="subdivision-label">节奏细分</span><span id="subdivision-caption">每拍一下</span></div>
+            <div class="subdivision-options" role="group" aria-labelledby="subdivision-label">
+              <button type="button" data-subdivision="1" aria-pressed="true"><span class="notation">♩</span><span>一拍</span></button>
+              <button type="button" data-subdivision="2" aria-pressed="false"><span class="notation">♫</span><span>二等分</span></button>
+              <button type="button" data-subdivision="3" aria-pressed="false"><span class="notation triplet"><small>3</small>♫</span><span>三连音</span></button>
+              <button type="button" data-subdivision="4" aria-pressed="false"><span class="notation">♬</span><span>四等分</span></button>
+            </div>
+            <div id="rhythm-preview" class="rhythm-preview" aria-hidden="true"></div>
+            <p class="field-note">练左右手交替时，可以试试二等分。</p>
+          </section>
+
+          <section class="settings-card sound-card" aria-labelledby="sound-title">
+            <div class="settings-heading"><h2 id="sound-title">舒服的声音</h2><span>02</span></div>
+            <div class="sound-options" role="group" aria-label="节拍音色"><button type="button" data-sound="wood" aria-pressed="true">木质</button><button type="button" data-sound="click" aria-pressed="false">电子</button><button type="button" data-sound="bell" aria-pressed="false">清铃</button></div>
+            <div class="volume-control"><button id="mute" class="icon-button" type="button" aria-label="静音" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-volume"></use></svg></button><label class="sr-only" for="volume">音量</label><input id="volume" class="range" type="range" min="0" max="100" value="60"><output id="volume-value" for="volume">60%</output></div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="practice-bar" aria-label="练习记录与建议">
+        <div class="session-time"><span class="session-icon"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span><div><span class="small-label">本次练习</span><span id="session-time" class="time-value">00:00</span></div><button id="reset-session" class="icon-button reset-button" type="button" aria-label="重置练习计时"><svg class="icon" aria-hidden="true"><use href="#i-reset"></use></svg></button></div>
+        <div class="session-bars"><span class="small-label">完成小节</span><span class="bars-value"><span id="bar-count">0</span><small>小节</small></span></div>
+        <div class="practice-tip"><svg class="icon" aria-hidden="true"><use href="#i-leaf"></use></svg><p><strong>先练稳，再练快。</strong><span>从 60 BPM 开始，一拍拨一下。熟练后，每次加 4 BPM。</span></p></div>
+      </section>
+      <p id="message" class="message" role="status" hidden></p>
+    </main>
+
+    <footer><span>一点节奏，一点专注。</span><div><span><kbd>Space</kbd> 开始 / 暂停</span><span><kbd>←</kbd><kbd>→</kbd> 调速度</span><span><kbd>T</kbd> 敲击测速</span></div><span class="saved-indicator"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>设置自动保存</span></footer>
+  </div>
+</body>
+</html>
