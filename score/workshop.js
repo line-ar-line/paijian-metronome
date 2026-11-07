@@ -2,12 +2,18 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const shorten = (value, max) => Array.from(String(value)).slice(0, max).join('');
   let score;
   let svgText = '';
+  let pages = [];
+  let pageIndex = 0;
+  let barToPage = [];
+  let nodesBySource = new Map();
   let state;
   let starting = false;
   let playGeneration = 0;
   let importGeneration = 0;
+  let scoreRevision = 0;
   let activeSource = null;
   let activeNoteEnd = Infinity;
   let activeGroups = [];
@@ -26,7 +32,11 @@
     $('playback-progress').max = totalBeats || 1;
     $('playback-progress').value = beat;
     $('playback-time').textContent = `${clock(seconds(beat))} / ${clock(seconds(totalBeats))}`;
-    if (player.isPlaying && score) $('playback-status').textContent = `正在试听 · 第 ${Math.min(score.bars.length, Math.floor(beat / score.barBeats) + 1)} / ${score.bars.length} 小节`;
+    if (player.isPlaying && score) {
+      const bar = Math.min(score.bars.length - 1, Math.floor(beat / score.barBeats));
+      $('playback-status').textContent = `正在试听 · 第 ${bar + 1} / ${score.bars.length} 小节`;
+      if ($('follow-pages').checked && barToPage[bar] !== pageIndex) showPage(barToPage[bar]);
+    }
   }
   function clearHighlight() {
     activeGroups.forEach((group) => group.classList.remove('is-active'));
@@ -36,10 +46,33 @@
     if (activeSource === note.sourceId) return;
     clearHighlight(); activeSource = note.sourceId;
     activeNoteEnd = note.start + note.duration;
-    activeGroups = Array.from($('score-preview').querySelectorAll('[data-source-id]')).filter((group) => group.dataset.sourceId === note.sourceId);
-    activeGroups.forEach((group) => group.classList.add('is-active'));
+    paintHighlight();
     const bar = Math.floor(note.start / score.barBeats) + 1;
     $('playback-status').textContent = `正在试听 · 第 ${bar} / ${score.bars.length} 小节`;
+  }
+  function paintHighlight() {
+    activeGroups.forEach((group) => group.classList.remove('is-active'));
+    activeGroups = nodesBySource.get(activeSource) || [];
+    activeGroups.forEach((group) => group.classList.add('is-active'));
+  }
+  function showPage(index) {
+    if (!pages.length) return;
+    pageIndex = clamp(index || 0, 0, pages.length - 1);
+    svgText = ScoreRenderer.render(pages[pageIndex], renderOptions);
+    $('score-preview').innerHTML = svgText;
+    nodesBySource = new Map();
+    $('score-preview').querySelectorAll('[data-source-id]').forEach((group) => {
+      const id = group.dataset.sourceId;
+      if (!id) return;
+      if (!nodesBySource.has(id)) nodesBySource.set(id, []);
+      nodesBySource.get(id).push(group);
+    });
+    paintHighlight();
+    $('page-select').value = String(pageIndex);
+    $('previous-page').disabled = pageIndex === 0;
+    $('next-page').disabled = pageIndex === pages.length - 1;
+    const bars = pages[pageIndex].bars;
+    $('page-range').textContent = `第 ${bars[0].index + 1}–${bars[bars.length - 1].index + 1} 小节 · 共 ${score.bars.length} 小节`;
   }
   function playbackState({ state: playback, reason }) {
     const playing = playback === 'playing';
@@ -62,7 +95,7 @@
     const generation = ++playGeneration;
     $('score-play').setAttribute('aria-busy', 'true');
     $('play-label').textContent = '准备声音…';
-    try { await player.play(score.notes, { bpm: state.bpm, volume: .55, totalBeats: score.totalBeats }); }
+    try { await player.play(score.notes, { bpm: state.bpm, volume: .55, totalBeats: score.sourceTotalBeats }); }
     catch (error) { message(error.message || '无法启动音频，请在新版浏览器中重试。'); }
     finally {
       if (generation === playGeneration) {
@@ -85,6 +118,11 @@
     $('score-meter').value = custom.hidden ? meter : 'custom';
     $('track-field').hidden = !state.tracks;
     $('source-label').textContent = state.source;
+    if (state.sourceUrl) {
+      const link = document.createElement('a');
+      link.href = state.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.textContent = ' 查看原谱 ↗'; $('source-label').append(link);
+    }
     if (state.tracks) {
       $('example-select').value = '';
       $('track-select').replaceChildren(...state.tracks.map((track) => {
@@ -114,18 +152,25 @@
   }
   function render() {
     renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: state.subtitle };
-    svgText = ScoreRenderer.render(score, renderOptions);
-    $('score-preview').innerHTML = svgText;
+    pages = ScoreRenderer.paginate(score, renderOptions);
+    barToPage = new Array(score.bars.length);
+    pages.forEach((page, index) => page.bars.forEach((bar) => { barToPage[bar.index] = index; }));
+    $('page-select').replaceChildren(...pages.map((page, index) => {
+      const option = document.createElement('option'); option.value = String(index);
+      option.textContent = `第 ${index + 1} / ${pages.length} 页`; return option;
+    }));
+    showPage(0);
     $('score-summary').textContent = `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
+    $('full-score-info').textContent = `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
     $('playback-status').textContent = '准备好，从第一小节开始。';
-    controls(); warnings(); progress({ beat: 0, totalBeats: score.totalBeats });
+    controls(); warnings(); progress({ beat: 0, totalBeats: score.sourceTotalBeats });
     document.title = `${state.title} · 卡林巴数字谱 · 拍间`;
   }
   function apply(next) {
     const candidate = { ...state, ...next };
     try {
-      const result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25 });
-      stop(); state = candidate; score = result; render(); message(''); return true;
+      const result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25, totalBeats: candidate.totalBeats });
+      stop(); state = candidate; score = result; scoreRevision++; render(); message(''); return true;
     } catch (error) {
       if (state) controls();
       message(error.message || '无法转换这段旋律，请尝试其他音轨。');
@@ -137,13 +182,13 @@
     if (!data) return;
     importGeneration++;
     $('upload-zone').removeAttribute('aria-busy');
-    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', tracks: null, trackId: null, exampleId: data.id, warnings: [] });
+    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', tracks: null, trackId: null, exampleId: data.id, warnings: [] });
   }
   async function importFile(file) {
     if (!file) return;
     const generation = ++importGeneration;
     $('upload-zone').removeAttribute('aria-busy');
-    if (file.size > 5 * 1024 * 1024) { message('文件超过 5 MB。请先导出需要的旋律音轨，再导入。'); return; }
+    if (file.size > 20 * 1024 * 1024) { message('文件超过 20 MB，未生成部分乐谱。可以导出完整旋律音轨、减少无关伴奏后重新导入。'); return; }
     if (!/\.midi?$/i.test(file.name)) { message('请选择 .mid 或 .midi 文件。MP3、WAV 等录音不能直接作为 MIDI 转谱。'); return; }
     $('upload-zone').setAttribute('aria-busy', 'true');
     message('正在读取 MIDI…', 'success');
@@ -157,15 +202,15 @@
       const bpm = clamp(Math.round(midi.tempo), 30, 240);
       const importWarnings = [...midi.warnings];
       if (Math.round(midi.tempo) !== bpm) importWarnings.push(`原速度 ${Math.round(midi.tempo)} BPM 超出试听范围，已设为 ${bpm} BPM；谱面音符时值不变。`);
-      const title = file.name.replace(/\.midi?$/i, '').slice(0, 80) || midi.title || '导入曲谱';
-      if (apply({ title, subtitle: 'MIDI 旋律转谱 · 十六分音符网格', notes: chosen.notes, source: `已导入：${file.name} · ${tracks.length} 条可选音轨`, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, tracks, trackId: chosen.id, exampleId: null, warnings: importWarnings })) {
-        message(`已生成「${title}」的数字谱。${tracks.length > 1 ? '请试听并确认所选音轨为主旋律。' : '可以试听核对，再导出图片。'}`, 'success');
+      const title = shorten(file.name.replace(/\.midi?$/i, ''), 80) || midi.title || '导入曲谱';
+      if (apply({ title, subtitle: '源文件全时长 · 旋律声部数字谱', notes: chosen.notes, source: `已导入完整文件：${file.name} · ${tracks.length} 条可选音轨`, sourceUrl: null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, tracks, trackId: chosen.id, exampleId: null, warnings: importWarnings })) {
+        message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${tracks.length > 1 ? '请选择并试听确认旋律音轨。' : '可以试听核对，再导出全谱。'}`, 'success');
       }
     } catch (error) { if (generation === importGeneration) message(error.message || '读取失败，请检查 MIDI 文件是否完整。'); }
     finally { if (generation === importGeneration) $('upload-zone').removeAttribute('aria-busy'); }
   }
   function filename(extension) {
-    return `${state.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim().slice(0, 70) || '卡林巴曲谱'}-数字谱.${extension}`;
+    return `${shorten(state.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim(), 70) || '卡林巴曲谱'}-数字谱.${extension}`;
   }
   function download(blob, name) {
     const url = URL.createObjectURL(blob);
@@ -173,15 +218,12 @@
     document.body.append(anchor); anchor.click(); anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
-  async function exportPng() {
-    const button = $('export-png'); button.disabled = true;
-    const content = svgText;
-    const name = filename('png');
+  async function pngBytes(content) {
     const url = URL.createObjectURL(new Blob([content], { type: 'image/svg+xml;charset=utf-8' }));
     try {
       const image = new Image();
       await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = url; });
-      // Bound canvas dimensions and memory for long scores; small scores export at 2x.
+      // Each complete page is rendered separately, avoiding canvas clipping.
       const scale = Math.min(2, 16000 / image.height, Math.sqrt(24000000 / (image.width * image.height)));
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale);
@@ -190,26 +232,46 @@
       ctx.fillStyle = '#fffefb'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('图片过大，请改为导出 SVG。');
-      download(blob, name);
-    } catch (error) { message(error?.message || '图片导出失败，请使用 SVG 导出。'); }
-    finally { URL.revokeObjectURL(url); button.disabled = false; }
+      if (!blob) throw new Error('当前页图片生成失败，请改为导出全谱 SVG。');
+      return new Uint8Array(await blob.arrayBuffer());
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function exportAll(format) {
+    const buttons = [$('export-png'), $('export-svg')];
+    buttons.forEach((button) => { button.disabled = true; });
+    const button = format === 'png' ? buttons[0] : buttons[1];
+    const originalLabel = button.textContent;
+    const exportPages = [...pages];
+    const revision = scoreRevision;
+    const options = { ...renderOptions };
+    const baseName = filename(format);
+    const archiveName = filename('zip').replace(/\.zip$/, `-全部${exportPages.length}页.zip`);
+    try {
+      const files = [];
+      const encoder = new TextEncoder();
+      let archiveBytes = 22;
+      for (let i = 0; i < exportPages.length; i++) {
+        button.textContent = `导出 ${i + 1}/${exportPages.length} 页`;
+        const content = ScoreRenderer.render(exportPages[i], options);
+        const data = format === 'png' ? await pngBytes(content) : encoder.encode(content);
+        const name = exportPages.length === 1 ? baseName : baseName.replace(new RegExp(`\\.${format}$`), `-第${String(i + 1).padStart(Math.max(3, String(exportPages.length).length), '0')}页.${format}`);
+        archiveBytes += data.byteLength + 94 + encoder.encode(name).byteLength * 2;
+        if (archiveBytes > 256 * 1024 * 1024) throw new Error('全谱导出超过 256 MB，已停止整份导出且未下载部分页。请使用全谱 SVG 或打印 / PDF。');
+        files.push({ name, data });
+        // Yield between pages so long-score exports keep the UI responsive.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      if (files.length === 1) download(new Blob([files[0].data], { type: format === 'png' ? 'image/png' : 'image/svg+xml;charset=utf-8' }), baseName);
+      else download(ScoreExport.zip(files), archiveName);
+      if (revision === scoreRevision) message(`全谱已导出，共 ${files.length} 页${files.length > 1 ? '，ZIP 内包含每一页' : ''}。`, 'success');
+    } catch (error) { if (revision === scoreRevision) message(error?.message || '全谱导出失败；未下载不完整的谱图，请重试或使用打印 / PDF。'); }
+    finally { buttons.forEach((item) => { item.disabled = false; }); button.textContent = originalLabel; }
   }
   function printScore() {
     stop();
-    const pages = [];
-    let bars = [];
-    for (const bar of score.bars) {
-      const candidate = [...bars, bar];
-      const rendered = ScoreRenderer.render({ ...score, bars: candidate }, renderOptions);
-      const height = Number(rendered.match(/height="([\d.]+)"/)[1]);
-      if (height > 1380 && bars.length) { pages.push(bars); bars = [bar]; }
-      else bars = candidate;
-    }
-    if (bars.length) pages.push(bars);
-    $('print-scores').replaceChildren(...pages.map((pageBars, index) => {
+    $('print-scores').replaceChildren(...pages.map((pageScore) => {
       const page = document.createElement('div'); page.className = 'print-page';
-      page.innerHTML = ScoreRenderer.render({ ...score, bars: pageBars }, { ...renderOptions, subtitle: `${state.subtitle} · 第 ${index + 1} / ${pages.length} 页` });
+      page.innerHTML = ScoreRenderer.render(pageScore, renderOptions);
       return page;
     }));
     window.print();
@@ -244,11 +306,15 @@
     if (!raw.trim() || !Number.isFinite(Number(raw))) { controls(); return; }
     apply({ bpm: clamp(Math.round(Number(raw)), 30, 240) });
   });
-  $('score-name').addEventListener('change', (event) => apply({ title: event.target.value.trim().slice(0, 80) || '未命名曲谱' }));
+  $('score-name').addEventListener('change', (event) => apply({ title: shorten(event.target.value.trim(), 80) || '未命名曲谱' }));
   $('score-play').addEventListener('click', togglePlayback);
-  $('export-svg').addEventListener('click', () => download(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }), filename('svg')));
-  $('export-png').addEventListener('click', exportPng);
+  $('previous-page').addEventListener('click', () => showPage(pageIndex - 1));
+  $('next-page').addEventListener('click', () => showPage(pageIndex + 1));
+  $('page-select').addEventListener('change', (event) => showPage(Number(event.target.value)));
+  $('export-svg').addEventListener('click', () => exportAll('svg'));
+  $('export-png').addEventListener('click', () => exportAll('png'));
   $('print-score').addEventListener('click', printScore);
   window.addEventListener('pagehide', stop);
-  example('twinkle');
+  const initialExample = new URLSearchParams(location.search).get('example');
+  example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'twinkle');
 })();

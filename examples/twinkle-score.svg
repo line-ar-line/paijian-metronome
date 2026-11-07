@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="628" viewBox="0 0 1040 628" role="img" aria-labelledby="score-title score-description">
-<title id="score-title">小星星 · 卡林巴数字谱</title>
-<desc id="score-description">1 等于 C4；上方的点表示高八度，下方的点表示低八度。下划线表示八分或十六分音符，横线延长一拍，弧线连接同一个音。橙色音符表示当前琴型无法直接弹奏。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="628" viewBox="0 0 1040 628" role="img" aria-labelledby="score-title-1 score-description-1">
+<title id="score-title-1">小星星 · 卡林巴数字谱</title>
+<desc id="score-description-1">1 等于 C4；上方的点表示高八度，下方的点表示低八度。下划线表示八分或十六分音符，横线延长一拍，弧线连接同一个音。橙色音符表示当前琴型无法直接弹奏。</desc>
 <style>text{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;fill:#263d32}.note-number{font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:500}.note-group .note-focus{fill:transparent}.note-group.is-active .note-focus{fill:#e5edda}.note-group.is-active .note-number{fill:#305337}.note-group.unplayable .note-number,.note-group.unplayable .accidental{fill:#b16337}.note-group.unplayable .note-focus{fill:#fff1df}.note-group.unplayable.is-active .note-focus{fill:#f5dfbd}.note-dot{fill:#263d32}.note-line{stroke:#263d32;stroke-width:1.6;fill:none}.tie{stroke:#64785c;stroke-width:1.3;fill:none}.small{font-size:12px;fill:#7f8b76}.measure-number{font-size:11px;fill:#9ba58e}</style>
 <rect width="1040" height="628" fill="#fffefb"/>
 <text x="52" y="38" class="small" letter-spacing="2">拍间  /  KALIMBA SCORE</text>
 <text x="520" y="85" class="score-heading" text-anchor="middle" font-size="28" font-weight="600">小星星</text>
-<text x="520" y="112" text-anchor="middle" class="small score-subtitle">传统旋律 · 单音练习版</text>
+<text x="520" y="112" text-anchor="middle" class="small score-subtitle">完整 12 小节旋律 · C 调单音编配 · 第 1/1 页 · 第 1–12 小节</text>
 <text x="52" y="151" font-size="15">1 = C4 · 4/4 · ♩ = 80</text>
-<text x="988" y="151" text-anchor="end" class="small">17 音 C 调   ·   12 小节</text>
+<text x="988" y="151" text-anchor="end" class="small">17 音 C 调 · 全曲 12 小节</text>
 <path d="M52 164H988" stroke="#e2e6da" fill="none"/>
 <g data-measure="0">
 <text x="56" y="195" class="measure-number">01</text>
@@ -31,7 +31,7 @@
 <title>5，1 拍</title>
 <text x="250" y="244" class="note-number" text-anchor="middle">5</text>
 </g>
-<path d="M286 215v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M286 215v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="1">
 <text x="290" y="195" class="measure-number">02</text>
@@ -51,7 +51,7 @@
 <text x="443.96551724137936" y="244" class="note-number" text-anchor="middle">5</text>
 <text x="488.65517241379314" y="242" font-size="26" text-anchor="middle">−</text>
 </g>
-<path d="M520 215v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M520 215v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="2">
 <text x="524" y="195" class="measure-number">03</text>
@@ -75,7 +75,7 @@
 <title>3，1 拍</title>
 <text x="718" y="244" class="note-number" text-anchor="middle">3</text>
 </g>
-<path d="M754 215v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M754 215v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="3">
 <text x="758" y="195" class="measure-number">04</text>
@@ -95,7 +95,7 @@
 <text x="911.9655172413792" y="244" class="note-number" text-anchor="middle">1</text>
 <text x="956.655172413793" y="242" font-size="26" text-anchor="middle">−</text>
 </g>
-<path d="M988 215v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M988 215v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="4">
 <text x="56" y="321" class="measure-number">05</text>
@@ -119,7 +119,7 @@
 <title>4，1 拍</title>
 <text x="250" y="370" class="note-number" text-anchor="middle">4</text>
 </g>
-<path d="M286 341v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M286 341v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="5">
 <text x="290" y="321" class="measure-number">06</text>
@@ -139,7 +139,7 @@
 <text x="443.96551724137936" y="370" class="note-number" text-anchor="middle">2</text>
 <text x="488.65517241379314" y="368" font-size="26" text-anchor="middle">−</text>
 </g>
-<path d="M520 341v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M520 341v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="6">
 <text x="524" y="321" class="measure-number">07</text>
@@ -163,7 +163,7 @@
 <title>4，1 拍</title>
 <text x="718" y="370" class="note-number" text-anchor="middle">4</text>
 </g>
-<path d="M754 341v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M754 341v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="7">
 <text x="758" y="321" class="measure-number">08</text>
@@ -183,7 +183,7 @@
 <text x="911.9655172413792" y="370" class="note-number" text-anchor="middle">2</text>
 <text x="956.655172413793" y="368" font-size="26" text-anchor="middle">−</text>
 </g>
-<path d="M988 341v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M988 341v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="8">
 <text x="56" y="447" class="measure-number">09</text>
@@ -207,7 +207,7 @@
 <title>5，1 拍</title>
 <text x="250" y="496" class="note-number" text-anchor="middle">5</text>
 </g>
-<path d="M286 467v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M286 467v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="9">
 <text x="290" y="447" class="measure-number">10</text>
@@ -227,7 +227,7 @@
 <text x="443.96551724137936" y="496" class="note-number" text-anchor="middle">5</text>
 <text x="488.65517241379314" y="494" font-size="26" text-anchor="middle">−</text>
 </g>
-<path d="M520 467v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M520 467v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="10">
 <text x="524" y="447" class="measure-number">11</text>
@@ -251,7 +251,7 @@
 <title>3，1 拍</title>
 <text x="718" y="496" class="note-number" text-anchor="middle">3</text>
 </g>
-<path d="M754 467v48" stroke="#8d9982" stroke-width="1"/>
+<path class="measure-barline" d="M754 467v48" stroke="#8d9982" stroke-width="1"/>
 </g>
 <g data-measure="11">
 <text x="758" y="447" class="measure-number">12</text>
@@ -271,7 +271,7 @@
 <text x="911.9655172413792" y="496" class="note-number" text-anchor="middle">1</text>
 <text x="956.655172413793" y="494" font-size="26" text-anchor="middle">−</text>
 </g>
-<path d="M988 467v48" stroke="#8d9982" stroke-width="2.8"/>
+<path class="measure-barline final-barline" d="M988 467v48" stroke="#8d9982" stroke-width="2.8"/>
 <path d="M983 467v48" stroke="#8d9982"/>
 </g>
 <path d="M52 570H988" stroke="#e2e6da"/>

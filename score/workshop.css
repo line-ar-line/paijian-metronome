@@ -19,6 +19,17 @@
 .field-divider { display: flex; align-items: center; gap: 10px; color: #9aa58e; font-size: 9px; margin: 20px 0 12px; }
 .field-divider::before, .field-divider::after { content: ''; height: 1px; flex: 1; background: #e3e8da; }
 .source-label { font-size: 10px; color: #8a967f; line-height: 1.6; margin: 12px 0 0; overflow-wrap: anywhere; }
+.source-label a, .library-entry { color: #4e7041; }
+.library-entry { display: block; font-size: 11px; margin-top: 12px; line-height: 1.7; }
+.full-score-info { margin: -8px 0 16px; color: #778e66; font-size: 11px; line-height: 1.8; }
+.page-navigation { display: flex; align-items: center; gap: 14px; justify-content: space-between; margin-top: 13px; flex-wrap: wrap; }
+.page-buttons { display: flex; align-items: center; gap: 7px; }
+.page-buttons select { width: 115px; min-height: 36px; height: 36px; }
+.page-buttons button { min-height: 36px; width: 36px; }
+.page-buttons button:disabled { cursor: default; opacity: .35; }
+#page-range { font-size: 10px; color: #8a987d; }
+.follow-pages { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #7a8c6c; cursor: pointer; }
+.follow-pages input { accent-color: #3b5949; width: 15px; height: 15px; }
 .track-field { margin-top: 17px; }
 .track-field[hidden] { display: none; }
 .track-field>label, .field-label { display: block; font-size: 11px; color: #6f8062; margin: 0 0 8px; }
@@ -107,6 +118,10 @@
   .workshop-shell { padding: 0 17px; }
   .site-nav a { font-size: 11px; padding: 8px 11px; }
   .brand-en { display: none; }
+  .site-nav { gap: 0; padding: 3px; }
+  .site-nav a { padding: 8px 9px; font-size: 10px; }
+  .page-navigation { gap: 10px; }
+  #page-range { order: 3; width: 100%; }
   .workshop-intro { padding: 27px 0 24px; }
   .workshop-intro h1 { font-size: 27px; }
   .workshop-intro .instrument-tag { display: none; }

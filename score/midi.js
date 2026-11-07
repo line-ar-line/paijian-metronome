@@ -6,9 +6,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
 
-  const MAX_BYTES = 5 * 1024 * 1024;
+  const MAX_BYTES = 20 * 1024 * 1024;
   const MAX_TRACKS = 256;
-  const MAX_NOTES = 10000;
+  const MAX_NOTES = 100000;
 
   class Reader {
     constructor(bytes, start = 0, end = bytes.length) {
@@ -64,7 +64,7 @@
     if (input instanceof Uint8Array) bytes = input;
     else if (input instanceof ArrayBuffer) bytes = new Uint8Array(input);
     else throw new TypeError('请提供 MIDI 文件的 ArrayBuffer 或 Uint8Array 数据。');
-    if (bytes.byteLength > MAX_BYTES) throw new Error('MIDI 文件不能超过 5 MiB，请先导出较短的片段。');
+    if (bytes.byteLength > MAX_BYTES) throw new Error('MIDI 超过本地处理的 20 MiB 资源上限，已拒绝整个文件。可重新导出完整旋律音轨，去掉不需要的伴奏和扩展数据。');
 
     const reader = new Reader(bytes);
     if (reader.text4() !== 'MThd') throw new Error('这不是标准 MIDI 文件。请选择从制谱软件导出的 .mid 或 .midi 文件。');
@@ -77,7 +77,7 @@
     const division = reader.uint16();
     if (format === 2) throw new Error('暂不支持 MIDI 格式 2。请在制谱软件中重新导出为格式 0 或格式 1。');
     if (format !== 0 && format !== 1) throw new Error('MIDI 文件格式编号无效；仅支持标准格式 0 和格式 1。');
-    if (!trackCount || trackCount > MAX_TRACKS) throw new Error('MIDI 音轨数量需在 1–256 条之间，请先精简音轨。');
+    if (!trackCount || trackCount > MAX_TRACKS) throw new Error('MIDI 音轨数量需在 1–256 条之间，当前文件未导入。可重新导出完整旋律音轨，去掉不需要的伴奏。');
     if (format === 0 && trackCount !== 1) throw new Error('MIDI 格式 0 应当只包含一条音轨，文件头无效。');
     if (division & 0x8000) throw new Error('暂不支持 SMPTE 时间码 MIDI。请重新导出为按拍计时（PPQ）的 MIDI 文件。');
     if (!division) throw new Error('MIDI 的每四分音符刻度数（PPQ）不能为零。');
@@ -93,7 +93,7 @@
     let unknownChunks = false;
 
     function parseTrack(trackReader, sourceIndex) {
-      const source = { name: '', channels: new Map() };
+      const source = { name: '', channels: new Map(), endTick: 0, noteEndTick: 0 };
       const programs = Array(16).fill(0);
       const pending = Array.from({ length: 16 }, () => new Map());
       let tick = 0;
@@ -102,7 +102,7 @@
 
       function groupFor(channel) {
         if (!source.channels.has(channel)) {
-          if (++counts.groups > MAX_TRACKS) throw new Error('按通道拆分后超过 256 条音轨，请先导出要练习的旋律声部。');
+          if (++counts.groups > MAX_TRACKS) throw new Error('按通道拆分后超过 256 条音轨，达到本地处理的资源上限，已拒绝整个文件。可重新导出完整旋律音轨，去掉不需要的伴奏。');
           source.channels.set(channel, { channel, program: programs[channel], notes: [] });
         }
         return source.channels.get(channel);
@@ -110,7 +110,7 @@
 
       while (trackReader.position < trackReader.end) {
         tick += trackReader.vlq();
-        if (!Number.isSafeInteger(tick)) throw new Error('MIDI 时间范围过大，请先裁剪乐曲。');
+        if (!Number.isSafeInteger(tick)) throw new Error('MIDI 时间超出可精确处理的数值范围，已拒绝整个文件。请从制谱软件重新导出完整旋律音轨，并检查时间设置。');
         let status = trackReader.byte();
         if (status < 0x80) {
           if (!runningStatus) throw new Error(`第 ${sourceIndex + 1} 条 MIDI 音轨缺少事件状态字节。`);
@@ -126,6 +126,7 @@
           if (type === 0x2f) {
             if (data.length !== 0) throw new Error('MIDI 音轨结束标记的长度必须为零。');
             if (trackReader.position !== trackReader.end) throw new Error(`第 ${sourceIndex + 1} 条音轨在结束标记后仍有数据，请重新导出 MIDI。`);
+            source.endTick = tick;
             ended = true;
             break;
           }
@@ -163,7 +164,7 @@
         if (command === 0x0c) { programs[channel] = first; continue; }
         if (command === 0x0b && first === 64) sustainUsed = true;
         if (command === 0x09 && second > 0) {
-          if (++counts.attacks > MAX_NOTES) throw new Error('MIDI 音符超过 10,000 个，请先裁剪片段或只导出旋律音轨。');
+          if (++counts.attacks > MAX_NOTES) throw new Error('MIDI 起音超过 100,000 个，达到本地处理的资源上限，已拒绝整个文件。可重新导出完整旋律音轨，去掉不需要的伴奏。');
           const group = groupFor(channel);
           if (group.program !== programs[channel]) programChanged = true;
           let queue = pending[channel].get(first);
@@ -177,6 +178,7 @@
           if (queue.head === queue.entries.length) pending[channel].delete(first);
           if (tick === attack.tick) { counts.zeroDuration++; continue; }
           groupFor(channel).notes.push({ midi: first, start: attack.tick / ppq, duration: (tick - attack.tick) / ppq, velocity: attack.velocity });
+          source.noteEndTick = Math.max(source.noteEndTick, tick);
         }
       }
       if (!ended) throw new Error(`第 ${sourceIndex + 1} 条 MIDI 音轨缺少结束标记，文件可能不完整。`);
@@ -195,6 +197,16 @@
       reader.position += length;
     }
     if (sources.length !== trackCount) throw new Error('MIDI 的音轨数量不足，文件可能被截断。');
+    if (counts.unclosed || counts.zeroDuration) {
+      const issues = [];
+      if (counts.unclosed) issues.push(`${counts.unclosed} 个缺少结束事件的音符`);
+      if (counts.zeroDuration) issues.push(`${counts.zeroDuration} 个时值为零的音符`);
+      throw new Error(`MIDI 源文件含有 ${issues.join('、')}，无法确定这些音符的完整时值，已拒绝整个文件。请在制谱软件中修复后重新导出完整旋律音轨。`);
+    }
+
+    // Source EOT is part of the musical timeline, even when a conductor or drum
+    // track carries its longest trailing rest and does not become a melody track.
+    const totalBeats = sources.reduce((latest, source) => Math.max(latest, source.endTick, source.noteEndTick), 0) / ppq;
 
     const tracks = sources.flatMap((source, sourceIndex) => Array.from(source.channels.values())
       .filter(group => group.notes.length)
@@ -204,6 +216,7 @@
         channel: group.channel,
         program: group.program,
         isPercussion: group.channel === 9,
+        endBeat: Math.max(source.endTick, source.noteEndTick) / ppq,
         notes: group.notes.sort((a, b) => a.start - b.start || a.midi - b.midi || a.duration - b.duration),
       })));
     if (!tracks.length) throw new Error('MIDI 中没有可读取的完整音符，请导出含有旋律音符及结束时间的 MIDI 文件。');
@@ -219,9 +232,7 @@
       : '文件包含途中拍号事件，转谱统一使用起始拍号，未应用后续变化。');
     if (sustainUsed) warnings.push('检测到延音踏板事件；已按按键松开时间计算时值，未延长延音。');
     if (programChanged) warnings.push('部分通道包含途中音色变化，音轨信息仅记录首个音符使用的音色。');
-    if (counts.orphanOffs) warnings.push(`已忽略 ${counts.orphanOffs} 个没有对应起音的结束事件。`);
-    if (counts.unclosed) warnings.push(`已跳过 ${counts.unclosed} 个缺少结束事件的音符。`);
-    if (counts.zeroDuration) warnings.push(`已跳过 ${counts.zeroDuration} 个时值为零的音符。`);
+    if (counts.orphanOffs) warnings.push(`源文件有 ${counts.orphanOffs} 个没有对应起音的结束事件，无法判断是否缺失原始音符；这些孤立事件未转为音符，结果不能保证与完整原谱一致，请核对源文件。`);
     if (unknownChunks) warnings.push('已忽略 MIDI 中的非音轨扩展数据块。');
 
     return {
@@ -230,6 +241,7 @@
       title: sources.find(source => source.name)?.name || '未命名 MIDI',
       tempo: meta.tempo === null ? 120 : 60000000 / meta.tempo,
       timeSignature: meta.meter || [4, 4],
+      totalBeats,
       tracks,
       warnings,
     };

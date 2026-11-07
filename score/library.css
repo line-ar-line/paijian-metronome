@@ -1,0 +1,51 @@
+.library-page .page-shell { max-width: 1180px; }
+.library-page .intro { padding: 43px 0 30px; }
+.library-search { padding: 30px 33px; background: #edf2e5; border: 1px solid #dbe5cf; border-radius: 18px; }
+.library-pill { display: inline-block; font-size: 10px; letter-spacing: .4px; color: #5c7949; background: #dfeacf; border-radius: 20px; padding: 5px 10px; }
+.library-pill.muted { background: #eef1e7; color: #8b967b; }
+.library-search h2 { margin: 15px 0 10px; font-size: 23px; font-weight: 550; }
+.library-search p { font-size: 12px; color: #7c8a6d; line-height: 1.9; }
+.library-search form { display: flex; gap: 12px; margin: 21px 0 17px; max-width: 760px; }
+.library-search .text-input { height: 49px; font-size: 13px; flex: 1; }
+.library-search .play-button { flex: 0 0 170px; min-height: 49px; font-size: 12px; border-radius: 8px; }
+.search-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; font-size: 11px; color: #9aa689; }
+.search-examples a { color: #637f50; text-decoration: underline; text-underline-offset: 4px; }
+.library-search .library-license { font-size: 10px; margin: 18px 0 0; color: #919f7f; }
+.library-section-heading { display: flex; justify-content: space-between; gap: 15px; align-items: baseline; margin: 34px 0 17px; }
+.library-section-heading h2 { font-size: 17px; font-weight: 500; margin: 0; }
+.library-section-heading>span { font-size: 10px; color: #9aa58b; }
+.library-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.library-card { padding: 25px 28px; border: 1px solid #e0e6d7; border-radius: 16px; background: #fbfcf6; }
+.library-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.library-card-top>span:last-child { color: #a6af99; font-size: 10px; }
+.library-card h3 { font-size: 21px; font-weight: 550; margin: 21px 0 10px; }
+.library-number { font-size: 28px; letter-spacing: -.6px; margin: 0 0 17px; font-variant-numeric: tabular-nums; color: #536f42; }
+.library-number small { font-size: 10px; letter-spacing: 0; display: block; margin-top: 7px; color: #8e9b7e; }
+.library-card>p:not(.library-number) { font-size: 12px; line-height: 1.9; color: #839275; margin: 0; }
+.library-card dl { margin: 19px 0 0; padding-top: 15px; border-top: 1px solid #e6eadd; }
+.library-card dl>div { display: flex; gap: 12px; margin-bottom: 11px; }
+.library-card dt { flex: 0 0 26px; font-size: 10px; color: #a2ac94; padding-top: 2px; }
+.library-card dd { font-size: 11px; color: #819273; line-height: 1.8; margin: 0; }
+.library-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.library-links a { font-size: 11px; color: #5f7d4f; line-height: 1.8; border-bottom: 1px solid #d2dec5; }
+.complete-guide { display: flex; align-items: center; gap: 34px; padding: 28px 30px; margin-top: 25px; border: 1px solid #dfe5d4; border-radius: 15px; background: #eef0e6; }
+.complete-guide>div { flex: 1; }
+.complete-guide .eyebrow { font-size: 9px; }
+.complete-guide h2 { font-size: 19px; font-weight: 500; margin: 0 0 13px; }
+.complete-guide p { font-size: 11px; line-height: 1.9; color: #87967a; margin: 7px 0 0; }
+.complete-guide>.play-button { flex: 0 0 235px; padding: 0 16px; font-size: 12px; min-height: 48px; }
+.library-footnote { font-size: 10px; color: #9ba68d; line-height: 1.9; margin: 22px 3px 0; }
+.library-footnote a { color: #6c855b; }
+@media (max-width: 700px) {
+  .library-page .page-shell { max-width: 650px; }
+  .library-page .intro h1 { font-size: 25px; max-width: 340px; line-height: 1.6; }
+  .library-page .intro-copy { line-height: 1.9; }
+  .library-search { padding: 23px; }
+  .library-search form { flex-direction: column; }
+  .library-search .play-button { flex-basis: auto; }
+  .library-grid { grid-template-columns: 1fr; }
+  .library-card { padding: 24px; }
+  .library-section-heading { align-items: start; flex-direction: column; gap: 9px; }
+  .complete-guide { flex-direction: column; align-items: stretch; padding: 24px; gap: 20px; }
+  .complete-guide>.play-button { flex-basis: auto; }
+}

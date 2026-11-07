@@ -8,8 +8,8 @@
 
   const LOOKAHEAD = 0.12;
   const START_DELAY = 0.04;
-  const MAX_NOTES = 10000;
-  const MAX_BEATS = 8192;
+  const MAX_NOTES = 100000;
+  const MAX_BEATS = 49152;
   const MAX_POLYPHONY = 16;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -17,7 +17,7 @@
 
   function normalizeScore(notes, options = {}) {
     if (!Array.isArray(notes) || notes.length === 0) throw new Error('乐谱中没有可播放的音符，请先添加旋律。');
-    if (notes.length > MAX_NOTES) throw new Error(`乐谱过长，请控制在 ${MAX_NOTES} 个音符以内。`);
+    if (notes.length > MAX_NOTES) throw new Error(`音符超过本地试听的 ${MAX_NOTES} 个资源上限，已拒绝整首播放。可重新导出完整旋律音轨，去掉不需要的伴奏。`);
     const bpm = options.bpm === undefined ? 80 : options.bpm;
     const volume = options.volume === undefined ? 0.6 : options.volume;
     if (!Number.isFinite(bpm) || bpm <= 0) throw new Error('播放速度必须是有效的正数。');
@@ -29,22 +29,22 @@
       if (!Number.isFinite(input.start) || input.start < 0 || !Number.isFinite(input.duration) || input.duration <= 0) {
         throw new Error(`第 ${index + 1} 个音符的开始位置或时值无效。`);
       }
-      if (input.start + input.duration > MAX_BEATS || input.duration < 1 / 1024) {
-        throw new Error(`第 ${index + 1} 个音符超出了播放长度范围。`);
-      }
+      if (input.start + input.duration > MAX_BEATS) throw new Error(`第 ${index + 1} 个音符超出 ${MAX_BEATS} 拍的本地播放长度范围，已拒绝整首播放。请检查源文件的时间设置；可重新导出完整旋律音轨，去掉不需要的伴奏。`);
+      if (input.duration < 1 / 1024) throw new Error(`第 ${index + 1} 个音符短于可精确试听的时值，已拒绝整首播放，请检查源文件的音符时值。`);
       if (input.velocity !== undefined && !Number.isFinite(input.velocity)) throw new Error(`第 ${index + 1} 个音符的力度无效。`);
       return { index, note: { ...input, velocity: input.velocity === undefined ? 1 : clamp(input.velocity, 0, 1) } };
     }).sort((a, b) => a.note.start - b.note.start || a.index - b.index);
     // A malformed import must not allocate thousands of oscillators simultaneously.
     let activeEnds = [];
+    let noteEnd = 0;
     for (const entry of entries) {
       activeEnds = activeEnds.filter(end => end > entry.note.start + 1e-9);
       activeEnds.push(entry.note.start + entry.note.duration);
-      if (activeEnds.length > MAX_POLYPHONY) throw new Error(`同时发声的音符不能超过 ${MAX_POLYPHONY} 个。`);
+      noteEnd = Math.max(noteEnd, entry.note.start + entry.note.duration);
+      if (activeEnds.length > MAX_POLYPHONY) throw new Error(`同时发声的音符不能超过 ${MAX_POLYPHONY} 个，已达到本地合成器的资源上限并拒绝整首播放。可重新导出完整旋律音轨，去掉不需要的伴奏。`);
     }
-    const noteEnd = Math.max(...entries.map(entry => entry.note.start + entry.note.duration));
     if (options.totalBeats !== undefined && (!Number.isFinite(options.totalBeats) || options.totalBeats < 0 || options.totalBeats > MAX_BEATS)) {
-      throw new Error(`乐谱总时长必须是 0–${MAX_BEATS} 之间的有效拍数。`);
+      throw new Error(`乐谱总时长必须是 0–${MAX_BEATS} 之间的有效拍数，超出本地资源范围时会拒绝整首播放。请检查源文件的时间设置；可重新导出完整旋律音轨，去掉不需要的伴奏。`);
     }
     return {
       entries,

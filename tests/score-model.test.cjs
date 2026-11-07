@@ -111,10 +111,94 @@ test('rejects malformed pitches, timing, meter and unsupported quantization', ()
 
 test('bounds oversized inputs before allocating or rendering huge scores', () => {
   assert.throws(() => buildScore(Array.from({ length: LIMITS.maxNotes + 1 }, () => n(60))), /音符超过/);
-  assert.throws(() => buildScore([n(60, 1024)]), /超过.*小节/);
+  const maxBeats = LIMITS.maxBars * 4;
+  assert.throws(() => buildScore([n(60, maxBeats)]), /超过.*小节/);
   assert.throws(() => buildScore([n(60, 0, 1e100)]), /超过.*小节/);
-  assert.throws(() => buildScore([n(60, 1023, 2)]), /超过.*小节/);
-  const score = buildScore([n(60, 1023, 1)]);
+  assert.throws(() => buildScore([n(60, maxBeats - 1, 2)]), /超过.*小节/);
+  const score = buildScore([n(60, maxBeats - 1, 1)]);
   assert.equal(score.bars.length, LIMITS.maxBars);
-  assert.equal(score.totalBeats, 1024);
+  assert.equal(score.totalBeats, maxBeats);
+});
+
+test('preserves every note in a full melody longer than 256 bars', () => {
+  const source = Array.from({ length: 1200 }, (_, index) => n(60 + index % 2 * 2, index, 1));
+  const score = buildScore(source);
+  assert.equal(score.bars.length, 300);
+  assert.equal(score.notes.length, 1200);
+  assert.equal(score.stats.inputNotes, 1200);
+  assert.equal(score.stats.outputNotes, 1200);
+  assert.equal(score.notes.at(-1).sourceId, 'n1199');
+  assert.equal(score.notes.at(-1).start, 1199);
+  assert.equal(score.sourceEndBeat, 1200);
+  assert.equal(score.sourceTotalBeats, 1200);
+  assert.equal(score.totalBeats, 1200);
+  assert.equal(score.bars.at(-1).tokens.at(-1).sourceId, 'n1199');
+});
+
+test('retains leading and trailing silence to the supplied complete song duration', () => {
+  const score = buildScore([n(60, 5, 1)], { totalBeats: 17.5 });
+  assert.equal(score.sourceEndBeat, 6);
+  assert.equal(score.sourceTotalBeats, 17.5);
+  assert.equal(score.totalBeats, 20);
+  assert.equal(score.bars.length, 5);
+  assert.ok(score.bars[0].tokens.every(token => token.midi === null));
+  assert.ok(score.bars.at(-1).tokens.every(token => token.midi === null));
+  assert.equal(score.notes[0].start, 5);
+  for (const bar of score.bars) assert.equal(bar.tokens.reduce((sum, token) => sum + token.duration, 0), 4);
+});
+
+test('a supplied duration never shortens an audible final note', () => {
+  const score = buildScore([n(60, 4, 2)], { totalBeats: 1 });
+  assert.equal(score.sourceTotalBeats, 6);
+  assert.equal(score.notes[0].duration, 2);
+  assert.equal(score.totalBeats, 8);
+});
+
+test('melody simplification preserves the original source tail as rests', () => {
+  const score = buildScore([n(48, 0, 12), n(72, 0, 1)]);
+  assert.equal(score.stats.removedPolyphony, 1);
+  assert.equal(score.notes.length, 1);
+  assert.equal(score.notes[0].duration, 1);
+  assert.equal(score.sourceEndBeat, 12);
+  assert.equal(score.sourceTotalBeats, 12);
+  assert.equal(score.bars.length, 3);
+  assert.ok(score.bars[2].tokens.every(token => token.midi === null));
+});
+
+test('a silent selected part still spans the requested whole piece', () => {
+  const score = buildScore([], { totalBeats: 9, meter: [6, 8] });
+  assert.equal(score.bars.length, 3);
+  assert.equal(score.sourceEndBeat, 0);
+  assert.equal(score.sourceTotalBeats, 9);
+  assert.equal(score.totalBeats, 9);
+  assert.equal(score.notes.length, 0);
+  assert.ok(score.bars.flatMap(bar => bar.tokens).every(token => token.midi === null));
+});
+
+test('validates whole-piece duration and uses meter-specific resource bounds', () => {
+  for (const totalBeats of [NaN, Infinity, -1, '8', null, {}]) assert.throws(() => buildScore([], { totalBeats }), /总时长/);
+  assert.throws(() => buildScore([], { totalBeats: 1e100 }), /拒绝转换整个文件/);
+  assert.throws(() => buildScore([], { meter: [6, 8], totalBeats: LIMITS.maxBars * 3 + 0.25 }), /超过.*小节/);
+  const score = buildScore([], { meter: [6, 8], totalBeats: LIMITS.maxBars * 3 });
+  assert.equal(score.bars.length, LIMITS.maxBars);
+  assert.equal(score.totalBeats, LIMITS.maxBars * 3);
+});
+
+test('accepts 100000 source notes without spread-argument overflow or implicit excerpting', () => {
+  const notes = Array.from({ length: LIMITS.maxNotes }, () => n(60));
+  const score = buildScore(notes);
+  assert.equal(score.stats.inputNotes, LIMITS.maxNotes);
+  assert.equal(score.stats.removedPolyphony, LIMITS.maxNotes - 1);
+  assert.equal(score.stats.outputNotes, 1);
+  assert.equal(score.sourceTotalBeats, 1);
+});
+
+test('oversize-file errors reject the whole conversion and never suggest excerpting', () => {
+  for (const input of [Array.from({ length: LIMITS.maxNotes + 1 }, () => n(60)), [n(60, LIMITS.maxBars * 4)]]) {
+    assert.throws(() => buildScore(input), error => {
+      assert.match(error.message, /不完整曲谱|不生成部分曲谱/);
+      assert.doesNotMatch(error.message, /截取|裁剪/);
+      return true;
+    });
+  }
 });

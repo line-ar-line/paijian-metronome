@@ -1,0 +1,465 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="754" viewBox="0 0 1040 754" role="img" aria-labelledby="score-title-1 score-description-1">
+<title id="score-title-1">欢乐颂 · 卡林巴数字谱</title>
+<desc id="score-description-1">1 等于 C4；上方的点表示高八度，下方的点表示低八度。下划线表示八分或十六分音符，横线延长一拍，弧线连接同一个音。橙色音符表示当前琴型无法直接弹奏。</desc>
+<style>text{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;fill:#263d32}.note-number{font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:500}.note-group .note-focus{fill:transparent}.note-group.is-active .note-focus{fill:#e5edda}.note-group.is-active .note-number{fill:#305337}.note-group.unplayable .note-number,.note-group.unplayable .accidental{fill:#b16337}.note-group.unplayable .note-focus{fill:#fff1df}.note-group.unplayable.is-active .note-focus{fill:#f5dfbd}.note-dot{fill:#263d32}.note-line{stroke:#263d32;stroke-width:1.6;fill:none}.tie{stroke:#64785c;stroke-width:1.3;fill:none}.small{font-size:12px;fill:#7f8b76}.measure-number{font-size:11px;fill:#9ba58e}</style>
+<rect width="1040" height="754" fill="#fffefb"/>
+<text x="52" y="38" class="small" letter-spacing="2">拍间  /  KALIMBA SCORE</text>
+<text x="520" y="85" class="score-heading" text-anchor="middle" font-size="28" font-weight="600">欢乐颂</text>
+<text x="520" y="112" text-anchor="middle" class="small score-subtitle">完整 16 小节主题 · C 调单音编配 · 第 1/1 页 · 第 1–16 小节</text>
+<text x="52" y="151" font-size="15">1 = C4 · 4/4 · ♩ = 88</text>
+<text x="988" y="151" text-anchor="end" class="small">17 音 C 调 · 全曲 16 小节</text>
+<path d="M52 164H988" stroke="#e2e6da" fill="none"/>
+<g data-measure="0">
+<text x="56" y="195" class="measure-number">01</text>
+<g class="note-group" data-token-id="token-0" data-source-id="n0">
+<rect class="note-focus" x="62" y="201" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="88" y="244" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="88" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-1" data-source-id="n1">
+<rect class="note-focus" x="116" y="201" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="142" y="244" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="142" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-2" data-source-id="n2">
+<rect class="note-focus" x="170" y="201" width="52" height="77" rx="6"/>
+<title>4，高 1 个八度，1 拍</title>
+<text x="196" y="244" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="196" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-3" data-source-id="n3">
+<rect class="note-focus" x="224" y="201" width="52" height="77" rx="6"/>
+<title>5，高 1 个八度，1 拍</title>
+<text x="250" y="244" class="note-number" text-anchor="middle">5</text>
+<circle class="note-dot" cx="250" cy="211" r="2"/>
+</g>
+<path class="measure-barline" d="M286 215v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="1">
+<text x="290" y="195" class="measure-number">02</text>
+<g class="note-group" data-token-id="token-4" data-source-id="n4">
+<rect class="note-focus" x="296" y="201" width="52" height="77" rx="6"/>
+<title>5，高 1 个八度，1 拍</title>
+<text x="322" y="244" class="note-number" text-anchor="middle">5</text>
+<circle class="note-dot" cx="322" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-5" data-source-id="n5">
+<rect class="note-focus" x="350" y="201" width="52" height="77" rx="6"/>
+<title>4，高 1 个八度，1 拍</title>
+<text x="376" y="244" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="376" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-6" data-source-id="n6">
+<rect class="note-focus" x="404" y="201" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="430" y="244" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="430" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-7" data-source-id="n7">
+<rect class="note-focus" x="458" y="201" width="52" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="484" y="244" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="484" cy="211" r="2"/>
+</g>
+<path class="measure-barline" d="M520 215v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="2">
+<text x="524" y="195" class="measure-number">03</text>
+<g class="note-group" data-token-id="token-8" data-source-id="n8">
+<rect class="note-focus" x="530" y="201" width="52" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="556" y="244" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="556" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-9" data-source-id="n9">
+<rect class="note-focus" x="584" y="201" width="52" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="610" y="244" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="610" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-10" data-source-id="n10">
+<rect class="note-focus" x="638" y="201" width="52" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="664" y="244" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="664" cy="211" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-11" data-source-id="n11">
+<rect class="note-focus" x="692" y="201" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="718" y="244" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="718" cy="211" r="2"/>
+</g>
+<path class="measure-barline" d="M754 215v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="3">
+<text x="758" y="195" class="measure-number">04</text>
+<g class="note-group" data-token-id="token-12" data-source-id="n12">
+<rect class="note-focus" x="764" y="201" width="61.3103448275862" height="77" rx="6"/>
+<title>3，高 1 个八度，1.5 拍</title>
+<text x="794.6551724137931" y="244" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="794.6551724137931" cy="211" r="2"/>
+<circle class="note-dot" cx="811.6551724137931" cy="238" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-13" data-source-id="n13">
+<rect class="note-focus" x="827.3103448275862" y="201" width="61.3103448275862" height="77" rx="6"/>
+<title>2，高 1 个八度，0.5 拍</title>
+<text x="857.9655172413793" y="244" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="857.9655172413793" cy="211" r="2"/>
+<path class="note-line" d="M847.9655172413793 251h20"/>
+</g>
+<g class="note-group" data-token-id="token-14" data-source-id="n14">
+<rect class="note-focus" x="890.6206896551723" y="201" width="87.37931034482759" height="77" rx="6"/>
+<title>2，高 1 个八度，2 拍</title>
+<text x="911.9655172413792" y="244" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="911.9655172413792" cy="211" r="2"/>
+<text x="956.655172413793" y="242" font-size="26" text-anchor="middle">−</text>
+</g>
+<path class="measure-barline" d="M988 215v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="4">
+<text x="56" y="321" class="measure-number">05</text>
+<g class="note-group" data-token-id="token-15" data-source-id="n15">
+<rect class="note-focus" x="62" y="327" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="88" y="370" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="88" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-16" data-source-id="n16">
+<rect class="note-focus" x="116" y="327" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="142" y="370" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="142" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-17" data-source-id="n17">
+<rect class="note-focus" x="170" y="327" width="52" height="77" rx="6"/>
+<title>4，高 1 个八度，1 拍</title>
+<text x="196" y="370" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="196" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-18" data-source-id="n18">
+<rect class="note-focus" x="224" y="327" width="52" height="77" rx="6"/>
+<title>5，高 1 个八度，1 拍</title>
+<text x="250" y="370" class="note-number" text-anchor="middle">5</text>
+<circle class="note-dot" cx="250" cy="337" r="2"/>
+</g>
+<path class="measure-barline" d="M286 341v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="5">
+<text x="290" y="321" class="measure-number">06</text>
+<g class="note-group" data-token-id="token-19" data-source-id="n19">
+<rect class="note-focus" x="296" y="327" width="52" height="77" rx="6"/>
+<title>5，高 1 个八度，1 拍</title>
+<text x="322" y="370" class="note-number" text-anchor="middle">5</text>
+<circle class="note-dot" cx="322" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-20" data-source-id="n20">
+<rect class="note-focus" x="350" y="327" width="52" height="77" rx="6"/>
+<title>4，高 1 个八度，1 拍</title>
+<text x="376" y="370" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="376" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-21" data-source-id="n21">
+<rect class="note-focus" x="404" y="327" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="430" y="370" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="430" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-22" data-source-id="n22">
+<rect class="note-focus" x="458" y="327" width="52" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="484" y="370" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="484" cy="337" r="2"/>
+</g>
+<path class="measure-barline" d="M520 341v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="6">
+<text x="524" y="321" class="measure-number">07</text>
+<g class="note-group" data-token-id="token-23" data-source-id="n23">
+<rect class="note-focus" x="530" y="327" width="52" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="556" y="370" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="556" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-24" data-source-id="n24">
+<rect class="note-focus" x="584" y="327" width="52" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="610" y="370" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="610" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-25" data-source-id="n25">
+<rect class="note-focus" x="638" y="327" width="52" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="664" y="370" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="664" cy="337" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-26" data-source-id="n26">
+<rect class="note-focus" x="692" y="327" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="718" y="370" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="718" cy="337" r="2"/>
+</g>
+<path class="measure-barline" d="M754 341v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="7">
+<text x="758" y="321" class="measure-number">08</text>
+<g class="note-group" data-token-id="token-27" data-source-id="n27">
+<rect class="note-focus" x="764" y="327" width="61.3103448275862" height="77" rx="6"/>
+<title>2，高 1 个八度，1.5 拍</title>
+<text x="794.6551724137931" y="370" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="794.6551724137931" cy="337" r="2"/>
+<circle class="note-dot" cx="811.6551724137931" cy="364" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-28" data-source-id="n28">
+<rect class="note-focus" x="827.3103448275862" y="327" width="61.3103448275862" height="77" rx="6"/>
+<title>1，高 1 个八度，0.5 拍</title>
+<text x="857.9655172413793" y="370" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="857.9655172413793" cy="337" r="2"/>
+<path class="note-line" d="M847.9655172413793 377h20"/>
+</g>
+<g class="note-group" data-token-id="token-29" data-source-id="n29">
+<rect class="note-focus" x="890.6206896551723" y="327" width="87.37931034482759" height="77" rx="6"/>
+<title>1，高 1 个八度，2 拍</title>
+<text x="911.9655172413792" y="370" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="911.9655172413792" cy="337" r="2"/>
+<text x="956.655172413793" y="368" font-size="26" text-anchor="middle">−</text>
+</g>
+<path class="measure-barline" d="M988 341v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="8">
+<text x="56" y="447" class="measure-number">09</text>
+<g class="note-group" data-token-id="token-30" data-source-id="n30">
+<rect class="note-focus" x="62" y="453" width="50.25" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="87.125" y="496" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="87.125" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-31" data-source-id="n31">
+<rect class="note-focus" x="114.25" y="453" width="50.25" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="139.375" y="496" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="139.375" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-32" data-source-id="n32">
+<rect class="note-focus" x="166.5" y="453" width="50.25" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="191.625" y="496" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="191.625" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-33" data-source-id="n33">
+<rect class="note-focus" x="218.75" y="453" width="50.25" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="243.875" y="496" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="243.875" cy="463" r="2"/>
+</g>
+<path class="measure-barline" d="M279 467v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="9">
+<text x="283" y="447" class="measure-number">10</text>
+<g class="note-group" data-token-id="token-34" data-source-id="n34">
+<rect class="note-focus" x="289" y="453" width="42.6" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="310.3" y="496" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="310.3" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-35" data-source-id="n35">
+<rect class="note-focus" x="333.6" y="453" width="42.6" height="77" rx="6"/>
+<title>3，高 1 个八度，0.5 拍</title>
+<text x="354.90000000000003" y="496" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="354.90000000000003" cy="463" r="2"/>
+<path class="note-line" d="M344.90000000000003 503h20"/>
+</g>
+<g class="note-group" data-token-id="token-36" data-source-id="n36">
+<rect class="note-focus" x="378.20000000000005" y="453" width="42.6" height="77" rx="6"/>
+<title>4，高 1 个八度，0.5 拍</title>
+<text x="399.50000000000006" y="496" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="399.50000000000006" cy="463" r="2"/>
+<path class="note-line" d="M389.50000000000006 503h20"/>
+</g>
+<g class="note-group" data-token-id="token-37" data-source-id="n37">
+<rect class="note-focus" x="422.80000000000007" y="453" width="42.6" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="444.1000000000001" y="496" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="444.1000000000001" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-38" data-source-id="n38">
+<rect class="note-focus" x="467.4000000000001" y="453" width="42.6" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="488.7000000000001" y="496" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="488.7000000000001" cy="463" r="2"/>
+</g>
+<path class="measure-barline" d="M520 467v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="10">
+<text x="524" y="447" class="measure-number">11</text>
+<g class="note-group" data-token-id="token-39" data-source-id="n39">
+<rect class="note-focus" x="530" y="453" width="42.6" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="551.3" y="496" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="551.3" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-40" data-source-id="n40">
+<rect class="note-focus" x="574.6" y="453" width="42.6" height="77" rx="6"/>
+<title>3，高 1 个八度，0.5 拍</title>
+<text x="595.9" y="496" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="595.9" cy="463" r="2"/>
+<path class="note-line" d="M585.9 503h20"/>
+</g>
+<g class="note-group" data-token-id="token-41" data-source-id="n41">
+<rect class="note-focus" x="619.2" y="453" width="42.6" height="77" rx="6"/>
+<title>4，高 1 个八度，0.5 拍</title>
+<text x="640.5" y="496" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="640.5" cy="463" r="2"/>
+<path class="note-line" d="M630.5 503h20"/>
+</g>
+<g class="note-group" data-token-id="token-42" data-source-id="n42">
+<rect class="note-focus" x="663.8000000000001" y="453" width="42.6" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="685.1" y="496" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="685.1" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-43" data-source-id="n43">
+<rect class="note-focus" x="708.4000000000001" y="453" width="42.6" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="729.7" y="496" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="729.7" cy="463" r="2"/>
+</g>
+<path class="measure-barline" d="M761 467v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="11">
+<text x="765" y="447" class="measure-number">12</text>
+<g class="note-group" data-token-id="token-44" data-source-id="n44">
+<rect class="note-focus" x="771" y="453" width="59.25862068965517" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="800.6293103448276" y="496" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="800.6293103448276" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-45" data-source-id="n45">
+<rect class="note-focus" x="832.2586206896551" y="453" width="59.25862068965517" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="861.8879310344827" y="496" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="861.8879310344827" cy="463" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-46" data-source-id="n46">
+<rect class="note-focus" x="893.5172413793102" y="453" width="84.48275862068965" height="77" rx="6"/>
+<title>5，2 拍</title>
+<text x="914.1379310344827" y="496" class="note-number" text-anchor="middle">5</text>
+<text x="957.3793103448274" y="494" font-size="26" text-anchor="middle">−</text>
+</g>
+<path class="measure-barline" d="M988 467v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="12">
+<text x="56" y="573" class="measure-number">13</text>
+<g class="note-group" data-token-id="token-47" data-source-id="n47">
+<rect class="note-focus" x="62" y="579" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="88" y="622" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="88" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-48" data-source-id="n48">
+<rect class="note-focus" x="116" y="579" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="142" y="622" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="142" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-49" data-source-id="n49">
+<rect class="note-focus" x="170" y="579" width="52" height="77" rx="6"/>
+<title>4，高 1 个八度，1 拍</title>
+<text x="196" y="622" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="196" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-50" data-source-id="n50">
+<rect class="note-focus" x="224" y="579" width="52" height="77" rx="6"/>
+<title>5，高 1 个八度，1 拍</title>
+<text x="250" y="622" class="note-number" text-anchor="middle">5</text>
+<circle class="note-dot" cx="250" cy="589" r="2"/>
+</g>
+<path class="measure-barline" d="M286 593v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="13">
+<text x="290" y="573" class="measure-number">14</text>
+<g class="note-group" data-token-id="token-51" data-source-id="n51">
+<rect class="note-focus" x="296" y="579" width="52" height="77" rx="6"/>
+<title>5，高 1 个八度，1 拍</title>
+<text x="322" y="622" class="note-number" text-anchor="middle">5</text>
+<circle class="note-dot" cx="322" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-52" data-source-id="n52">
+<rect class="note-focus" x="350" y="579" width="52" height="77" rx="6"/>
+<title>4，高 1 个八度，1 拍</title>
+<text x="376" y="622" class="note-number" text-anchor="middle">4</text>
+<circle class="note-dot" cx="376" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-53" data-source-id="n53">
+<rect class="note-focus" x="404" y="579" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="430" y="622" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="430" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-54" data-source-id="n54">
+<rect class="note-focus" x="458" y="579" width="52" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="484" y="622" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="484" cy="589" r="2"/>
+</g>
+<path class="measure-barline" d="M520 593v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="14">
+<text x="524" y="573" class="measure-number">15</text>
+<g class="note-group" data-token-id="token-55" data-source-id="n55">
+<rect class="note-focus" x="530" y="579" width="52" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="556" y="622" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="556" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-56" data-source-id="n56">
+<rect class="note-focus" x="584" y="579" width="52" height="77" rx="6"/>
+<title>1，高 1 个八度，1 拍</title>
+<text x="610" y="622" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="610" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-57" data-source-id="n57">
+<rect class="note-focus" x="638" y="579" width="52" height="77" rx="6"/>
+<title>2，高 1 个八度，1 拍</title>
+<text x="664" y="622" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="664" cy="589" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-58" data-source-id="n58">
+<rect class="note-focus" x="692" y="579" width="52" height="77" rx="6"/>
+<title>3，高 1 个八度，1 拍</title>
+<text x="718" y="622" class="note-number" text-anchor="middle">3</text>
+<circle class="note-dot" cx="718" cy="589" r="2"/>
+</g>
+<path class="measure-barline" d="M754 593v48" stroke="#8d9982" stroke-width="1"/>
+</g>
+<g data-measure="15">
+<text x="758" y="573" class="measure-number">16</text>
+<g class="note-group" data-token-id="token-59" data-source-id="n59">
+<rect class="note-focus" x="764" y="579" width="61.3103448275862" height="77" rx="6"/>
+<title>2，高 1 个八度，1.5 拍</title>
+<text x="794.6551724137931" y="622" class="note-number" text-anchor="middle">2</text>
+<circle class="note-dot" cx="794.6551724137931" cy="589" r="2"/>
+<circle class="note-dot" cx="811.6551724137931" cy="616" r="2"/>
+</g>
+<g class="note-group" data-token-id="token-60" data-source-id="n60">
+<rect class="note-focus" x="827.3103448275862" y="579" width="61.3103448275862" height="77" rx="6"/>
+<title>1，高 1 个八度，0.5 拍</title>
+<text x="857.9655172413793" y="622" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="857.9655172413793" cy="589" r="2"/>
+<path class="note-line" d="M847.9655172413793 629h20"/>
+</g>
+<g class="note-group" data-token-id="token-61" data-source-id="n61">
+<rect class="note-focus" x="890.6206896551723" y="579" width="87.37931034482759" height="77" rx="6"/>
+<title>1，高 1 个八度，2 拍</title>
+<text x="911.9655172413792" y="622" class="note-number" text-anchor="middle">1</text>
+<circle class="note-dot" cx="911.9655172413792" cy="589" r="2"/>
+<text x="956.655172413793" y="620" font-size="26" text-anchor="middle">−</text>
+</g>
+<path class="measure-barline final-barline" d="M988 593v48" stroke="#8d9982" stroke-width="2.8"/>
+<path d="M983 593v48" stroke="#8d9982"/>
+</g>
+<path d="M52 696H988" stroke="#e2e6da"/>
+<text x="52" y="721" class="small">数字对应 C 调琴键 · 上下圆点表示八度 · 0 为休止 · 连线内的音只拨一次</text>
+<text x="988" y="721" text-anchor="end" class="small">拍间 · 把旋律放在指尖</text>
+</svg>

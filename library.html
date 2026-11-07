@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5ef">
+  <meta name="description" content="发现可下载的 MIDI 与开放乐谱库：Mutopia、PDMX、Lakh、MAESTRO 和 GiantMIDI。找到完整来源，转换为卡林巴数字谱。">
+  <title>找曲谱 · 拍间</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="score/workshop.css">
+  <link rel="stylesheet" href="score/library.css">
+</head>
+<body class="library-page">
+  <div class="page-shell">
+    <header class="site-header"><a class="brand" href="./index.html" aria-label="拍间首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>拍间<span class="brand-en">TEMPO</span></span></a><nav class="site-nav" aria-label="工具导航"><a href="./index.html">节拍器</a><a href="./score.html">曲谱工坊</a><a href="./library.html" aria-current="page">找曲谱</a></nav></header>
+    <main>
+      <section class="intro"><div><p class="eyebrow">MORE MUSIC, MORE POSSIBILITIES</p><h1>找到喜欢的曲子，弹到最后一拍。</h1><p class="intro-copy">从开放乐谱与 MIDI 曲库出发，下载源文件，再生成自己的卡林巴数字谱。</p></div></section>
+      <section class="library-search" aria-labelledby="search-title"><div><span class="library-pill">适合先用起来</span><h2 id="search-title">在 Mutopia 找一首曲子</h2><p>2,124 份乐谱，提供 MIDI、PDF 与可编辑源码。用英文曲名或作曲家搜索，更容易找到。</p></div><form action="https://www.mutopiaproject.org/cgibin/make-table.cgi" method="get" target="_blank" rel="noopener noreferrer"><label for="library-query" class="sr-only">曲名或作曲家</label><input id="library-query" class="text-input" type="search" name="searchingfor" placeholder="例如：Ode to Joy、Bach、Mozart" maxlength="120" required><button type="submit" class="play-button">搜索 Mutopia ↗</button></form><div class="search-examples"><span>先看完整来源：</span><a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=528" target="_blank" rel="noopener noreferrer">欢乐颂 · 16 小节赞美诗版本 ↗</a><a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931" target="_blank" rel="noopener noreferrer">致爱丽丝 · WoO 59 原谱 ↗</a></div><p class="library-license">Mutopia 每首作品分别标注公版、CC BY 或 CC BY-SA。曲库规模与可下载范围以来源页面为准。</p></section>
+
+      <div class="library-section-heading"><h2>想要更大的 MIDI 收藏</h2><span>官方来源 · 2026-11-07 核验</span></div>
+      <div class="library-grid">
+        <article class="library-card"><div class="library-card-top"><span class="library-pill">适合建设大曲库</span><span>01</span></div><h3>PDMX</h3><p class="library-number">222,856 <small>条无许可元数据冲突记录</small></p><p>提供 MIDI、MusicXML、PDF 与曲目索引。适合进一步筛选、去重，建立可搜索的个人曲库。</p><dl><div><dt>下载</dt><dd>MIDI 压缩包约 214 MB；另需索引和子集路径进行筛选。</dd></div><div><dt>许可</dt><dd>数据集 CC BY 4.0；优先采用 no_license_conflict 与 all_valid 子集的交集。</dd></div></dl><div class="library-links"><a href="https://zenodo.org/records/15571083" target="_blank" rel="noopener noreferrer">官方数据与下载 ↗</a><a href="https://github.com/pnlong/PDMX" target="_blank" rel="noopener noreferrer">项目说明 ↗</a></div></article>
+        <article class="library-card"><div class="library-card-top"><span class="library-pill muted">覆盖广，需整理</span><span>02</span></div><h3>Lakh MIDI Dataset</h3><p class="library-number">176,581 <small>份去重 MIDI</small></p><p>曲种丰富，提供完整集合与文件名索引。适合作为检索候选库，曲名、编曲和文件质量需要筛选。</p><dl><div><dt>下载</dt><dd>选择 LMD-full 获取完整集合；full 不代表每份文件都是完整歌曲。</dd></div><div><dt>许可</dt><dd>数据集声明 CC BY 4.0；来源为公开互联网，底层歌曲与编曲的授权需分别核对。</dd></div></dl><div class="library-links"><a href="https://colinraffel.com/projects/lmd" target="_blank" rel="noopener noreferrer">官方介绍与下载 ↗</a></div></article>
+        <article class="library-card"><div class="library-card-top"><span class="library-pill muted">钢琴演奏 MIDI</span><span>03</span></div><h3>MAESTRO</h3><p class="library-number">1,276 <small>条演奏 · 198.7 小时</small></p><p>钢琴直接采集的 MIDI，适合核对音符。双手伴奏、踏板和演奏速度较复杂，需要挑选与整理旋律。</p><dl><div><dt>下载</dt><dd>官方提供约 56 MB 的 MIDI-only 包，无需下载大型音频包。</dd></div><div><dt>许可</dt><dd>CC BY-NC-SA 4.0，包含非商业及相同方式共享条件。</dd></div></dl><div class="library-links"><a href="https://magenta.tensorflow.org/datasets/maestro" target="_blank" rel="noopener noreferrer">官方介绍与下载 ↗</a></div></article>
+        <article class="library-card"><div class="library-card-top"><span class="library-pill muted">钢琴录音转写</span><span>04</span></div><h3>GiantMIDI-Piano</h3><p class="library-number">10,855 <small>份 MIDI · 2,786 位作曲家</small></p><p>从录音自动转写的钢琴集合，适合扩展古典候选曲目；错音、声部与完整程度需要对照原谱。</p><dl><div><dt>下载</dt><dd>官方提供约 193 MB 的 MIDI 包及筛选子集。</dd></div><div><dt>许可</dt><dd>数据集声明 CC BY 4.0；自动转写质量与原作品权利需按来源核对。</dd></div></dl><div class="library-links"><a href="https://github.com/bytedance/GiantMIDI-Piano" target="_blank" rel="noopener noreferrer">官方介绍与下载 ↗</a></div></article>
+      </div>
+
+      <section class="complete-guide" aria-labelledby="complete-title"><div><span class="eyebrow">FROM THE FIRST NOTE TO THE LAST</span><h2 id="complete-title">完整的文件，完整地转谱。</h2><p>先核对作品版本、结尾与反复段，再导入曲谱工坊。程序保留整个 MIDI 的时间线；长曲分页显示，图片与 SVG 导出会包含全部页。</p><p>完整旋律转谱使用你选择的声部。原文件如果只有主题、一个乐章或片段，程序无法补出它没有提供的音符。</p></div><a href="./score.html" class="play-button">已有 MIDI，开始完整转谱 →</a></section>
+      <p class="library-footnote">这些入口通往第三方官方曲库，本页没有镜像或下载整个数据集。文件数量不等于独立作品数；曲谱范围与许可按具体条目确认。<a href="https://github.com/line-ar-line/paijian-metronome/blob/main/MIDI_SOURCES.md" target="_blank" rel="noopener noreferrer">查看来源与详细核验记录 ↗</a></p>
+    </main>
+    <footer><span>多一点曲子，多一点可能。</span><a href="./score.html">回到曲谱工坊 ↗</a><span>拍间 · 卡林巴练习工具</span></footer>
+  </div>
+</body>
+</html>

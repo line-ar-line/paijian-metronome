@@ -6,7 +6,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
 
-  const LIMITS = Object.freeze({ maxBars: 256, maxNotes: 10000 });
+  const LIMITS = Object.freeze({ maxBars: 2048, maxNotes: 100000 });
   const INSTRUMENTS = Object.freeze({ '17C': { low: 60, high: 88 }, '21C': { low: 53, high: 88 } });
   const DEGREES = ['1', '1', '2', '2', '3', '4', '4', '5', '5', '6', '6', '7'];
   const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
@@ -48,12 +48,14 @@
       throw new Error('拍号分子须为 1–12，分母须为 2、4、8 或 16。');
     }
     if (options.grid !== undefined && options.grid !== 0.25) throw new Error('当前数字谱按十六分音符（四分之一拍）整理节奏。');
-    return { instrument, transpose, meter: [...meter], grid: 0.25, title: String(options.title ?? '').slice(0, 200) };
+    const totalBeats = options.totalBeats === undefined ? 0 : options.totalBeats;
+    if (typeof totalBeats !== 'number' || !Number.isFinite(totalBeats) || totalBeats < 0) throw new Error('完整乐曲的总时长须为大于或等于 0 的有限拍数。');
+    return { instrument, transpose, meter: [...meter], grid: 0.25, title: String(options.title ?? '').slice(0, 200), totalBeats };
   }
 
   function validateNotes(notes) {
     if (!Array.isArray(notes)) throw new Error('音符数据必须是一个数组。');
-    if (notes.length > LIMITS.maxNotes) throw new Error(`音符超过 ${LIMITS.maxNotes} 个，请先截取要练习的片段。`);
+    if (notes.length > LIMITS.maxNotes) throw new Error(`音符超过完整转谱支持的 ${LIMITS.maxNotes} 个，本次不生成不完整曲谱。可从音乐软件导出完整旋律轨后重试。`);
     notes.forEach((note, index) => {
       if (!note || typeof note !== 'object') throw new Error(`第 ${index + 1} 个音符格式无效。`);
       assertMidi(note.midi);
@@ -70,14 +72,20 @@
     validateNotes(input);
     const barTicks = options.meter[0] * 16 / options.meter[1];
     const maxTicks = barTicks * LIMITS.maxBars;
+    const durationError = () => new Error(`完整乐曲超过当前支持的 ${LIMITS.maxBars} 小节，本次拒绝转换整个文件，不生成部分曲谱。`);
+    if (options.totalBeats * 4 > maxTicks) throw durationError();
     const stats = { inputNotes: input.length, outputNotes: 0, unplayable: 0, removedPolyphony: 0, clippedOverlaps: 0, quantized: 0 };
     const warnings = [];
+    let sourceEndBeat = 0;
 
     const prepared = input.map((note, index) => {
-      if (note.start * 4 >= maxTicks || note.duration * 4 > maxTicks) throw new Error(`乐曲超过 ${LIMITS.maxBars} 小节，请先截取要练习的片段。`);
+      const originalEnd = note.start + note.duration;
+      if (originalEnd * 4 > maxTicks) throw durationError();
+      sourceEndBeat = Math.max(sourceEndBeat, originalEnd);
       const startTick = Math.round(note.start * 4);
       // Quantize note endpoints, not just durations, to preserve the grid's gaps.
-      const endTick = Math.max(startTick + 1, Math.round((note.start + note.duration) * 4));
+      const endTick = Math.max(startTick + 1, Math.round(originalEnd * 4));
+      if (endTick > maxTicks) throw durationError();
       if (Math.abs(startTick / 4 - note.start) > 1e-7 || Math.abs((endTick - startTick) / 4 - note.duration) > 1e-7) stats.quantized++;
       const midi = note.midi + options.transpose;
       if (midi < 0 || midi > 127) throw new Error('移调后有音符超出 MIDI 音高范围，请减小移调幅度。');
@@ -96,8 +104,12 @@
       if (next && note.endTick > next.startTick) { note.endTick = next.startTick; stats.clippedOverlaps++; }
     });
     const finalTick = chosen.length ? chosen[chosen.length - 1].endTick : 0;
-    const barCount = Math.ceil(finalTick / barTicks);
-    if (barCount > LIMITS.maxBars) throw new Error(`乐曲超过 ${LIMITS.maxBars} 小节，请先截取要练习的片段。`);
+    // A selected melody can finish before the song's end or before a discarded
+    // accompaniment note. Preserve that complete timeline as rests instead of
+    // shortening the piece. A too-short supplied duration never clips notes.
+    const sourceTotalBeats = Math.max(sourceEndBeat, options.totalBeats, finalTick / 4);
+    const barCount = Math.ceil(sourceTotalBeats * 4 / barTicks);
+    if (barCount > LIMITS.maxBars) throw durationError();
     const bars = Array.from({ length: barCount }, (_, index) => ({ index, start: index * barTicks / 4, duration: barTicks / 4, tokens: [] }));
     const notes = chosen.map(note => {
       const info = pitchInfo(note.midi, options.instrument);
@@ -136,7 +148,7 @@
     if (stats.clippedOverlaps) warnings.push(`有 ${stats.clippedOverlaps} 个音符与后续音符重叠，已缩短至后续音符开始处。`);
     if (stats.quantized) warnings.push(`${stats.quantized} 个音符的起止时间已按十六分音符网格规整；断奏长度、休止与三连音可能改变，请对照原曲校对。`);
     if (stats.unplayable) warnings.push(`${stats.unplayable} 个音符超出当前琴的音域或含升号；原音高已保留并标注，可尝试整体移调。`);
-    return { bars, notes, warnings, stats, totalBeats: barCount * barTicks / 4, barBeats: barTicks / 4, options };
+    return { bars, notes, warnings, stats, totalBeats: barCount * barTicks / 4, sourceTotalBeats, sourceEndBeat, barBeats: barTicks / 4, options };
   }
 
   function suggestTranspose(notes, instrument = '17C') {

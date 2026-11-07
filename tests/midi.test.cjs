@@ -30,7 +30,8 @@ test('format 0 returns exact quarter-note positions, normalized velocity, tempo 
   assert.equal(result.title, '卡林巴练习');
   assert.equal(result.tempo, 80);
   assert.deepEqual(result.timeSignature, [6, 8]);
-  assert.deepEqual(result.tracks, [{ id: '0:0', name: '卡林巴练习 · 通道 1', channel: 0, program: 10, isPercussion: false, notes: [{ midi: 67, start: 0.5, duration: 1.5, velocity: 1 }] }]);
+  assert.equal(result.totalBeats, 2);
+  assert.deepEqual(result.tracks, [{ id: '0:0', name: '卡林巴练习 · 通道 1', channel: 0, program: 10, isPercussion: false, endBeat: 2, notes: [{ midi: 67, start: 0.5, duration: 1.5, velocity: 1 }] }]);
   assert.deepEqual(result.warnings, []);
 });
 
@@ -51,6 +52,29 @@ test('running status and note-on velocity zero produce ordinary releases', () =>
   assert.deepEqual(result.tracks[0].notes.map(n => [n.midi, n.start, n.duration]), [[60, 0, 1], [64, 0.5, 1]]);
 });
 
+test('end-of-track silence is retained after the last melody note', () => {
+  const melody = chunk('MTrk', [...note().flat(), ...event(1440, 255, 47, 0)]);
+  const result = parseMidi(midi([melody]));
+  assert.equal(result.tracks[0].notes[0].duration, 1);
+  assert.equal(result.tracks[0].endBeat, 4);
+  assert.equal(result.totalBeats, 4);
+});
+
+test('total length includes metadata and drum source ends, while split channels keep their own source end', () => {
+  const conductor = chunk('MTrk', [...name('完整曲谱'), ...tempo(0, 750000), ...event(7680, 255, 47, 0)]);
+  const melody = chunk('MTrk', [
+    ...event(0, 0x90, 60, 100), ...event(0, 0x91, 64, 100),
+    ...event(480, 0x80, 60, 0), ...event(0, 0x81, 64, 0), ...event(1440, 255, 47, 0),
+  ]);
+  const drums = chunk('MTrk', [...note(9, 38, 960).flat(), ...event(3840, 255, 47, 0)]);
+  const result = parseMidi(midi([conductor, melody, drums]));
+  assert.equal(result.totalBeats, 16);
+  assert.equal(result.title, '完整曲谱');
+  assert.equal(result.tempo, 80);
+  assert.deepEqual(result.tracks.map(t => t.endBeat), [4, 4, 10]);
+  assert.equal(parseMidi(midi([melody, drums])).totalBeats, 10);
+});
+
 test('overlapping same-pitch attacks pair FIFO', () => {
   const result = parseMidi(midi([track(event(0, 0x90, 60, 127), event(120, 60, 64), event(120, 0x80, 60, 0), event(120, 60, 0))]));
   assert.deepEqual(result.tracks[0].notes, [
@@ -67,6 +91,7 @@ test('note pairing never crosses source tracks or channels', () => {
   assert.equal(result.tracks[0].notes[0].duration, 0.5);
   assert.equal(result.tracks[1].notes[0].duration, 2);
   assert.match(result.warnings.join(''), /2 个没有对应起音/);
+  assert.match(result.warnings.join(''), /不能保证与完整原谱一致/);
 });
 
 test('later tempo and meter changes never replace initial values', () => {
@@ -105,12 +130,11 @@ test('sustain pedal is warned about without extending key-down duration', () => 
   assert.match(result.warnings.join(''), /延音踏板/);
 });
 
-test('orphan, unfinished, and zero-duration notes are dropped and counted', () => {
-  const result = parseMidi(midi([track(...note(), event(0, 0x80, 70, 0), event(0, 0x90, 71, 90), event(0, 72, 90), event(0, 0x80, 72, 0))]));
-  assert.equal(result.tracks[0].notes.length, 1);
-  assert.match(result.warnings.join(''), /1 个没有对应起音/);
-  assert.match(result.warnings.join(''), /1 个缺少结束事件/);
-  assert.match(result.warnings.join(''), /1 个时值为零/);
+test('unfinished or zero-duration source notes reject the whole file instead of returning an incomplete melody', () => {
+  const data = midi([track(...note(), event(0, 0x90, 71, 90), event(0, 72, 90), event(0, 0x80, 72, 0))]);
+  assert.throws(() => parseMidi(data), error => /1 个缺少结束事件/.test(error.message) && /1 个时值为零/.test(error.message) && /拒绝整个文件/.test(error.message));
+  assert.throws(() => parseMidi(midi([track(...note(), event(0, 0x90, 71, 90))])), /缺少结束事件/);
+  assert.throws(() => parseMidi(midi([track(...note(), ...note(0, 72, 0))])), /时值为零/);
 });
 
 test('sysex and unknown chunks are safely skipped while extended headers are accepted', () => {
@@ -188,9 +212,35 @@ test('requires an end-of-track marker at the actual end of each track', () => {
 });
 
 test('enforces file, note, and split-track resource limits', () => {
-  assert.throws(() => parseMidi(new Uint8Array(5 * 1024 * 1024 + 1)), /5 MiB/);
-  const tooManyNotes = Array.from({ length: 10001 }, () => event(0, 0x90, 60, 100)).flat();
-  assert.throws(() => parseMidi(midi([track(tooManyNotes)])), /10,000/);
+  assert.throws(() => parseMidi(new Uint8Array(20 * 1024 * 1024 + 1)), /20 MiB/);
+  const tooManyNotes = Array.from({ length: 100001 }, () => event(0, 0x90, 60, 100)).flat();
+  assert.throws(() => parseMidi(midi([track(tooManyNotes)])), error => /100,000/.test(error.message) && /拒绝整个文件/.test(error.message) && !/裁剪|截取|片段/.test(error.message));
   const allChannels = Array.from({ length: 16 }, (_, channel) => note(channel)).flat();
   assert.throws(() => parseMidi(midi(Array.from({ length: 17 }, () => track(...allChannels)))), /拆分后超过 256/);
+});
+
+test('accepts a valid file beyond the former 5 MiB cap without discarding its notes or duration', () => {
+  const original = midi([track(...note())]);
+  const extensionLength = 6 * 1024 * 1024;
+  const data = new Uint8Array(original.length + 8 + extensionLength);
+  data.set(original);
+  data.set([...ascii('JUNK'), ...u32(extensionLength)], original.length);
+  const result = parseMidi(data);
+  assert.equal(result.tracks[0].notes.length, 1);
+  assert.equal(result.totalBeats, 1);
+});
+
+test('all 100000 completed attacks remain present without slicing a long melody', () => {
+  const count = 100000;
+  const bodyLength = count * 8 + 4;
+  const data = new Uint8Array(14 + 8 + bodyLength);
+  data.set(chunk('MThd', [...u16(0), ...u16(1), ...u16(480)]));
+  data.set([...ascii('MTrk'), ...u32(bodyLength)], 14);
+  for (let i = 0; i < count; i++) data.set([0, 0x90, 60, 100, 120, 0x80, 60, 0], 22 + i * 8);
+  data.set(end, 22 + count * 8);
+  const result = parseMidi(data);
+  assert.equal(result.tracks[0].notes.length, count);
+  assert.equal(result.tracks[0].notes.at(-1).start, (count - 1) / 4);
+  assert.equal(result.tracks[0].endBeat, count / 4);
+  assert.equal(result.totalBeats, count / 4);
 });

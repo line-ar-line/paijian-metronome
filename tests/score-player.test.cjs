@@ -59,15 +59,37 @@ test('invalid notes, unbounded time and pathological polyphony are rejected help
   assert.throws(() => normalizeScore([{ midi: 60, start: NaN, duration: 1 }]), /开始位置/);
   assert.throws(() => normalizeScore([{ midi: 60, start: 0, duration: Infinity }]), /时值/);
   assert.throws(() => normalizeScore([{ midi: 128, start: 0, duration: 1 }]), /音高/);
-  assert.throws(() => normalizeScore([{ midi: 60, start: 9000, duration: 1 }]), /长度范围/);
+  assert.throws(() => normalizeScore([{ midi: 60, start: 49152, duration: 1 }]), /长度范围/);
   assert.throws(() => normalizeScore(Array.from({ length: 17 }, () => ({ midi: 60, start: 0, duration: 1 }))), /同时发声/);
   assert.throws(() => normalizeScore(melody, { bpm: Infinity }), /速度/);
 });
 
-test('the player accepts the score model’s full 10000-note single-melody limit', () => {
-  const notes = Array.from({ length: 10000 }, (_, index) => ({ midi: 60, start: index / 4, duration: 0.25 }));
-  assert.equal(normalizeScore(notes).entries.length, 10000);
-  assert.throws(() => normalizeScore([...notes, { midi: 60, start: 2500, duration: 0.25 }]), /10000/);
+test('all 100000 melody notes survive validation without an argument-spread overflow', () => {
+  const notes = Array.from({ length: 100000 }, (_, index) => ({ midi: 60, start: index / 4, duration: 0.25 }));
+  const score = normalizeScore(notes);
+  assert.equal(score.entries.length, 100000);
+  assert.equal(score.totalBeats, 25000);
+  assert.equal(score.entries.at(-1).index, 99999);
+  assert.throws(() => normalizeScore([...notes, { midi: 60, start: 25000, duration: 0.25 }]), error => /100000/.test(error.message) && /拒绝整首播放/.test(error.message) && !/裁剪|截取|片段/.test(error.message));
+});
+
+test('a melody beyond 10000 notes starts without allocating audio voices for the entire score', async () => {
+  const f = setup();
+  const notes = Array.from({ length: 10001 }, (_, index) => ({ midi: 60, start: index / 4, duration: 0.25 }));
+  assert.equal(await f.player.play(notes, { bpm: 120 }), true);
+  assert.equal(f.player._score.entries.length, 10001);
+  assert.equal(f.context.oscillators.length, 3);
+  assert.equal(f.progress[0].totalBeats, 2500.25);
+  f.player.stop();
+});
+
+test('the complete duration bound accepts long leading and trailing rests and rejects excess as a whole', () => {
+  const source = [{ midi: 60, start: 49150, duration: 1 }];
+  const score = normalizeScore(source, { totalBeats: 49152 });
+  assert.equal(score.totalBeats, 49152);
+  assert.equal(score.entries[0].note.start, 49150);
+  assert.throws(() => normalizeScore(source, { totalBeats: 49152.25 }), /拒绝整首播放/);
+  assert.throws(() => normalizeScore([{ midi: 60, start: 49151, duration: 2 }]), /拒绝整首播放/);
 });
 
 test('audio clock schedules pitches, fractional rests and original sustained durations', async () => {
