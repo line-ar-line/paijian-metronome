@@ -155,3 +155,10 @@
   .print-page:last-child { break-after: auto; }
   .print-page svg { display: block; width: 100%; min-width: 0 !important; height: auto; max-height: 267mm; }
 }
+.original-score { margin-top: 24px; padding: 18px; border: 1px solid var(--line, #dce1d5); border-radius: 16px; background: #fffefb; }
+.original-score summary { cursor: pointer; font-weight: 600; line-height: 1.6; }
+.original-score img { display: block; width: 100%; max-width: 719px; height: auto; margin: 12px auto 0; }
+.export-actions { flex-wrap: wrap; }
+.export-actions a { text-decoration: none; display: inline-flex; align-items: center; }
+.export-actions [hidden] { display: none; }
+#favorite-score[aria-pressed="true"] { color: #3b5949; background: #e5edda; }

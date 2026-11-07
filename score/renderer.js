@@ -16,7 +16,7 @@
 
   const positiveInteger = value => Number.isInteger(value) && value > 0;
   const totalBarCount = (score, options) => positiveInteger(options.totalBars) ? options.totalBars : positiveInteger(score.totalBarCount) ? score.totalBarCount : score.bars.length;
-  const isPolyphonic = score => score.options?.mode === 'polyphonic' && score.stats?.voiceCount > 1;
+  const isPolyphonic = score => !!score.authored || (score.options?.mode === 'polyphonic' && score.stats?.voiceCount > 1);
   const measureWidths = score => score.bars.map(bar => {
     if (!isPolyphonic(score)) return { bar, minimum: Math.max(180, bar.tokens.reduce((n, token) => n + widthOf(token), 0) + 24) };
     let beatWidth = 44;
@@ -27,13 +27,13 @@
     return { bar, minimum: Math.max(180, bar.duration * beatWidth + 56) };
   });
 
-  function rowGeometry(row, polyphonic) {
+  function rowGeometry(row, polyphonic, voiceNames) {
     if (!polyphonic) return { voiceIndices: [0], baselines: new Map([[0, 66]]), height: 126 };
     const sounding = new Set();
     for (const { bar } of row) for (const lane of bar.voices || []) {
       if (lane.tokens.some(token => token.midi !== null)) sounding.add(lane.index);
     }
-    const voiceIndices = sounding.size ? [...sounding].sort((a, b) => a - b) : [0];
+    const voiceIndices = voiceNames?.length ? voiceNames.map((_, i) => i) : sounding.size ? [...sounding].sort((a, b) => a - b) : [0];
     const baselines = new Map();
     let baseline = 0, previousDescent = 0;
     for (const index of voiceIndices) {
@@ -44,6 +44,7 @@
           if (token.midi === null) continue;
           if (token.octave > 0) ascent = Math.max(ascent, 36 + (token.octave - 1) * 7);
           if (token.octave < 0) descent = Math.max(descent, 24 + (-token.octave - 1) * 7);
+          if (token.pitches?.length) descent = Math.max(descent, (token.pitches.length - 1) * 42 + 34);
           if (token.tieIn || token.tieOut) ascent = Math.max(ascent, Math.max(43, 33 + Math.max(0, token.octave - 1) * 7 + 8) + 10);
         }
       }
@@ -109,7 +110,7 @@
     let bodyHeight = 0;
     const polyphonic = isPolyphonic(score);
     for (const current of rows) {
-      const geometry = rowGeometry(current, polyphonic);
+      const geometry = rowGeometry(current, polyphonic, score.voiceNames);
       Object.assign(current, geometry, { offset: bodyHeight });
       bodyHeight += geometry.height;
     }
@@ -163,6 +164,19 @@
   }
 
   function drawToken(items, token, box, noteX, baseline, voiceIndex, beatWidth = null) {
+    if (token.pitches?.length) {
+      token.pitches.forEach((pitch, i) => drawToken(items, { ...token, ...pitch, id: `${token.id}-chord-${i}`, pitches: null, glissando: false }, box, noteX, baseline + i * 42, voiceIndex, beatWidth));
+      if (token.glissando) {
+        const bottom = baseline + (token.pitches.length - 1) * 42 + 3;
+        const top = baseline - 28;
+        const x = noteX - 22;
+        let path = `M${x} ${bottom}`;
+        for (let y = bottom; y > top + 10; y -= 10) path += `q-4 -2 0 -5q4 -2 0 -5`;
+        path += `L${x} ${top}m-4 7l4 -7 4 7`;
+        items.push(`<path class="glissando" d="${path}" stroke="#3b5949" stroke-width="1.6" fill="none"><title>从低音向高音滑奏</title></path>`);
+      }
+      return;
+    }
     const rest = token.midi === null;
     const source = token.sourceId === null || token.sourceId === undefined ? '' : token.sourceId;
     const bad = !rest && !token.playable;
@@ -189,6 +203,18 @@
   }
 
   function drawTies(items, rowNotes, margin, width) {
+    const layers = new Map();
+    for (const entry of rowNotes) {
+      const pitches = entry.token.pitches || [entry.token];
+      pitches.forEach((pitch, index) => {
+        if (!layers.has(index)) layers.set(index, []);
+        layers.get(index).push({ ...entry, token: { ...entry.token, ...pitch }, baseline: entry.baseline + index * 42 });
+      });
+    }
+    for (const notes of layers.values()) drawTieLayer(items, notes, margin, width);
+  }
+
+  function drawTieLayer(items, rowNotes, margin, width) {
     for (let i = 0; i < rowNotes.length; i++) {
       const { token, noteX, baseline } = rowNotes[i];
       if (token.midi === null) continue;
@@ -231,7 +257,11 @@
       const y = headerHeight + current.offset;
       const rowNotesByVoice = new Map(current.voiceIndices.map(index => [index, []]));
       if (polyphonic) for (const voiceIndex of current.voiceIndices) {
-        items.push(text(margin - 8, y + current.baselines.get(voiceIndex) - 6, `声部 ${voiceIndex + 1}`, 'class="small voice-label" text-anchor="end" font-size="10"'));
+        const voiceName = score.voiceNames?.[voiceIndex] || `声部 ${voiceIndex + 1}`;
+        const nameLines = score.voiceNames ? wrap(voiceName, 4) : [voiceName];
+        items.push(`<g class="voice-name"><title>${escape(voiceName)}</title>`);
+        nameLines.forEach((line, i) => items.push(text(margin - 8, y + current.baselines.get(voiceIndex) - 6 - (nameLines.length - 1 - i) * 12, line, 'class="small voice-label" text-anchor="end" style="font-size:10px"')));
+        items.push('</g>');
       }
       let x = margin;
       for (const { bar, minimum } of current) {
@@ -274,10 +304,19 @@
           }
         }
         const firstBaseline = y + current.baselines.get(current.voiceIndices[0]);
-        const lastBaseline = y + current.baselines.get(current.voiceIndices[current.voiceIndices.length - 1]);
+        const barlineBottom = y + current.height - 41;
         const last = bar.index === totalBars - 1;
-        items.push(`<path class="measure-barline${last ? ' final-barline' : ''}" d="M${x + barWidth} ${firstBaseline - 29}V${lastBaseline + 19}" stroke="#8d9982" stroke-width="${last ? 2.8 : 1}"/>`);
-        if (last) items.push(`<path d="M${x + barWidth - 5} ${firstBaseline - 29}V${lastBaseline + 19}" stroke="#8d9982"/>`);
+        if (bar.repeatStart) {
+          items.push(`<path class="repeat-start" d="M${x + 1} ${firstBaseline - 29}V${barlineBottom}M${x + 6} ${firstBaseline - 29}V${barlineBottom}" stroke="#3b5949" fill="none"/>`);
+          for (const baseline of current.baselines.values()) for (const offset of [-19, -8]) items.push(`<circle cx="${x + 12}" cy="${y + baseline + offset}" r="2" fill="#3b5949"/>`);
+        }
+        if (bar.repeatEnd) {
+          items.push(`<path class="repeat-end" d="M${x + barWidth - 5} ${firstBaseline - 29}V${barlineBottom}" stroke="#3b5949" fill="none"/>`);
+          for (const baseline of current.baselines.values()) for (const offset of [-19, -8]) items.push(`<circle cx="${x + barWidth - 11}" cy="${y + baseline + offset}" r="2" fill="#3b5949"/>`);
+          if (bar.repeatEnd > 2) items.push(text(x + barWidth - 6, y + 17, `共 ${bar.repeatEnd} 次`, 'class="small" text-anchor="end"'));
+        }
+        items.push(`<path class="measure-barline${last ? ' final-barline' : ''}" d="M${x + barWidth} ${firstBaseline - 29}V${barlineBottom}" stroke="#8d9982" stroke-width="${last ? 2.8 : 1}"/>`);
+        if (last) items.push(`<path d="M${x + barWidth - 5} ${firstBaseline - 29}V${barlineBottom}" stroke="#8d9982"/>`);
         items.push('</g>');
         x += barWidth;
       }
@@ -285,7 +324,7 @@
     }
     const baseHeight = height - creditExtraHeight;
     items.push(`<path d="M${margin} ${baseHeight - 58}H${width - margin}" stroke="#e2e6da"/>`);
-    items.push(text(margin, baseHeight - 33, '数字对应 C 调琴键 · 上下圆点表示八度 · 0 为休止 · 连线内的音只拨一次', 'class="small"'));
+    items.push(text(margin, baseHeight - 33, score.authored ? '上下堆叠为和弦 · 波形箭头为向上滑奏 · 反复段按标记演奏 · 0 为休止' : '数字对应 C 调琴键 · 上下圆点表示八度 · 0 为休止 · 连线内的音只拨一次', 'class="small"'));
     items.push(text(width - margin, baseHeight - 33, score.stats?.unplayable ? '橙色音符需要移调或改编' : '拍间 · 把旋律放在指尖', 'text-anchor="end" class="small"'));
     creditLines.forEach((line, index) => {
       items.push(text(margin, baseHeight - 10 + index * 14, line.text, `class="score-credit" data-credit-index="${line.creditIndex}" xml:space="preserve"`));

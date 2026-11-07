@@ -1,0 +1,80 @@
+.composer-shell { max-width: 1480px; }
+.composer-intro { padding: 37px 0 29px; }
+.composer-layout { display: grid; grid-template-columns: 235px minmax(0, 1fr); gap: 27px; align-items: start; }
+.draft-sidebar, .composer-main { min-width: 0; }
+.draft-sidebar { display: grid; gap: 18px; }
+.composer-card { background: #fafbf5; border: 1px solid var(--line); border-radius: 16px; padding: 22px; min-width: 0; }
+.composer-section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.composer-section-title h2 { margin: 0; font-size: 15px; font-weight: 550; }
+.composer-section-title>span { font-size: 10px; color: #748369; text-align: right; line-height: 1.6; }
+.full-width { width: 100%; }
+.composer-page .secondary-button { min-height: 40px; }
+.composer-page button:disabled { cursor: default; }
+.draft-list { display: grid; gap: 5px; margin: 15px -8px; max-height: 340px; overflow-y: auto; padding: 4px; }
+.draft-item { display: flex; align-items: flex-start; flex-direction: column; gap: 5px; min-height: 60px; width: 100%; min-width: 0; text-align: left; border: 1px solid transparent; border-radius: 9px; background: transparent; padding: 10px 11px; }
+.draft-item[aria-current=true] { background: #eaf0e2; border-color: #d4dfc7; }
+.draft-item strong { font-size: 12px; font-weight: 550; width: 100%; overflow-wrap: anywhere; }
+.draft-item small { font-size: 9px; color: #7e8a74; }
+.draft-actions { display: flex; gap: 7px; }
+.draft-actions>button:first-child { flex: 1; }
+.danger-button { color: #9b6849; }
+.composer-note { margin: 12px 0; font-size: 11px; color: #77846d; line-height: 1.8; }
+.syntax-guide { padding-top: 17px; }
+.syntax-guide summary, .composer-extra summary { cursor: pointer; color: #536b47; font-size: 12px; font-weight: 550; padding: 5px 0; }
+.syntax-guide p, .syntax-guide dd { font-size: 10px; line-height: 1.8; color: #7e8a74; }
+.syntax-guide dl { margin: 15px 0; }
+.syntax-guide dl>div { margin: 12px 0; }
+.syntax-guide dt { color: #405e3e; font-size: 12px; }
+.syntax-guide dd { margin: 3px 0 0; }
+.syntax-guide code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.composer-metadata { display: grid; grid-template-columns: minmax(180px, 1fr) 90px 90px 140px; gap: 13px; }
+.composer-field { display: block; min-width: 0; }
+.composer-field>span { display: block; font-size: 11px; color: #667a59; margin-bottom: 8px; }
+.composer-field small { font-size: 9px; color: #8a977e; font-weight: 400; margin-left: 5px; }
+.composer-voices { margin-top: 23px; display: grid; gap: 20px; }
+.voice-heading { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 8px; }
+.voice-heading label { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 11px; color: #6b7f5e; min-width: 0; }
+.voice-name { border: 0; border-bottom: 1px solid #dbe3d2; border-radius: 0; background: transparent; height: 33px; max-width: 220px; padding: 4px 6px; }
+.remove-voice { padding: 4px 9px; }
+.notation-input { resize: vertical; min-height: 118px; height: auto; display: block; font: 15px/1.9 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .3px; padding: 14px 15px; tab-size: 2; overflow-wrap: anywhere; }
+.notation-input[aria-invalid=true] { border-color: #c89875; }
+.voice-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 11px; margin-top: 12px; }
+.voice-tools>span { font-size: 10px; color: #7c8b70; }
+.composer-extra { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 12px; }
+.composer-extra[open] summary { margin-bottom: 8px; }
+.repeat-list { display: grid; gap: 10px; margin-bottom: 10px; }
+.repeat-row { display: flex; align-items: flex-end; gap: 9px; flex-wrap: wrap; }
+.repeat-row label { width: 100px; max-width: 25%; min-width: 60px; }
+.repeat-row .secondary-button { margin-bottom: 1px; }
+.credits-field { margin-top: 20px; }
+.credits-field textarea { height: auto; min-height: 90px; line-height: 1.8; resize: vertical; }
+.preview-title { margin-top: 30px; margin-bottom: 18px; }
+.preview-title .eyebrow { font-size: 9px; margin-bottom: 8px; }
+.preview-title h2 { font-size: 19px; font-weight: 500; }
+.notation-error { padding: 13px 15px; background: #f8eee3; border: 1px solid #e5d0bc; color: #8b603e; font-size: 12px; line-height: 1.8; border-radius: 9px; margin-bottom: 15px; overflow-wrap: anywhere; }
+.notation-error[hidden] { display: none; }
+.composer-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 13px; }
+.composer-preview-toolbar>.play-button { flex: 0 1 170px; min-width: 135px; min-height: 43px; font-size: 12px; }
+.composer-export-actions { display: flex; gap: 8px; }
+.composer-progress { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px; margin: 13px 0 18px; font-size: 10px; color: #7e8a73; font-variant-numeric: tabular-nums; }
+.composer-progress progress { width: 100%; height: 5px; border: none; border-radius: 4px; background: #e5eadd; accent-color: #667f52; }
+.composer-progress progress::-webkit-progress-bar { border-radius: 4px; background: #e5eadd; }
+.composer-progress progress::-webkit-progress-value { border-radius: 4px; background: #667f52; }
+.composer-progress progress::-moz-progress-bar { border-radius: 4px; background: #667f52; }
+.composer-paper { min-height: 160px; }
+.composer-paper .score-preview { overflow: auto; max-width: 100%; }
+.composer-paper .score-preview svg { min-width: 650px; }
+.preview-placeholder { margin: 0; padding: 50px 25px; font-size: 13px; line-height: 1.8; color: #89967d; text-align: center; }
+.composer-warnings { padding-left: 18px; margin: 14px 0 0; font-size: 11px; color: #9a724f; line-height: 1.8; overflow-wrap: anywhere; }
+.composer-warnings:empty { display: none; }
+.export-note { font-size: 10px; }
+.composer-page-navigation>span { font-size: 10px; color: #7a8b6d; }
+.publish-note { display: flex; align-items: flex-start; gap: 15px; padding: 20px 23px; border-radius: 12px; background: #edf0e4; margin-top: 25px; }
+.publish-note>span { font-size: 29px; color: #8da078; }
+.publish-note h2 { font-size: 13px; font-weight: 550; margin: 2px 0 7px; }
+.publish-note p { font-size: 11px; color: #7e8d70; line-height: 1.9; margin: 0; }
+.publish-note a { display: inline-block; font-size: 11px; color: #4f6d42; margin-top: 8px; }
+@media (hover: hover) and (pointer: fine) { .draft-item:hover { background: #eef2e7; } }
+@media (max-width: 1100px) { .composer-layout { grid-template-columns: 215px minmax(0, 1fr); gap: 20px; } .composer-metadata { grid-template-columns: 1fr 1fr 1fr; } .composer-metadata .title-field { grid-column: 1/-1; } .composer-card { padding: 19px; } }
+@media (max-width: 800px) { .composer-shell { max-width: none; padding: 0 22px; } .composer-layout { grid-template-columns: 1fr; } .draft-sidebar { grid-template-columns: 1fr; } .draft-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 15px; } .draft-card .composer-section-title { margin: 0; } .draft-card>.full-width { width: auto; } .draft-list { grid-column: 1/-1; margin: 0 -4px; max-height: 155px; } .draft-card .composer-note { grid-column: 1/-1; margin: 0; } .draft-actions { grid-column: 1; } #import-json { grid-column: 2; grid-row: 3; } .syntax-guide { grid-row: 2; } .composer-intro .instrument-tag { display: none; } .composer-intro h1 { font-size: 27px; } .composer-intro .intro-copy { line-height: 1.8; } }
+@media (max-width: 540px) { .composer-shell { padding: 0 14px; } .composer-page .site-header { height: auto; min-height: 104px; flex-wrap: wrap; gap: 10px; padding: 15px 0 12px; } .composer-page .site-nav { width: 100%; justify-content: space-between; } .composer-page .site-nav a { flex: 1; text-align: center; padding: 8px 6px; font-size: 11px; } .composer-intro { padding: 26px 0 23px; } .composer-intro h1 { font-size: 24px; } .composer-card { padding: 16px; } .draft-card { gap: 11px 8px; } .draft-actions { gap: 5px; } .draft-card .secondary-button { padding-left: 8px; padding-right: 8px; font-size: 10px; } .composer-metadata { gap: 12px 9px; grid-template-columns: 75px 75px minmax(0, 1fr); } .composer-metadata select { padding: 0 7px; font-size: 11px; } .composer-section-title { gap: 8px; } #save-status { max-width: 180px; } .voice-heading label { gap: 5px; } .voice-name { max-width: 150px; } .notation-input { font-size: 14px; padding: 12px; } .composer-preview-toolbar { align-items: stretch; flex-direction: column; gap: 9px; } .composer-preview-toolbar>.play-button { flex: auto; } .composer-export-actions>button { flex: 1; } .preview-title h2 { font-size: 17px; } .repeat-row { gap: 7px; } .repeat-row label { max-width: 30%; width: 75px; } .composer-page-navigation { gap: 10px; } .composer-page-navigation>.follow-pages { margin-left: 0; } .publish-note { padding: 18px 16px; } }

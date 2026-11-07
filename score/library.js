@@ -15,6 +15,7 @@
     mendelssohn: '门德尔松', grieg: '格里格', rachmaninoff: '拉赫玛尼诺夫',
   };
   const parameters = new URLSearchParams(location.search);
+  const favorites = window.ScoreUserLibrary;
   const state = {
     query: (parameters.get('q') || '').slice(0, 160),
     composer: parameters.get('composer') || '',
@@ -22,6 +23,7 @@
     texture: ['single', 'polyphonic'].includes(parameters.get('texture')) ? parameters.get('texture') : '',
     sort: ['default', 'title', 'composer', 'coverage'].includes(parameters.get('sort')) ? parameters.get('sort') : 'default',
     page: Math.max(1, Number.parseInt(parameters.get('page'), 10) || 1),
+    favorites: parameters.get('favorites') === '1',
   };
   let entries = [];
   let matched = [];
@@ -40,6 +42,17 @@
     } catch { return null; }
   }
 
+  function sourceUrl(value) {
+    if (typeof value === 'string' && /^scores\/[A-Za-z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(value)) return value;
+    return publicUrl(value);
+  }
+
+  function favoriteNotice(value, isError = false) {
+    $('catalog-favorite-message').textContent = value;
+    $('catalog-favorite-message').hidden = !value;
+    $('catalog-favorite-message').dataset.kind = isError ? 'error' : 'success';
+  }
+
   function prepare(entry, index) {
     if (!entry || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$/.test(String(entry.id || ''))) throw new Error('目录中有无法识别的曲目编号。');
     const title = String(entry.title || '未命名来源文件');
@@ -51,13 +64,14 @@
     const composerText = normalized(composer);
     const aliases = Object.entries(composerAliases).filter(([key]) => composerText.includes(key)).map(([, value]) => value).join(' ');
     const file = String(entry.file || '');
+    const format = entry.format === 'paijian-score' ? 'paijian-score' : 'midi';
     return {
-      ...entry, index, title, composer, instrument, notes, playable, ratio,
+      ...entry, index, title, composer, instrument, notes, playable, ratio, format,
       bars: finiteCount(entry.bars),
       maxPolyphony: finiteCount(entry.maxPolyphony),
       searchText: normalized([title, composer, aliases, instrument, entry.style || '', entry.id].join(' ')),
-      file: /^catalog\/midi\/[A-Za-z0-9_-]+\.midi?$/.test(file) ? file : null,
-      sourceUrl: publicUrl(entry.sourceUrl),
+      file: (format === 'paijian-score' ? /^scores\/[A-Za-z0-9_-]+\.json$/ : /^catalog\/midi\/[A-Za-z0-9_-]+\.midi?$/).test(file) ? file : null,
+      sourceUrl: sourceUrl(entry.sourceUrl),
       licenseUrl: publicUrl(entry.licenseUrl),
     };
   }
@@ -85,7 +99,7 @@
     heading.append(element('span', `catalog-piece-badge${polyphonic ? ' polyphonic' : ''}`, texture));
     const title = element('h3');
     const titleLink = element('a', 'catalog-piece-title', entry.title);
-    titleLink.href = `./score.html?piece=${encodeURIComponent(entry.id)}`;
+    titleLink.href = `./score.html?${entry.format === 'paijian-score' ? 'score' : 'piece'}=${encodeURIComponent(entry.id)}`;
     title.append(titleLink);
     const details = element('dl', 'catalog-piece-details');
     addDetail(details, '原编制', entry.instrument);
@@ -110,17 +124,26 @@
     open.href = titleLink.href;
     open.setAttribute('aria-label', `打开《${entry.title}》数字谱`);
     actions.append(open);
+    const favorite = element('button', 'catalog-favorite', favorites?.has(entry.id) ? '★' : '☆');
+    favorite.type = 'button';
+    favorite.dataset.favoriteId = entry.id;
+    favorite.setAttribute('aria-pressed', String(Boolean(favorites?.has(entry.id))));
+    favorite.setAttribute('aria-label', `${favorites?.has(entry.id) ? '取消收藏' : '收藏'}《${entry.title}》`);
+    favorite.title = favorites?.has(entry.id) ? '取消收藏' : '收藏曲谱';
+    favorite.disabled = !favorites;
+    actions.append(favorite);
     if (entry.file) {
-      const midi = element('a', 'catalog-midi', 'MIDI ↓');
+      const kind = entry.format === 'paijian-score' ? 'JSON' : 'MIDI';
+      const midi = element('a', 'catalog-midi', `${kind} ↓`);
       midi.href = entry.file;
       midi.download = entry.file.slice(entry.file.lastIndexOf('/') + 1);
-      midi.setAttribute('aria-label', `下载《${entry.title}》完整来源 MIDI`);
+      midi.setAttribute('aria-label', `下载《${entry.title}》${kind === 'JSON' ? '可编辑曲谱 JSON' : '完整来源 MIDI'}`);
       if (Number.isFinite(entry.bytes)) midi.title = `下载源文件 · ${Math.max(1, Math.round(entry.bytes / 1024))} KB`;
       actions.append(midi);
     }
     const source = element('div', 'catalog-piece-source');
     if (entry.sourceUrl) {
-      const original = element('a', '', '来源 / 原谱 ↗');
+      const original = element('a', '', entry.format === 'paijian-score' ? '查看原图 ↗' : '来源 / 原谱 ↗');
       original.href = entry.sourceUrl; original.target = '_blank'; original.rel = 'noopener noreferrer';
       if (entry.attribution) original.title = String(entry.attribution);
       source.append(original);
@@ -150,11 +173,12 @@
   function remember() {
     try {
       const url = new URL(location.href);
-      for (const key of ['q', 'composer', 'instrument', 'texture', 'sort', 'page']) url.searchParams.delete(key);
+      for (const key of ['q', 'composer', 'instrument', 'texture', 'sort', 'page', 'favorites']) url.searchParams.delete(key);
       if (state.query) url.searchParams.set('q', state.query);
       for (const key of ['composer', 'instrument', 'texture']) if (state[key]) url.searchParams.set(key, state[key]);
       if (state.sort !== 'default') url.searchParams.set('sort', state.sort);
       if (state.page > 1) url.searchParams.set('page', state.page);
+      if (state.favorites) url.searchParams.set('favorites', '1');
       history.replaceState(null, '', url);
     } catch { /* Some local-file browsers disallow URL state updates. */ }
   }
@@ -165,7 +189,8 @@
       terms.every(term => entry.searchText.includes(term)) &&
       (!state.composer || entry.composer === state.composer) &&
       (!state.instrument || entry.instrument === state.instrument) &&
-      (!state.texture || (state.texture === 'single' ? entry.maxPolyphony === 1 : entry.maxPolyphony > 1))
+      (!state.texture || (state.texture === 'single' ? entry.maxPolyphony === 1 : entry.maxPolyphony > 1)) &&
+      (!state.favorites || favorites?.has(entry.id))
     ));
     if (state.sort === 'title') matched.sort((a, b) => collator.compare(a.title, b.title) || a.index - b.index);
     else if (state.sort === 'composer') matched.sort((a, b) => collator.compare(a.composer, b.composer) || collator.compare(a.title, b.title) || a.index - b.index);
@@ -177,11 +202,17 @@
     const fragment = document.createDocumentFragment();
     visible.forEach(entry => fragment.append(pieceCard(entry)));
     $('catalog-grid').replaceChildren(fragment);
-    const filtered = Boolean(state.query.trim() || state.composer || state.instrument || state.texture);
-    $('catalog-results-title').textContent = filtered ? '筛选结果' : '所有曲目';
+    const filtered = Boolean(state.query.trim() || state.composer || state.instrument || state.texture || state.favorites);
+    const favoriteCount = entries.filter(entry => favorites?.has(entry.id)).length;
+    $('catalog-favorite-count').textContent = number(favoriteCount);
+    $('catalog-favorites-only').setAttribute('aria-pressed', String(state.favorites));
+    $('catalog-results-title').textContent = state.favorites ? '我的收藏' : filtered ? '筛选结果' : '所有曲目';
     $('catalog-result-count').textContent = matched.length ? `${number(matched.length)} 份曲谱 · 正在显示第 ${number(from + 1)}–${number(from + visible.length)} 份` : '0 份匹配曲谱';
     $('catalog-reset').hidden = !filtered && state.sort === 'default';
     $('catalog-empty').hidden = matched.length > 0;
+    $('catalog-empty-title').textContent = state.favorites ? (favoriteCount ? '收藏中没有匹配的曲谱' : '还没有收藏曲谱') : '没有找到匹配的曲目';
+    $('catalog-empty-copy').textContent = state.favorites && !favoriteCount ? '点击曲谱上的星标，把想练的曲子留在这里。' : '试试更短的曲名、英文作曲家姓名，或减少筛选条件。';
+    $('catalog-empty-reset').textContent = state.favorites && !favoriteCount ? '去找曲谱' : '查看全部曲目';
     $('catalog-empty-reset').hidden = false;
     $('catalog-pagination').hidden = totalPages <= 1;
     $('catalog-previous').disabled = state.page <= 1;
@@ -196,7 +227,7 @@
   }
 
   function reset() {
-    Object.assign(state, { query: '', composer: '', instrument: '', texture: '', sort: 'default', page: 1 });
+    Object.assign(state, { query: '', composer: '', instrument: '', texture: '', sort: 'default', page: 1, favorites: false });
     $('catalog-query').value = '';
     $('catalog-composer').value = ''; $('catalog-instrument').value = ''; $('catalog-texture').value = ''; $('catalog-sort').value = 'default';
     render();
@@ -210,7 +241,8 @@
   try {
     const catalog = window.ScoreCatalog;
     if (!catalog || !Array.isArray(catalog.entries) || !catalog.entries.length) throw new Error('目录文件没有成功加载。');
-    entries = catalog.entries.map(prepare);
+    const curated = Array.isArray(window.CuratedScores?.entries) ? window.CuratedScores.entries : [];
+    entries = [...curated, ...catalog.entries].map(prepare);
     if (new Set(entries.map(entry => entry.id)).size !== entries.length) throw new Error('目录存在重复的曲目编号。');
     $('catalog-total').textContent = number(entries.length);
     const composers = fillFilter('catalog-composer', entries.map(entry => entry.composer), '全部作曲家');
@@ -223,7 +255,7 @@
     $('catalog-texture').value = state.texture;
     $('catalog-sort').value = state.sort;
     const date = typeof catalog.updatedAt === 'string' && /^\d{4}-\d{2}-\d{2}/.test(catalog.updatedAt) ? ` · 更新 ${catalog.updatedAt.slice(0, 10)}` : '';
-    $('catalog-provenance').textContent = `目录收录 ${number(entries.length)} 份完整来源文件 · 来源 ${String(catalog.source || '开放乐谱库')}${date}。作品、乐章与版本范围以条目标题和原谱为准。`;
+    $('catalog-provenance').textContent = `目录收录 ${number(entries.length)} 份曲谱${curated.length ? `，含 ${number(curated.length)} 份原图整理谱` : ''} · MIDI 来源 ${String(catalog.source || '开放乐谱库')}${date}。作品范围、署名与许可请查看具体条目。`;
     $('catalog-filters').addEventListener('submit', (event) => { event.preventDefault(); state.query = $('catalog-query').value; state.page = 1; render(); });
     $('catalog-query').addEventListener('input', (event) => { if (!event.isComposing) { state.query = event.target.value; state.page = 1; render(); } });
     $('catalog-query').addEventListener('compositionend', (event) => { state.query = event.target.value; state.page = 1; render(); });
@@ -235,6 +267,28 @@
     $('catalog-previous').addEventListener('click', () => changePage(state.page - 1));
     $('catalog-next').addEventListener('click', () => changePage(state.page + 1));
     $('catalog-page-select').addEventListener('change', event => changePage(Number(event.target.value)));
+    $('catalog-favorites-only').addEventListener('click', () => { state.favorites = !state.favorites; state.page = 1; render(); });
+    $('catalog-grid').addEventListener('click', event => {
+      const button = event.target.closest('button[data-favorite-id]');
+      if (!button || !favorites) return;
+      const entry = entries.find(item => item.id === button.dataset.favoriteId);
+      const result = favorites.toggle(entry.id);
+      favoriteNotice(result.ok ? `${result.favorite ? '已收藏' : '已取消收藏'}《${entry.title}》` : result.error, !result.ok);
+    });
+    favorites?.subscribe(snapshot => {
+      const active = document.activeElement;
+      const focusedId = active?.dataset.favoriteId;
+      const focusedIndex = focusedId ? [...$('catalog-grid').querySelectorAll('button[data-favorite-id]')].indexOf(active) : -1;
+      favoriteNotice(snapshot.error, Boolean(snapshot.error));
+      render();
+      if (focusedId) {
+        const buttons = [...$('catalog-grid').querySelectorAll('button[data-favorite-id]')];
+        const next = buttons.find(button => button.dataset.favoriteId === focusedId) || buttons[Math.min(focusedIndex, buttons.length - 1)] || $('catalog-favorites-only');
+        next.focus({ preventScroll: true });
+      }
+    });
+    const storageError = favorites?.getState().error || (!favorites ? '收藏功能暂时未能加载，请刷新页面重试。' : '');
+    favoriteNotice(storageError, Boolean(storageError));
     render();
   } catch (error) {
     $('catalog-grid').replaceChildren();

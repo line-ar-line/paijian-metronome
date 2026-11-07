@@ -4,19 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f5ef">
-  <meta name="description" content="搜索拍间内置曲库，查看曲目、作曲家、原编制与卡林巴音域覆盖，直接打开完整数字谱或下载来源 MIDI。">
+  <meta name="description" content="搜索并收藏拍间内置曲谱，查看原图整理谱、MIDI 曲目与卡林巴音域覆盖，直接打开数字谱或下载可编辑文件。">
   <title>内置曲库 · 拍间</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="score/workshop.css">
-  <link rel="stylesheet" href="score/library.css?v=catalog-1">
+  <link rel="stylesheet" href="score/library.css?v=library-2">
   <script src="catalog/index.js" defer></script>
-  <script src="score/library.js?v=catalog-1" defer></script>
+  <script src="curated/index.js?v=library-2" defer></script>
+  <script src="score/user-library.js?v=library-2" defer></script>
+  <script src="score/library.js?v=library-2" defer></script>
 </head>
 <body class="library-page">
   <div class="page-shell">
-    <header class="site-header"><a class="brand" href="./index.html" aria-label="拍间首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>拍间<span class="brand-en">TEMPO</span></span></a><nav class="site-nav" aria-label="工具导航"><a href="./index.html">节拍器</a><a href="./score.html">曲谱工坊</a><a href="./library.html" aria-current="page">找曲谱</a></nav></header>
+    <header class="site-header"><a class="brand" href="./index.html" aria-label="拍间首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>拍间<span class="brand-en">TEMPO</span></span></a><nav class="site-nav" aria-label="工具导航"><a href="./index.html">节拍器</a><a href="./score.html">曲谱工坊</a><a href="./library.html" aria-current="page">找曲谱</a><a href="./composer.html">制谱</a></nav></header>
     <main>
-      <section class="intro catalog-intro"><div><p class="eyebrow">A LITTLE LIBRARY, A LOT OF MUSIC</p><h1>找到喜欢的曲子，弹到最后一拍。</h1><p class="intro-copy">挑一份完整来源，打开数字谱，把旋律和伴奏一起看清楚。</p></div><div class="catalog-total"><strong id="catalog-total">—</strong><span>份内置来源文件</span></div></section>
+      <section class="intro catalog-intro"><div><p class="eyebrow">A LITTLE LIBRARY, A LOT OF MUSIC</p><h1>找到喜欢的曲子，弹到最后一拍。</h1><p class="intro-copy">挑一份完整来源，打开数字谱，把旋律和伴奏一起看清楚。</p></div><div class="catalog-total"><strong id="catalog-total">—</strong><span>份内置曲谱</span></div></section>
 
       <section class="catalog-panel" aria-labelledby="catalog-title">
         <div class="catalog-panel-heading"><div><span class="library-pill">内置曲库</span><h2 id="catalog-title">下一首，想练什么？</h2></div><a href="#external-sources" class="catalog-more-link">去外部曲库找更多 ↗</a></div>
@@ -26,7 +28,9 @@
           <div class="catalog-filter-field"><label for="catalog-instrument">原编制</label><select id="catalog-instrument"><option value="">全部编制</option></select></div>
           <div class="catalog-filter-field"><label for="catalog-texture">音符组合</label><select id="catalog-texture"><option value="">全部曲目</option><option value="single">单音旋律</option><option value="polyphonic">含多音 / 伴奏</option></select></div>
         </form>
-        <details class="catalog-explanation"><summary>关于完整范围与卡林巴可弹性</summary><p>收录的是完整来源文件，具体范围按作品或乐章标题标注。它们保留原文件中的旋律与伴奏，并非已经改编好的 17 音卡林巴成品谱。</p><p>“C17 原调覆盖”表示源音符中落在标准 17 音 C 调琴键上的比例。覆盖率高也可能有密集和弦；打开数字谱后，可尝试整体移调、选择声部或自行改编。</p></details>
+        <div class="catalog-personal-tools"><button id="catalog-favorites-only" class="catalog-favorites-toggle" type="button" aria-pressed="false"><span aria-hidden="true">☆</span><span>只看收藏</span><span id="catalog-favorite-count" class="catalog-favorite-count">0</span></button><p>收藏保存在当前浏览器中。</p></div>
+        <p id="catalog-favorite-message" class="catalog-favorite-message" role="status" aria-live="polite" hidden></p>
+        <details class="catalog-explanation"><summary>关于完整范围与卡林巴可弹性</summary><p>原图整理谱提供对应图片供核对。MIDI 曲目保留来源文件中的旋律与伴奏，范围按作品或乐章标题标注，并非已经改编好的 17 音卡林巴成品谱。</p><p>“C17 原调覆盖”表示音符中落在标准 17 音 C 调琴键上的比例。覆盖率高也可能有密集和弦；打开数字谱后，可尝试整体移调、选择声部或自行改编。</p></details>
       </section>
 
       <section class="catalog-results" aria-labelledby="catalog-results-title" aria-busy="true">

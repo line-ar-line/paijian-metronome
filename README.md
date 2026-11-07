@@ -120,3 +120,13 @@ node --test tests/engine.test.cjs tests/midi.test.cjs tests/score-model.test.cjs
 多音验证：`node --test tests/polyphony.browser.cjs`，覆盖完整双声部示例、独立延音、多轨合并、和弦试听高亮、全页导出和手机布局。
 
 曲库验证：`node --test tests/catalog.test.cjs` 检查全部 1,000 份文件、官方元数据快照、许可证、完整转谱与去重；`node --test tests/catalog.browser.cjs` 检查目录搜索、筛选、分页、下载、深链接载入、导出署名、错误处理及手机布局。
+
+
+## 收藏、人工编配与制谱
+
+- `score.html?score=heixiu-rhapsody`：用户提供《嘿咻狂想曲》的完整人工录入谱，29 个谱面小节、两个原声部、12 处滑音；13–20 小节反复一次，试听 37 小节。原图可以展开对照，JSON 可以下载或打开可编辑副本。
+- 曲库与已发布曲谱页支持收藏；`library.html?favorites=1` 只看收藏。收藏在当前浏览器保存，不会自动同步其他设备。
+- `composer.html`：1–4 声部手写数字谱、和弦、向上滑音、反复、实时预览与试听，支持草稿自动保存、JSON 导入/导出、全谱 SVG 导出。草稿保存在当前浏览器，存储失败会显示提示；建议导出 JSON 备份。
+- 长期公开保存：导出 JSON，再执行 `node tools/add-score.cjs 曲谱.json my-song`，将生成的曲谱和目录变更提交到 `main`。GitHub Pages 部署后即可通过固定链接跨设备访问。详见 [发布说明](scores/README.md)。静态网页不持有 GitHub 写凭据，也不会把本地草稿误报成已上传。
+
+验证：`node --test tests/document.test.cjs tests/user-library.test.cjs tests/composer-storage.test.cjs`；浏览器验证为 `tests/composer.test.cjs` 和 `tests/favorites.browser.cjs`（需要 Playwright 与 Chrome）。

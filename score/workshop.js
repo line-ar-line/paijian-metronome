@@ -17,6 +17,7 @@
   let activeSources = new Set();
   let activeGroups = [];
   let renderOptions;
+  const favorites = globalThis.ScoreUserLibrary;
   const player = new ScorePlayer({ onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '试听暂时无法启动，请重试。') });
 
   function message(value, kind = 'error') {
@@ -31,7 +32,8 @@
     $('playback-progress').value = beat;
     $('playback-time').textContent = `${clock(seconds(beat))} / ${clock(seconds(totalBeats))}`;
     if (player.isPlaying && score) {
-      const bar = Math.min(score.bars.length - 1, Math.floor(beat / score.barBeats));
+      const playedBar = Math.floor(beat / score.barBeats);
+      const bar = score.playbackBarMap ? score.playbackBarMap[Math.min(playedBar, score.playbackBarMap.length - 1)] : Math.min(score.bars.length - 1, playedBar);
       $('playback-status').textContent = `正在试听 · 第 ${bar + 1} / ${score.bars.length} 小节`;
       if ($('follow-pages').checked && barToPage[bar] !== pageIndex) showPage(barToPage[bar]);
     }
@@ -89,7 +91,7 @@
     const generation = ++playGeneration;
     $('score-play').setAttribute('aria-busy', 'true');
     $('play-label').textContent = '准备声音…';
-    try { await player.play(score.notes, { bpm: state.bpm, volume: .55, totalBeats: score.sourceTotalBeats }); }
+    try { await player.play(state.compiled?.playbackNotes || score.notes, { bpm: state.bpm, volume: .55, totalBeats: state.compiled?.totalBeats || score.sourceTotalBeats }); }
     catch (error) { message(error.message || '无法启动音频，请在新版浏览器中重试。'); }
     finally {
       if (generation === playGeneration) {
@@ -100,11 +102,15 @@
   }
 
   function controls() {
+    const authored = !!state.document;
+    for (const id of ['score-mode', 'score-meter', 'transpose', 'suggest-transpose']) $(id).disabled = authored;
     $('score-name').value = state.title;
     $('instrument-select').value = state.instrument;
-    document.querySelector('.workshop-intro .instrument-tag').textContent = `${state.instrument === '21C' ? '21' : '17'} 音 C 调 · ${state.mode === 'polyphonic' ? '多音转谱' : '单音转谱'}`;
+    document.querySelector('.workshop-intro .instrument-tag').textContent = `${state.instrument === '21C' ? '21' : '17'} 音 C 调 · ${authored ? '人工编配' : state.mode === 'polyphonic' ? '多音转谱' : '单音转谱'}`;
+    document.querySelector('.workshop-intro .intro-copy').textContent = authored ? '读谱、试听、收藏，保留完整声部与演奏标记。' : '导入一首 MIDI，把旋律与伴奏一起变成完整数字谱。';
+    document.querySelector('.guide-footnote').textContent = authored ? '声部按编配保留；同一拍上下堆叠的是和弦，波形向上箭头表示从低到高滑奏。试听按反复标记展开；有原图时可在谱面下方对照。' : '声部行是自动排版，不是左右手指法。节奏按十六分音符网格规整，三连音与复杂指法需人工校对。单音 MIDI 本身没有伴奏，切换模式不会凭空生成和声。';
     $('score-mode').value = state.mode;
-    $('mode-description').textContent = state.mode === 'polyphonic'
+    $('mode-description').textContent = authored ? '保留作者声部、和弦、反复和滑音。需要改音符或拍号，可打开“编辑副本”。' : state.mode === 'polyphonic'
       ? '保留所选音轨的和弦、伴奏与独立延音。上下声部对齐的音同时拨响；声部行用于排版，不代表左右手。'
       : '同一拍只保留最高音，重叠长音会截短。适合先练旋律；这不会自动识别主旋律。';
     $('score-bpm').value = state.bpm;
@@ -142,11 +148,30 @@
       }));
       $('track-select').value = state.trackId;
     } else $('example-select').value = state.exampleId;
+    $('export-json').hidden = !authored;
+    $('edit-authored').hidden = !state.authoredEntry;
+    if (state.authoredEntry) $('edit-authored').href = `composer.html?score=${encodeURIComponent(state.authoredEntry.id)}`;
+    $('original-score').hidden = !state.authoredEntry?.sourceUrl;
+    if (state.authoredEntry?.sourceUrl) {
+      $('original-image').src = state.authoredEntry.sourceUrl;
+      $('original-image').alt = `${state.title}用户提供原谱`;
+      $('original-link').href = state.authoredEntry.sourceUrl;
+    }
+    syncFavorite();
+  }
+  function favoriteId() { return state?.authoredEntry?.id || state?.catalogEntry?.id || null; }
+  function syncFavorite() {
+    const id = favoriteId(), button = $('favorite-score');
+    button.disabled = !id;
+    const active = !!id && favorites.has(id);
+    button.setAttribute('aria-pressed', String(active));
+    button.textContent = active ? '★ 已收藏' : '☆ 收藏';
+    button.title = id ? '收藏保存在当前浏览器，可在曲库查看' : '曲库中的已发布曲谱可以收藏；自制谱请在制谱页保存草稿';
   }
   function warnings() {
     const list = [...new Set([...(state.warnings || []), ...score.warnings.filter((item) => !item.includes('原音高已保留并标注'))])];
     if (score.stats.unplayable) list.unshift(`${score.stats.unplayable} 个音符在当前琴型上无法直接弹奏，已标为橙色。试听保留这些原始音高；请尝试移调或人工改编。`);
-    if (state.mode === 'polyphonic' && score.stats.maxPolyphony > 2) list.unshift(`最多 ${score.stats.maxPolyphony} 个音同时持续，已全部保留。琴键音域可覆盖不等于双拇指能原样弹奏，密集和弦可能需要滑音或人工改编。`);
+    if (!state.document && state.mode === 'polyphonic' && score.stats.maxPolyphony > 2) list.unshift(`最多 ${score.stats.maxPolyphony} 个音同时持续，已全部保留。琴键音域可覆盖不等于双拇指能原样弹奏，密集和弦可能需要滑音或人工改编。`);
     $('score-warnings').replaceChildren();
     if (!list.length) {
       const ok = document.createElement('p'); ok.className = 'all-playable';
@@ -162,6 +187,7 @@
   }
   function render() {
     renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: `${state.subtitle} · ${state.mode === 'polyphonic' ? '保留多音' : '单音简化'}` };
+    if (state.document) renderOptions.credits = state.document.credits;
     if (state.catalogEntry) {
       const entry = state.catalogEntry;
       const transposition = state.transpose === 0 ? '保留原调' : `整体${state.transpose > 0 ? '升' : '降'} ${Math.abs(state.transpose)} 个半音`;
@@ -179,15 +205,24 @@
     }));
     showPage(0);
     $('score-summary').textContent = `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
-    $('full-score-info').textContent = `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
+    $('full-score-info').textContent = state.document ? `完整编配 · 谱面 ${score.bars.length} 小节 / ${pages.length} 页 · 含反复试听 ${score.playbackBarMap.length} 小节` : `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
     $('playback-status').textContent = '准备好，从第一小节开始。';
-    controls(); warnings(); progress({ beat: 0, totalBeats: score.sourceTotalBeats });
+    controls(); warnings(); progress({ beat: 0, totalBeats: state.compiled?.totalBeats || score.sourceTotalBeats });
     document.title = `${state.title} · 卡林巴数字谱 · 拍间`;
   }
   function apply(next) {
     const candidate = { ...state, ...next };
     try {
-      const result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25, totalBeats: candidate.totalBeats, mode: candidate.mode });
+      let result;
+      if (candidate.document) {
+        candidate.compiled = ScoreDocument.compile({ ...candidate.document, title: candidate.title, bpm: candidate.bpm, instrument: candidate.instrument });
+        candidate.document = candidate.compiled.document;
+        candidate.notes = candidate.compiled.score.notes;
+        result = candidate.compiled.score;
+      } else {
+        candidate.compiled = null;
+        result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25, totalBeats: candidate.totalBeats, mode: candidate.mode });
+      }
       stop(); state = candidate; score = result; scoreRevision++; render(); message(''); return true;
     } catch (error) {
       if (state) controls();
@@ -201,7 +236,7 @@
     importGeneration++;
     $('upload-zone').removeAttribute('aria-busy');
     $('score-preview').removeAttribute('aria-busy');
-    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', mode: data.mode || state?.mode || 'polyphonic', tracks: null, trackId: null, exampleId: data.id, catalogEntry: null, warnings: [] });
+    apply({ document: null, authoredEntry: null, title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', mode: data.mode || state?.mode || 'polyphonic', tracks: null, trackId: null, exampleId: data.id, catalogEntry: null, warnings: [] });
   }
   function importMidiData(data, name, catalogEntry = null) {
     const midi = KalimbaMidi.parseMidi(data);
@@ -217,7 +252,7 @@
     const source = catalogEntry
       ? `内置曲库 · ${catalogEntry.title} · ${catalogEntry.composer} · ${catalogEntry.scope || '来源发布的完整 MIDI 文件'}`
       : `已导入完整文件：${name} · ${tracks.length} 条可选音轨`;
-    if (apply({ title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source, sourceUrl: catalogEntry?.sourceUrl || null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, mode, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, catalogEntry, warnings: importWarnings })) {
+    if (apply({ document: null, authoredEntry: null, title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source, sourceUrl: catalogEntry?.sourceUrl || null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, mode, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, catalogEntry, warnings: importWarnings })) {
       message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${merge ? '已合并全部非鼓声音轨，可以切换单条音轨练习。' : '可以试听核对，再导出全谱。'}`, 'success');
     }
   }
@@ -227,7 +262,15 @@
     $('upload-zone').removeAttribute('aria-busy');
     $('score-preview').removeAttribute('aria-busy');
     if (file.size > 20 * 1024 * 1024) { message('文件超过 20 MB，未生成部分乐谱。可以导出完整旋律音轨、减少无关伴奏后重新导入。'); return; }
-    if (!/\.midi?$/i.test(file.name)) { message('请选择 .mid 或 .midi 文件。MP3、WAV 等录音不能直接作为 MIDI 转谱。'); return; }
+    if (/\.json$/i.test(file.name)) {
+      try {
+        if (file.size > 2 * 1024 * 1024) throw new Error('JSON 曲谱超过 2 MB，请检查文件。');
+        const data = JSON.parse(await file.text());
+        if (generation === importGeneration) openDocument(data);
+      } catch (error) { if (generation === importGeneration) message(error.message || '无法读取 JSON 曲谱。'); }
+      return;
+    }
+    if (!/\.midi?$/i.test(file.name)) { message('请选择 MIDI 或拍间制谱导出的 JSON 文件。'); return; }
     $('upload-zone').setAttribute('aria-busy', 'true');
     message('正在读取 MIDI…', 'success');
     try {
@@ -236,6 +279,24 @@
       importMidiData(data, file.name);
     } catch (error) { if (generation === importGeneration) message(error.message || '读取失败，请检查 MIDI 文件是否完整。'); }
     finally { if (generation === importGeneration) $('upload-zone').removeAttribute('aria-busy'); }
+  }
+  function openDocument(data, entry = null) {
+    const compiled = ScoreDocument.compile(data), doc = compiled.document;
+    if (apply({ document: doc, authoredEntry: entry, title: doc.title, bpm: doc.bpm, meter: doc.meter, instrument: doc.instrument, mode: 'polyphonic', transpose: 0, notes: compiled.score.notes, totalBeats: compiled.score.totalBeats, tracks: null, trackId: null, exampleId: null, catalogEntry: null, subtitle: '人工编配 · 双声部与技法按谱保留', source: entry?.attribution || '导入的拍间制谱文件', sourceUrl: entry?.sourceUrl || null, warnings: doc.description ? [doc.description] : [] })) message('已载入完整编配，试听会执行反复与向上滑奏。', 'success');
+  }
+  async function openPublishedScore(id) {
+    const generation = ++importGeneration;
+    const entry = globalThis.CuratedScores?.entries?.find(e => e.id === id);
+    if (!entry || !/^scores\/[a-z0-9-]+\.json$/.test(entry.file) || (entry.sourceUrl && !/^scores\/[a-z0-9-]+\.(jpg|png|webp)$/.test(entry.sourceUrl))) { message('没有找到这份已发布曲谱，请返回曲库选择。'); return; }
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
+    $('score-preview').setAttribute('aria-busy', 'true');
+    try {
+      const response = await fetch(entry.file, { signal: controller.signal });
+      if (!response.ok) throw new Error('曲谱暂时无法加载，请刷新重试。');
+      const data = await response.json();
+      if (generation === importGeneration) openDocument(data, entry);
+    } catch (error) { if (generation === importGeneration) message(error.name === 'AbortError' ? '曲谱加载超时，请重试。' : error.message); }
+    finally { clearTimeout(timeout); if (generation === importGeneration) $('score-preview').removeAttribute('aria-busy'); }
   }
   async function openCatalogPiece(id) {
     const generation = ++importGeneration;
@@ -380,9 +441,18 @@
   $('export-svg').addEventListener('click', () => exportAll('svg'));
   $('export-png').addEventListener('click', () => exportAll('png'));
   $('print-score').addEventListener('click', printScore);
+  $('export-json').addEventListener('click', () => { if (state.document) download(new Blob([JSON.stringify(state.document, null, 2)], { type: 'application/json' }), filename('json')); });
+  $('favorite-score').addEventListener('click', () => {
+    const id = favoriteId(); if (!id) return;
+    const result = favorites.toggle(id);
+    syncFavorite();
+    message(result.ok ? (result.favorite ? '已收藏，可在“找曲谱 → 只看收藏”打开。收藏保存在当前浏览器。' : '已取消收藏。') : result.error, result.ok ? 'success' : 'error');
+  });
+  favorites.subscribe(syncFavorite);
   window.addEventListener('pagehide', stop);
   const query = new URLSearchParams(location.search);
   const initialExample = query.get('example');
   example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'ode-duet');
-  if (query.has('piece')) openCatalogPiece(query.get('piece'));
+  if (query.has('score')) openPublishedScore(query.get('score'));
+  else if (query.has('piece')) openCatalogPiece(query.get('piece'));
 })();

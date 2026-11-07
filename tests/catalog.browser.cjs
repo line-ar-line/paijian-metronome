@@ -7,9 +7,14 @@ const { tmpdir } = require('node:os');
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const vm = require('node:vm');
 
 const project = path.resolve(__dirname, '..');
 const catalog = JSON.parse(fs.readFileSync(path.join(project, 'catalog/index.json'), 'utf8'));
+const curatedScope = {};
+if (fs.existsSync(path.join(project, 'curated/index.js'))) vm.runInNewContext(fs.readFileSync(path.join(project, 'curated/index.js'), 'utf8'), curatedScope);
+const allEntries = [...(curatedScope.CuratedScores?.entries || []), ...catalog.entries];
+const totalPages = Math.ceil(allEntries.length / 24);
 const prefix = '/paijian-metronome/';
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
@@ -73,24 +78,24 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
       });
     });
     await page.goto(base + 'library.html');
-    assert.equal(await page.locator('#catalog-total').innerText(), '1,000');
+    assert.equal(await page.locator('#catalog-total').innerText(), allEntries.length.toLocaleString('zh-CN'));
     assert.equal(await page.locator('.catalog-piece').count(), 24);
-    assert.equal(await page.locator('#catalog-page-select option').count(), 42);
+    assert.equal(await page.locator('#catalog-page-select option').count(), totalPages);
     assert.equal(await page.locator('#catalog-previous').isDisabled(), true);
     assert.equal(await page.locator('.catalog-results').getAttribute('aria-busy'), 'false');
     assert.equal(midiRequests.length, 0, 'browsing the catalog must not download 1,000 MIDI files');
     await page.screenshot({ path: path.join(screenshots, 'library-desktop.png'), fullPage: true });
     const firstId = await page.locator('.catalog-piece').first().getAttribute('data-piece-id');
-    assert.equal(firstId, catalog.entries[0].id);
+    assert.equal(firstId, allEntries[0].id);
     await page.locator('#catalog-next').click();
     assert.equal(await page.locator('#catalog-page-select').inputValue(), '2');
-    assert.equal(await page.locator('.catalog-piece').first().getAttribute('data-piece-id'), catalog.entries[24].id);
+    assert.equal(await page.locator('.catalog-piece').first().getAttribute('data-piece-id'), allEntries[24].id);
     assert.equal(new URL(page.url()).searchParams.get('page'), '2');
     await page.reload();
     assert.equal(await page.locator('#catalog-page-select').inputValue(), '2');
-    await page.locator('#catalog-page-select').selectOption('42');
-    assert.equal(await page.locator('.catalog-piece').count(), 16);
-    assert.equal(await page.locator('.catalog-piece').last().getAttribute('data-piece-id'), catalog.entries.at(-1).id);
+    await page.locator('#catalog-page-select').selectOption(String(totalPages));
+    assert.equal(await page.locator('.catalog-piece').count(), allEntries.length % 24 || 24);
+    assert.equal(await page.locator('.catalog-piece').last().getAttribute('data-piece-id'), allEntries.at(-1).id);
     assert.equal(await page.locator('#catalog-next').isDisabled(), true);
 
     await page.locator('#catalog-query').fill('no-such-piece-不存在-901223');
@@ -104,11 +109,11 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
     assert.ok((await page.locator('.catalog-piece-composer').allTextContents()).every(value => value === composer));
     assert.equal(new URL(page.url()).searchParams.get('composer'), composer);
     await page.locator('#catalog-reset').click();
-    const instrument = catalog.entries[0].instrument;
+    const instrument = allEntries[0].instrument;
     await page.locator('#catalog-instrument').selectOption(instrument);
     const instrumentIds = await page.locator('.catalog-piece').evaluateAll(nodes => nodes.map(node => node.dataset.pieceId));
     assert.ok(instrumentIds.length > 0);
-    assert.ok(instrumentIds.every(id => catalog.entries.find(entry => entry.id === id).instrument === instrument));
+    assert.ok(instrumentIds.every(id => allEntries.find(entry => entry.id === id).instrument === instrument));
     await page.locator('#catalog-reset').click();
     if (/bach/i.test(composer)) {
       await page.locator('#catalog-query').fill('巴赫');
@@ -119,10 +124,11 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
     await page.locator('#catalog-texture').selectOption('polyphonic');
     const polyphonicIds = await page.locator('.catalog-piece').evaluateAll(nodes => nodes.map(node => node.dataset.pieceId));
     assert.ok(polyphonicIds.length > 0);
-    assert.ok(polyphonicIds.every(id => catalog.entries.find(entry => entry.id === id).maxPolyphony > 1));
+    assert.ok(polyphonicIds.every(id => allEntries.find(entry => entry.id === id).maxPolyphony > 1));
     await page.locator('#catalog-reset').click();
     await page.locator('#catalog-sort').selectOption('coverage');
-    const best = catalog.entries.map((entry, index) => ({ entry, index })).sort((a, b) => b.entry.playable17Count / b.entry.notes - a.entry.playable17Count / a.entry.notes || a.index - b.index)[0].entry;
+    const coverage = entry => entry.notes > 0 && Number.isInteger(entry.playable17Count) ? entry.playable17Count / entry.notes : -1;
+    const best = allEntries.map((entry, index) => ({ entry, index })).sort((a, b) => coverage(b.entry) - coverage(a.entry) || a.index - b.index)[0].entry;
     assert.equal(await page.locator('.catalog-piece').first().getAttribute('data-piece-id'), best.id);
     await page.locator('#catalog-reset').click();
     for (const width of [320, 390, 768]) {
@@ -252,7 +258,7 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
     assert.match(await page.locator('#workshop-message').innerText(), /无法加载曲目索引/);
     await page.unroute('**/catalog/index.js');
     assert.deepEqual(errors, []);
-    console.log(`Verified 1,000-entry catalog under ${prefix}, search/filter/sort, 42 pages, source-hash download, complete ${selected.id} deep link, attribution, error recovery, and 320/390/768px layouts.`);
+    console.log(`Verified ${allEntries.length}-entry catalog under ${prefix}, search/filter/sort, ${totalPages} pages, source-hash download, complete ${selected.id} deep link, attribution, error recovery, and 320/390/768px layouts.`);
     console.log(`Catalog QA screenshots retained at ${screenshots}`);
   } finally {
     await browser.close();
