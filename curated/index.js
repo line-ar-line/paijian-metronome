@@ -18,6 +18,58 @@ globalThis.CuratedScores = {
       "playable17Count": 189,
       "style": "双声部 · 滑音",
       "attribution": "用户提供原图（来音制谱app水印），作者未标注；人工录入保留全部谱面。"
+    },
+    {
+      "id": "xu",
+      "title": "嘘",
+      "format": "score-images",
+      "sourceUrl": "scores/xu-page-1.jpg",
+      "sourceArchive": "scores/xu-originals.zip",
+      "sourcePages": [
+        {
+          "file": "scores/xu-page-1.jpg",
+          "label": "正文 · 第 1–28 小节",
+          "width": 1080,
+          "height": 1411,
+          "sha256": "bd14e084a84ae16fe78943a00cbe571a66e792eceb55d7d47098acfd9a7f8a71"
+        },
+        {
+          "file": "scores/xu-page-2.jpg",
+          "label": "正文 · 第 29–60 小节",
+          "width": 1080,
+          "height": 1430,
+          "sha256": "46e41b615d82572ae837e4f96f4398b5fc760c75d6f241542c61da03237f7565"
+        },
+        {
+          "file": "scores/xu-interlude.jpg",
+          "label": "手写间奏",
+          "width": 1440,
+          "height": 661,
+          "sha256": "11fcd3e07ef1cb10213c3f0d077c9380fbc6f7a076dc4b70819839cd7f0bd176"
+        },
+        {
+          "file": "scores/xu-page-3.jpg",
+          "label": "正文 · 第 61–73 小节",
+          "width": 1080,
+          "height": 1086,
+          "sha256": "36fa689dc0a922949d587348b85490f698c865447ca20d69fe8f40c0f71b4379"
+        }
+      ],
+      "license": "用户提供原谱",
+      "composer": "原图未标注作曲者",
+      "instrument": "17音C调卡林巴",
+      "key": "1=C",
+      "meter": [
+        3,
+        4
+      ],
+      "printedBars": 73,
+      "texture": "polyphonic",
+      "scope": "印刷正文 73 小节 + 手写间奏 · 4 张原图",
+      "style": "旋律与伴奏 · 原图谱",
+      "attribution": "原图水印：拇指琴呆小小；手写间奏未署名。保留用户提供的全部图片、水印和标注。",
+      "readingNote": "第 2 张正文在第 32 小节处有手写“间奏”提示，手写间奏见第 3 张原图。正文第 32–33 小节还有延音连线，间奏的节奏及接回方式尚需核对；四张原图均未拆分或改动。",
+      "playbackNote": "这是原图阅读版。手写间奏未完整标出时值，原谱也未标速度；暂不提供自动试听或可编辑数字谱。"
     }
   ],
   "documents": {

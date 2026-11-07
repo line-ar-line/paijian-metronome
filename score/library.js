@@ -58,19 +58,25 @@
     const title = String(entry.title || '未命名来源文件');
     const composer = String(entry.composer || '作曲家未标注');
     const instrument = String(entry.instrument || '编制未标注');
-    const notes = finiteCount(entry.notes);
-    const playable = finiteCount(entry.playable17Count);
+    const format = ['paijian-score', 'score-images'].includes(entry.format) ? entry.format : 'midi';
+    const images = format === 'score-images';
+    const notes = images ? null : finiteCount(entry.notes);
+    const playable = images ? null : finiteCount(entry.playable17Count);
     const ratio = notes > 0 && playable !== null && playable <= notes ? playable / notes : null;
     const composerText = normalized(composer);
     const aliases = Object.entries(composerAliases).filter(([key]) => composerText.includes(key)).map(([, value]) => value).join(' ');
     const file = String(entry.file || '');
-    const format = entry.format === 'paijian-score' ? 'paijian-score' : 'midi';
+    const maxPolyphony = images ? null : finiteCount(entry.maxPolyphony);
     return {
       ...entry, index, title, composer, instrument, notes, playable, ratio, format,
-      bars: finiteCount(entry.bars),
-      maxPolyphony: finiteCount(entry.maxPolyphony),
+      bars: images ? null : finiteCount(entry.bars),
+      printedBars: finiteCount(entry.printedBars),
+      maxPolyphony,
+      texture: images ? (['single', 'polyphonic'].includes(entry.texture) ? entry.texture : null) : maxPolyphony > 1 ? 'polyphonic' : maxPolyphony === 1 ? 'single' : null,
+      sourcePages: Array.isArray(entry.sourcePages) ? entry.sourcePages.filter(page => page && typeof page.file === 'string' && /^scores\/[A-Za-z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(page.file)) : [],
+      sourceArchive: typeof entry.sourceArchive === 'string' && /^scores\/[A-Za-z0-9_-]+\.zip$/.test(entry.sourceArchive) ? entry.sourceArchive : null,
       searchText: normalized([title, composer, aliases, instrument, entry.style || '', entry.id].join(' ')),
-      file: (format === 'paijian-score' ? /^scores\/[A-Za-z0-9_-]+\.json$/ : /^catalog\/midi\/[A-Za-z0-9_-]+\.midi?$/).test(file) ? file : null,
+      file: !images && (format === 'paijian-score' ? /^scores\/[A-Za-z0-9_-]+\.json$/ : /^catalog\/midi\/[A-Za-z0-9_-]+\.midi?$/).test(file) ? file : null,
       sourceUrl: sourceUrl(entry.sourceUrl),
       licenseUrl: publicUrl(entry.licenseUrl),
     };
@@ -93,17 +99,20 @@
     const card = element('article', 'catalog-piece');
     card.dataset.pieceId = entry.id;
     const heading = element('div', 'catalog-piece-top');
-    const polyphonic = entry.maxPolyphony > 1;
+    const images = entry.format === 'score-images';
+    const polyphonic = entry.texture === 'polyphonic';
     heading.append(element('span', 'catalog-piece-number', `NO. ${String(entry.index + 1).padStart(4, '0')}`));
-    const texture = entry.maxPolyphony === null || entry.maxPolyphony === 0 ? '多音情况未统计' : polyphonic ? `最多 ${entry.maxPolyphony} 音同时持续` : '单音旋律';
+    const texture = images ? (polyphonic ? '多音原谱' : entry.texture === 'single' ? '单音原谱' : '原图曲谱') : entry.maxPolyphony === null || entry.maxPolyphony === 0 ? '多音情况未统计' : polyphonic ? `最多 ${entry.maxPolyphony} 音同时持续` : '单音旋律';
     heading.append(element('span', `catalog-piece-badge${polyphonic ? ' polyphonic' : ''}`, texture));
     const title = element('h3');
     const titleLink = element('a', 'catalog-piece-title', entry.title);
-    titleLink.href = `./score.html?${entry.format === 'paijian-score' ? 'score' : 'piece'}=${encodeURIComponent(entry.id)}`;
+    titleLink.href = images ? `./original.html?score=${encodeURIComponent(entry.id)}` : `./score.html?${entry.format === 'paijian-score' ? 'score' : 'piece'}=${encodeURIComponent(entry.id)}`;
     title.append(titleLink);
     const details = element('dl', 'catalog-piece-details');
     addDetail(details, '原编制', entry.instrument);
-    const extent = `${entry.bars === null ? '小节数未统计' : `${number(entry.bars)} 小节`} · ${entry.notes === null ? '音符数未统计' : `${number(entry.notes)} 音符`}`;
+    const extent = images
+      ? `${number(entry.sourcePages.length)} 张原图${entry.printedBars === null ? '' : ` · ${number(entry.printedBars)} 小节正文`}`
+      : `${entry.bars === null ? '小节数未统计' : `${number(entry.bars)} 小节`} · ${entry.notes === null ? '音符数未统计' : `${number(entry.notes)} 音符`}`;
     addDetail(details, '源文件', extent, 'catalog-range');
     if (entry.style) addDetail(details, '风格', String(entry.style));
     if (entry.scope) addDetail(details, '范围', String(entry.scope));
@@ -120,9 +129,9 @@
     track.append(fill); coverage.append(coverageTop, track);
 
     const actions = element('div', 'catalog-piece-actions');
-    const open = element('a', 'catalog-open', '打开数字谱 →');
+    const open = element('a', 'catalog-open', images ? '打开原谱 →' : '打开数字谱 →');
     open.href = titleLink.href;
-    open.setAttribute('aria-label', `打开《${entry.title}》数字谱`);
+    open.setAttribute('aria-label', `打开《${entry.title}》${images ? '原谱' : '数字谱'}`);
     actions.append(open);
     const favorite = element('button', 'catalog-favorite', favorites?.has(entry.id) ? '★' : '☆');
     favorite.type = 'button';
@@ -132,19 +141,20 @@
     favorite.title = favorites?.has(entry.id) ? '取消收藏' : '收藏曲谱';
     favorite.disabled = !favorites;
     actions.append(favorite);
-    if (entry.file) {
-      const kind = entry.format === 'paijian-score' ? 'JSON' : 'MIDI';
+    const downloadFile = images ? entry.sourceArchive : entry.file;
+    if (downloadFile) {
+      const kind = images ? '原图 ZIP' : entry.format === 'paijian-score' ? 'JSON' : 'MIDI';
       const midi = element('a', 'catalog-midi', `${kind} ↓`);
-      midi.href = entry.file;
-      midi.download = entry.file.slice(entry.file.lastIndexOf('/') + 1);
-      midi.setAttribute('aria-label', `下载《${entry.title}》${kind === 'JSON' ? '可编辑曲谱 JSON' : '完整来源 MIDI'}`);
+      midi.href = downloadFile;
+      midi.download = downloadFile.slice(downloadFile.lastIndexOf('/') + 1);
+      midi.setAttribute('aria-label', `下载《${entry.title}》${images ? '全部原图 ZIP' : kind === 'JSON' ? '可编辑曲谱 JSON' : '完整来源 MIDI'}`);
       if (Number.isFinite(entry.bytes)) midi.title = `下载源文件 · ${Math.max(1, Math.round(entry.bytes / 1024))} KB`;
       actions.append(midi);
     }
     const source = element('div', 'catalog-piece-source');
-    if (entry.sourceUrl) {
-      const original = element('a', '', entry.format === 'paijian-score' ? '查看原图 ↗' : '来源 / 原谱 ↗');
-      original.href = entry.sourceUrl; original.target = '_blank'; original.rel = 'noopener noreferrer';
+    if (images || entry.sourceUrl) {
+      const original = element('a', '', images ? '查看全部原图 ↗' : entry.format === 'paijian-score' ? '查看原图 ↗' : '来源 / 原谱 ↗');
+      original.href = images ? titleLink.href : entry.sourceUrl; original.target = '_blank'; original.rel = 'noopener noreferrer';
       if (entry.attribution) original.title = String(entry.attribution);
       source.append(original);
     }
@@ -153,7 +163,9 @@
       if (entry.licenseUrl) { license.href = entry.licenseUrl; license.target = '_blank'; license.rel = 'noopener noreferrer'; }
       source.append(license);
     }
-    card.append(heading, title, element('p', 'catalog-piece-composer', entry.composer), details, coverage, actions);
+    card.append(heading, title, element('p', 'catalog-piece-composer', entry.composer), details);
+    if (!images) card.append(coverage);
+    card.append(actions);
     const attribution = entry.maintainer || entry.attribution;
     if (attribution) card.append(element('p', 'catalog-piece-attribution', `${entry.maintainer ? '编谱署名' : '署名'}：${String(attribution)}`));
     card.append(source);
@@ -189,7 +201,7 @@
       terms.every(term => entry.searchText.includes(term)) &&
       (!state.composer || entry.composer === state.composer) &&
       (!state.instrument || entry.instrument === state.instrument) &&
-      (!state.texture || (state.texture === 'single' ? entry.maxPolyphony === 1 : entry.maxPolyphony > 1)) &&
+      (!state.texture || entry.texture === state.texture) &&
       (!state.favorites || favorites?.has(entry.id))
     ));
     if (state.sort === 'title') matched.sort((a, b) => collator.compare(a.title, b.title) || a.index - b.index);

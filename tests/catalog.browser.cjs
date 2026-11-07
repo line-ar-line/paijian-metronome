@@ -124,7 +124,10 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
     await page.locator('#catalog-texture').selectOption('polyphonic');
     const polyphonicIds = await page.locator('.catalog-piece').evaluateAll(nodes => nodes.map(node => node.dataset.pieceId));
     assert.ok(polyphonicIds.length > 0);
-    assert.ok(polyphonicIds.every(id => allEntries.find(entry => entry.id === id).maxPolyphony > 1));
+    assert.ok(polyphonicIds.every(id => {
+      const entry = allEntries.find(entry => entry.id === id);
+      return entry.maxPolyphony > 1 || entry.texture === 'polyphonic';
+    }));
     await page.locator('#catalog-reset').click();
     await page.locator('#catalog-sort').selectOption('coverage');
     const coverage = entry => entry.notes > 0 && Number.isInteger(entry.playable17Count) ? entry.playable17Count / entry.notes : -1;
