@@ -202,3 +202,77 @@ test('oversize-file errors reject the whole conversion and never suggest excerpt
     });
   }
 });
+
+test('polyphonic mode preserves simultaneous notes and overlapping unequal durations', () => {
+  const input = [n(72, 0, 0.5), n(60, 0, 4), n(67, 0, 2), n(74, 0.5, 1), n(76, 1.5, 1)];
+  const score = buildScore(input, { mode: 'polyphonic' });
+  assert.equal(score.notes.length, input.length);
+  assert.equal(score.stats.outputNotes, input.length);
+  assert.equal(score.stats.removedPolyphony, 0);
+  assert.equal(score.stats.clippedOverlaps, 0);
+  assert.equal(score.stats.maxPolyphony, 3);
+  assert.equal(score.stats.voiceCount, 3);
+  for (let index = 0; index < input.length; index++) {
+    const output = score.notes.find(note => note.sourceId === `n${index}`);
+    assert.equal(output.midi, input[index].midi);
+    assert.equal(output.start, input[index].start);
+    assert.equal(output.duration, input[index].duration);
+    const segments = score.bars.flatMap(bar => bar.tokens).filter(token => token.sourceId === output.sourceId);
+    assert.equal(segments.reduce((sum, token) => sum + token.duration, 0), output.duration);
+    assert.ok(segments.every(token => token.voiceIndex === output.voiceIndex));
+  }
+  assert.equal(score.notes.find(note => note.sourceId === 'n1').duration, 4);
+});
+
+test('polyphonic lane assignment keeps a simple high melody and held bass stable', () => {
+  const score = buildScore([n(76, 0, 0.5), n(48, 0, 2), n(77, 0.5, 0.5), n(79, 1, 1), n(79, 2, 1), n(50, 2, 2)], { mode: 'polyphonic' });
+  assert.ok(score.notes.filter(note => note.midi > 70).every(note => note.voiceIndex === 0));
+  assert.ok(score.notes.filter(note => note.midi < 60).every(note => note.voiceIndex === 1));
+  assert.equal(score.stats.voiceCount, 2);
+  for (const bar of score.bars) for (const lane of bar.voices) {
+    assert.equal(lane.tokens.reduce((sum, token) => sum + token.duration, 0), bar.duration);
+    for (let i = 1; i < lane.tokens.length; i++) assert.equal(lane.tokens[i].start, lane.tokens[i - 1].start + lane.tokens[i - 1].duration);
+  }
+});
+
+test('polyphonic independent rests and cross-bar ties preserve every source note', () => {
+  const score = buildScore([n(72, 1, 0.5), n(60, 1, 8), n(74, 5, 1)], { mode: 'polyphonic', totalBeats: 12 });
+  const bass = score.notes.find(note => note.midi === 60);
+  const tokens = score.bars.flatMap(bar => bar.tokens).filter(token => token.sourceId === bass.sourceId);
+  assert.equal(tokens.reduce((sum, token) => sum + token.duration, 0), 8);
+  assert.equal(tokens[0].tieIn, false);
+  assert.equal(tokens[0].tieOut, true);
+  assert.equal(tokens.at(-1).tieIn, true);
+  assert.equal(tokens.at(-1).tieOut, false);
+  assert.ok(score.bars[0].voices.every(lane => lane.tokens[0].midi === null));
+  assert.equal(score.totalBeats, 12);
+  assert.equal(score.notes.length, 3);
+});
+
+test('identical source pitches remain distinct simultaneous voices', () => {
+  const score = buildScore([n(60), n(60), n(60)], { mode: 'polyphonic' });
+  assert.equal(score.notes.length, 3);
+  assert.deepEqual(new Set(score.notes.map(note => note.sourceId)), new Set(['n0', 'n1', 'n2']));
+  assert.equal(new Set(score.notes.map(note => note.voiceIndex)).size, 3);
+  assert.equal(score.stats.maxPolyphony, 3);
+});
+
+test('polyphonic mode retains a complete 12000-note piece beyond old source limits', () => {
+  const source = Array.from({ length: 12000 }, (_, index) => n(60, index * 0.25, 0.25));
+  const score = buildScore(source, { mode: 'polyphonic' });
+  assert.equal(score.notes.length, 12000);
+  assert.equal(score.stats.removedPolyphony, 0);
+  assert.equal(score.stats.voiceCount, 1);
+  assert.equal(score.bars.length, 750);
+  assert.equal(score.sourceTotalBeats, 3000);
+  assert.equal(score.notes.at(-1).sourceId, 'n11999');
+});
+
+test('unreasonable simultaneous-voice counts reject the entire polyphonic file', () => {
+  const accepted = buildScore(Array.from({ length: LIMITS.maxVoices }, () => n(60)), { mode: 'polyphonic' });
+  assert.equal(accepted.notes.length, LIMITS.maxVoices);
+  assert.equal(accepted.stats.maxPolyphony, LIMITS.maxVoices);
+  assert.throws(() => buildScore(Array.from({ length: LIMITS.maxVoices + 1 }, () => n(60)), { mode: 'polyphonic' }), /拒绝转换整个文件，不省略任何音符/);
+  assert.throws(() => buildScore([n(60)], { mode: 'unknown' }), /模式/);
+  assert.equal(buildScore([n(60), n(67)]).notes.length, 1, 'legacy default remains melody mode');
+});

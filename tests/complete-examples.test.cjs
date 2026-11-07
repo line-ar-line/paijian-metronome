@@ -39,6 +39,24 @@ test('downloadable example MIDI files preserve complete built-in arrangements', 
     const expected = example.notes.map(({ midi, start, duration }) => ({ midi, start, duration }));
     const actual = midi.tracks[0].notes.map(({ midi, start, duration }) => ({ midi, start, duration }));
     assert.deepEqual(actual, expected);
-    assert.equal(midi.totalBeats, example.notes.at(-1).start + example.notes.at(-1).duration);
+    assert.equal(midi.totalBeats, Math.max(...example.notes.map(note => note.start + note.duration)));
   }
+});
+
+test('the complete Ode duet keeps all melody notes and adds a playable independent accompaniment', () => {
+  const melody = globalThis.ScoreExamples.find(example => example.id === 'ode');
+  const duet = globalThis.ScoreExamples.find(example => example.id === 'ode-duet');
+  const signature = note => [note.midi, note.start, note.duration];
+  assert.deepEqual(duet.notes.filter(note => note.velocity === .8).map(signature), melody.notes.map(signature));
+  assert.equal(duet.notes.length, 94);
+  const score = buildScore(duet.notes, { mode: 'polyphonic', instrument: '17C' });
+  assert.equal(score.stats.outputNotes, 94);
+  assert.equal(score.stats.unplayable, 0);
+  assert.equal(score.stats.maxPolyphony, 2);
+  assert.equal(score.bars.length, 16);
+  assert.equal(score.sourceTotalBeats, 64);
+  const bass = duet.notes.filter(note => note.velocity !== .8);
+  assert.deepEqual(bass.map(note => note.start), Array.from({ length: 32 }, (_, i) => i * 2));
+  assert.ok(bass.every(note => note.duration === 2));
+  assert.ok(!duet.notes.some((note, i) => duet.notes.some((other, j) => i !== j && note.midi === other.midi && note.start < other.start + other.duration && other.start < note.start + note.duration)), 'no two parts require the same tine at the same time');
 });

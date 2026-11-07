@@ -37,7 +37,20 @@
     [64, .5], [67, .5], [72, .5], [76, .5], [79, 1.5], [76, .5],
     [72, 3], [60],
   ];
+  // A new simple accompaniment, not the original SATB harmony. Every melody
+  // note above stays intact; two half-note bass tones cover each complete bar.
+  // D4 beneath the low G4 in bar 12 avoids doubling the same kalimba tine.
+  const bassPairs = [
+    [60, 67], [60, 67], [60, 67], [60, 67],
+    [60, 67], [60, 67], [60, 67], [67, 60],
+    [67, 60], [67, 60], [67, 62], [60, 62],
+    [60, 67], [60, 67], [60, 67], [67, 60],
+  ];
+  const odeDuet = sequence(ode).concat(bassPairs.flatMap((pair, bar) => pair.map((midi, half) => ({
+    midi, start: bar * 4 + half * 2, duration: 2, velocity: 0.56,
+  })))).sort((a, b) => a.start - b.start || a.midi - b.midi || a.duration - b.duration);
   root.ScoreExamples = [
+    { id: 'ode-duet', title: '欢乐颂 · 双音伴奏版', subtitle: '完整 16 小节主题 · 旋律＋简易伴奏', bpm: 76, meter: [4, 4], mode: 'polyphonic', notes: odeDuet, source: '完整旋律来自 Mutopia #528 公版赞美诗版本；拍间另编简易伴奏，共 16 小节、94 音。非原版四声部配器。', sourceUrl: 'https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=528' },
     { id: 'twinkle', title: '小星星', subtitle: '完整 12 小节旋律 · C 调单音编配', bpm: 80, meter: [4, 4], notes: sequence(twinkle), source: '公版传统旋律 · 完整 12 小节，含中段与再现' },
     { id: 'ode', title: '欢乐颂', subtitle: '完整 16 小节主题 · C 调单音编配', bpm: 88, meter: [4, 4], notes: sequence(ode), source: 'Mutopia #528 公版赞美诗版本 · 完整 16 小节高声部旋律，统一移至 C 调', sourceUrl: 'https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=528' },
     { id: 'higher', title: '指尖小练习', subtitle: '拍间原创 · 完整 4 小节练习', bpm: 72, meter: [4, 4], notes: sequence(higher), source: '拍间原创练习 · 完整 4 小节' },

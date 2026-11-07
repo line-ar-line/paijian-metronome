@@ -55,7 +55,7 @@ test('workshop imports, renders, plays, exports, and handles errors on desktop a
         },
       });
     });
-    await page.goto(pathToFileURL(path.join(project, 'score.html')).href);
+    await page.goto(pathToFileURL(path.join(project, 'score.html')).href + '?example=twinkle');
     assert.equal(await page.locator('#score-summary').innerText(), '42 个音符 · 12 小节');
     assert.equal(await page.locator('[data-measure]').count(), 12);
     assert.equal(await page.locator('.note-group.unplayable').count(), 0);
@@ -66,10 +66,11 @@ test('workshop imports, renders, plays, exports, and handles errors on desktop a
     assert.deepEqual(await page.evaluate(() => acceptanceScore.notes.map(({ midi, start, duration }) => ({ midi, start, duration }))), demo);
     assert.equal(await page.locator('#score-summary').innerText(), '42 个音符 · 12 小节');
 
+    await page.locator('#score-mode').selectOption('melody');
     const uploaded = syntheticMidi();
     await page.locator('#midi-file').setInputFiles({ name: 'browser-melody.mid', mimeType: 'audio/midi', buffer: uploaded });
     await page.waitForFunction(() => document.getElementById('source-label').textContent.includes('browser-melody.mid'));
-    assert.equal(await page.locator('#track-select option').count(), 2, 'drum tracks must be excluded');
+    assert.equal(await page.locator('#track-select option').count(), 3, 'two nondrum tracks plus the merge option');
     assert.equal(await page.locator('#track-select').inputValue(), '2:1', 'a named melody should be selected ahead of accompaniment');
     assert.equal(await page.locator('#score-bpm').inputValue(), '240');
     assert.equal(await page.locator('#score-meter').inputValue(), '3/4');
@@ -79,7 +80,7 @@ test('workshop imports, renders, plays, exports, and handles errors on desktop a
     assert.equal(await page.locator('.accidental').textContent(), '#');
     assert.ok(await page.locator('.tie').count() >= 1, 'cross-bar held notes must have a tie');
     assert.ok(await page.locator('.note-group title').filter({ hasText: '休止' }).count() >= 2);
-    assert.match(await page.locator('#score-warnings').innerText(), /2 个旋律音.*橙色/s);
+    assert.match(await page.locator('#score-warnings').innerText(), /2 个音符.*橙色/s);
     assert.equal(await page.locator('.note-group.unplayable .note-number').first().evaluate(node => getComputedStyle(node).fill), 'rgb(177, 99, 55)');
 
     // Real Web Audio and real progress frames: a rest must clear the old note.

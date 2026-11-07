@@ -10,7 +10,8 @@
   const START_DELAY = 0.04;
   const MAX_NOTES = 100000;
   const MAX_BEATS = 49152;
-  const MAX_POLYPHONY = 16;
+  const MAX_POLYPHONY = 64;
+  const NOTE_PEAK = 0.34 * (1 + 0.17 + 0.055);
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
   function midiFrequency(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
@@ -37,11 +38,13 @@
     // A malformed import must not allocate thousands of oscillators simultaneously.
     let activeEnds = [];
     let noteEnd = 0;
+    let peakPolyphony = 0;
     for (const entry of entries) {
-      activeEnds = activeEnds.filter(end => end > entry.note.start + 1e-9);
-      activeEnds.push(entry.note.start + entry.note.duration);
+      activeEnds = activeEnds.filter(end => end > entry.note.start);
+      if (entry.note.velocity > 0) activeEnds.push(entry.note.start + entry.note.duration);
       noteEnd = Math.max(noteEnd, entry.note.start + entry.note.duration);
       if (activeEnds.length > MAX_POLYPHONY) throw new Error(`同时发声的音符不能超过 ${MAX_POLYPHONY} 个，已达到本地合成器的资源上限并拒绝整首播放。可重新导出完整旋律音轨，去掉不需要的伴奏。`);
+      peakPolyphony = Math.max(peakPolyphony, activeEnds.length);
     }
     if (options.totalBeats !== undefined && (!Number.isFinite(options.totalBeats) || options.totalBeats < 0 || options.totalBeats > MAX_BEATS)) {
       throw new Error(`乐谱总时长必须是 0–${MAX_BEATS} 之间的有效拍数，超出本地资源范围时会拒绝整首播放。请检查源文件的时间设置；可重新导出完整旋律音轨，去掉不需要的伴奏。`);
@@ -50,6 +53,10 @@
       entries,
       bpm: clamp(bpm, 30, 240),
       volume: clamp(volume, 0, 1),
+      peakPolyphony,
+      // Fixed whole-score headroom avoids pumping when a sustained bass joins
+      // later notes. Even summed partial peaks stay below unity at volume 1.
+      voiceGain: Math.min(1, 0.85 / (Math.max(1, peakPolyphony) * NOTE_PEAK)),
       // A supplied length can extend trailing rests but may never cut off a note.
       totalBeats: Math.max(noteEnd, options.totalBeats || 0)
     };
@@ -58,6 +65,7 @@
   class ScorePlayer {
     constructor(callbacks = {}, dependencies = {}) {
       this.onNote = callbacks.onNote || (() => {});
+      this.onActiveNotes = callbacks.onActiveNotes || (() => {});
       this.onStateChange = callbacks.onStateChange || (() => {});
       this.onProgress = callbacks.onProgress || (() => {});
       this.onError = callbacks.onError || (() => {});
@@ -71,6 +79,8 @@
       this._voices = new Set();
       this._nextIndex = 0;
       this._visualIndex = 0;
+      this._activeVisualEntries = [];
+      this._lastVisualTime = -Infinity;
       this._startTime = 0;
       this._endTime = 0;
       this._lastTick = 0;
@@ -116,7 +126,9 @@
         this._lastTick = this._context.currentTime;
         this._nextIndex = 0;
         this._visualIndex = 0;
+        this._lastVisualTime = -Infinity;
         this._playing = true;
+        this.onActiveNotes({ notes: [], beat: 0 });
         this.onProgress({ beat: 0, totalBeats: this._score.totalBeats });
         this.onStateChange({ state: 'playing', reason: 'play' });
         if (generation !== this._generation || !this._playing) return false;
@@ -173,7 +185,7 @@
 
     _pluck(note, time, duration) {
       const frequency = midiFrequency(note.midi);
-      const amplitude = note.velocity * 0.34;
+      const amplitude = note.velocity * 0.34 * this._score.voiceGain;
       // One pluck per input note: a long/tied note keeps its original envelope.
       // Quiet, rapidly decaying upper partials add the metallic kalimba attack.
       this._partial(frequency, time, duration, amplitude, true);
@@ -226,18 +238,33 @@
 
     _flushVisuals() {
       if (!this._playing) return;
-      const audibleTime = this._audibleTime();
+      const generation = this._generation;
+      const audibleTime = Math.max(this._audibleTime(), this._lastVisualTime);
+      this._lastVisualTime = audibleTime;
       const secondsPerBeat = 60 / this._score.bpm;
-      let latest;
+      const stillSounding = entry => this._startTime + (entry.note.start + entry.note.duration) * secondsPerBeat > audibleTime;
+      const active = this._activeVisualEntries.filter(stillSounding);
+      const newlyStarted = [];
       while (this._visualIndex < this._score.entries.length) {
         const entry = this._score.entries[this._visualIndex];
         if (this._startTime + entry.note.start * secondsPerBeat > audibleTime) break;
-        latest = entry;
         this._visualIndex += 1;
+        // Rejoining a hidden tab must not flash notes that have already ended.
+        if (!stillSounding(entry)) continue;
+        newlyStarted.push(entry);
+        if (entry.note.velocity > 0) active.push(entry);
       }
-      // After a hidden tab returns, show its current note without replaying flashes.
-      if (latest) this.onNote({ index: latest.index, note: latest.note });
-      if (this._playing) this._reportProgress(audibleTime);
+      const changed = active.length !== this._activeVisualEntries.length || active.some((entry, index) => entry !== this._activeVisualEntries[index]);
+      this._activeVisualEntries = active;
+      for (const entry of newlyStarted) {
+        this.onNote({ index: entry.index, note: entry.note });
+        if (!this._playing || generation !== this._generation) return;
+      }
+      if (changed) {
+        const beat = clamp((audibleTime - this._startTime) / secondsPerBeat, 0, this._score.totalBeats);
+        this.onActiveNotes({ notes: active.map(entry => entry.note), beat });
+      }
+      if (this._playing && generation === this._generation) this._reportProgress(audibleTime);
     }
 
     _complete() {
@@ -311,6 +338,10 @@
         voice.oscillator.disconnect(); voice.gain.disconnect();
       }
       this._voices.clear();
+      if (this._activeVisualEntries.length) {
+        this._activeVisualEntries = [];
+        this.onActiveNotes({ notes: [], beat: this._lastProgress });
+      }
     }
   }
 

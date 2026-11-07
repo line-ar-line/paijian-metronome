@@ -153,7 +153,7 @@ test('ties continue across page boundaries without turning a page end into a pie
   const firstSvg = render(pages[0]);
   const lastSvg = render(pages[1]);
   assert.match(firstSvg, /class="tie"/);
-  assert.match(lastSvg, /class="tie" d="M52 /);
+  assert.match(lastSvg, /class="tie"[^>]* d="M52 /);
   assert.equal(firstSvg.includes('final-barline'), false);
   assert.equal((lastSvg.match(/final-barline/g) || []).length, 1);
   assert.equal(pages.flatMap(page => page.bars.flatMap(bar => bar.tokens)).filter(token => token.midi !== null).reduce((sum, token) => sum + token.duration, 0), 140);
@@ -177,4 +177,67 @@ test('explicit page options override metadata while retaining genuine piece-end 
   assert.match(svg, /第 2\/5 页 · 第 1–2 小节/);
   assert.match(svg, /全曲 10 小节/);
   assert.equal(svg.includes('final-barline'), false);
+});
+
+function sourcePosition(svg, sourceId) {
+  const group = svg.match(new RegExp(`<g class="note-group[^\"]*"[^>]*data-source-id="${sourceId}"[^>]*>([\\s\\S]*?)<\\/g>`));
+  assert.ok(group, `source ${sourceId} is present`);
+  const number = group[1].match(/<text x="([\d.]+)" y="([\d.]+)" class="note-number"/);
+  return { x: Number(number[1]), y: Number(number[2]) };
+}
+
+test('simultaneous unequal-duration notes align in time across separate voice lanes', () => {
+  const score = buildScore([n(72, 0, 0.5), n(60, 0, 4), n(74, 0.5, 0.5), n(76, 1, 1)], { mode: 'polyphonic' });
+  const svg = render(score);
+  const high = sourcePosition(svg, 'n0');
+  const bass = sourcePosition(svg, 'n1');
+  const next = sourcePosition(svg, 'n2');
+  const third = sourcePosition(svg, 'n3');
+  assert.equal(high.x, bass.x);
+  assert.ok(bass.y - high.y >= 70);
+  assert.equal(high.y, next.y);
+  assert.ok(Math.abs((third.x - high.x) - 2 * (next.x - high.x)) < 1e-8);
+  assert.match(svg, /data-voice-index="0"/);
+  assert.match(svg, /data-voice-index="1"/);
+  assert.match(svg, /声部为排版分组/);
+  assert.match(svg, /声部 1/);
+  assert.match(svg, /声部 2/);
+});
+
+test('polyphonic single-voice material keeps the established compact layout', () => {
+  const notes = [n(60, 0, 1), n(62, 1, 1), n(64, 2, 2)];
+  const melody = render(buildScore(notes));
+  const polyphonic = render(buildScore(notes, { mode: 'polyphonic' }));
+  assert.deepEqual(size(polyphonic), size(melody));
+  assert.deepEqual(numberLabels(polyphonic), numberLabels(melody));
+  assert.equal(polyphonic.includes('voice-label'), false);
+});
+
+test('polyphonic pagination accounts for voice heights and preserves all note sources and ties', () => {
+  const notes = [n(48, 0, 160), ...Array.from({ length: 160 }, (_, index) => n(72 + index % 2 * 2, index, 1))];
+  const score = buildScore(notes, { mode: 'polyphonic', instrument: '21C' });
+  const pages = paginate(score);
+  assert.ok(pages.length > 2);
+  assert.deepEqual(pages.flatMap(page => page.bars.map(bar => bar.index)), score.bars.map(bar => bar.index));
+  const sourceIds = new Set();
+  let endings = 0;
+  for (const page of pages) {
+    const svg = render(page);
+    assert.ok(size(svg).height <= 1380);
+    for (const match of svg.matchAll(/data-source-id="(n\d+)"/g)) sourceIds.add(match[1]);
+    endings += (svg.match(/final-barline/g) || []).length;
+  }
+  assert.equal(endings, 1);
+  assert.deepEqual(sourceIds, new Set(score.notes.map(note => note.sourceId)));
+  const bass = score.notes.find(note => note.midi === 48);
+  assert.equal(score.bars.flatMap(bar => bar.tokens).filter(token => token.sourceId === bass.sourceId).reduce((sum, token) => sum + token.duration, 0), 160);
+  assert.match(render(pages[1]), /class="tie"[^>]* d="M52 /);
+});
+
+test('inactive lanes receive aligned full-measure rests within the same system', () => {
+  const score = buildScore([n(72, 0, 1), n(60, 0, 1), n(74, 4, 1)], { mode: 'polyphonic', totalBeats: 8 });
+  const svg = render(score);
+  assert.match(svg, /data-token-id="silent-1-1-0"/);
+  assert.equal((svg.match(/class="voice-lane"/g) || []).length, 4);
+  assert.equal(score.notes.length, 3);
 });

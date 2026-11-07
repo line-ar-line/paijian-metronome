@@ -24,9 +24,9 @@ class Context {
 }
 function setup() {
   const context = new Context();
-  const notes = [], states = [], progress = [], errors = [];
-  const player = new ScorePlayer({ onNote: n => notes.push(n), onStateChange: s => states.push(s), onProgress: p => progress.push(p), onError: e => errors.push(e) }, { createContext: () => context, manualClock: true });
-  return { context, player, notes, states, progress, errors };
+  const notes = [], states = [], progress = [], errors = [], active = [];
+  const player = new ScorePlayer({ onNote: n => notes.push(n), onActiveNotes: n => active.push(n), onStateChange: s => states.push(s), onProgress: p => progress.push(p), onError: e => errors.push(e) }, { createContext: () => context, manualClock: true });
+  return { context, player, notes, states, progress, errors, active };
 }
 function advance(f, seconds, visuals = true, step = 0.025) {
   const end = f.context.currentTime + seconds;
@@ -60,7 +60,7 @@ test('invalid notes, unbounded time and pathological polyphony are rejected help
   assert.throws(() => normalizeScore([{ midi: 60, start: 0, duration: Infinity }]), /时值/);
   assert.throws(() => normalizeScore([{ midi: 128, start: 0, duration: 1 }]), /音高/);
   assert.throws(() => normalizeScore([{ midi: 60, start: 49152, duration: 1 }]), /长度范围/);
-  assert.throws(() => normalizeScore(Array.from({ length: 17 }, () => ({ midi: 60, start: 0, duration: 1 }))), /同时发声/);
+  assert.throws(() => normalizeScore(Array.from({ length: 65 }, () => ({ midi: 60, start: 0, duration: 1 }))), /同时发声/);
   assert.throws(() => normalizeScore(melody, { bpm: Infinity }), /速度/);
 });
 
@@ -232,5 +232,107 @@ test('zero note velocity is silent while timeline and note callbacks still advan
   advance(f, 0.6);
   assert.equal(f.context.oscillators.length, 0);
   assert.equal(f.notes.length, 1);
+  assert.ok(f.active.every(update => update.notes.length === 0));
   assert.equal(f.states.at(-1).reason, 'ended');
+});
+
+test('all chord voices start together, retain their durations and become active together', async () => {
+  const f = setup();
+  const chord = [60, 64, 67].map((midi, index) => ({ midi, start: 0, duration: index + 1, sourceId: `chord-${index}` }));
+  await f.player.play(chord, { bpm: 120 });
+  assert.equal(f.context.oscillators.length, 9);
+  const fundamentals = f.context.oscillators.filter((_, index) => index % 3 === 0);
+  assert.deepEqual(fundamentals.map(voice => voice.startTime), [0.04, 0.04, 0.04]);
+  assert.deepEqual(fundamentals.map(voice => Math.round(voice.stops[0] * 1000)), [542, 1042, 1542]);
+  advance(f, 0.1);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['chord-0', 'chord-1', 'chord-2']);
+  assert.deepEqual(f.notes.map(event => event.index), [0, 1, 2]);
+  advance(f, 0.5);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['chord-1', 'chord-2']);
+  f.player.stop();
+  assert.deepEqual(f.active.at(-1).notes, []);
+});
+
+test('sustained bass stays active and is never clipped or reattacked by following melody notes', async () => {
+  const f = setup();
+  await f.player.play([
+    { midi: 48, start: 0, duration: 4, sourceId: 'bass' },
+    { midi: 72, start: 1, duration: 1, sourceId: 'first' },
+    { midi: 74, start: 2, duration: 1, sourceId: 'second' },
+  ], { bpm: 120, totalBeats: 5 });
+  const bassVoice = f.context.oscillators[0];
+  advance(f, 0.1);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['bass']);
+  advance(f, 0.5);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['bass', 'first']);
+  advance(f, 0.5);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['bass', 'second']);
+  advance(f, 0.5);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['bass']);
+  assert.equal(bassVoice.stops.length, 1);
+  assert.equal(Math.round(bassVoice.stops[0] * 1000), 2042);
+  assert.equal(f.context.oscillators.length, 9);
+  advance(f, 0.5);
+  assert.deepEqual(f.active.at(-1).notes, []);
+  assert.equal(f.player.isPlaying, true, 'trailing rest is still playing');
+  advance(f, 0.5);
+  assert.equal(f.states.at(-1).reason, 'ended');
+});
+
+test('hidden-tab callbacks recover the full current chord without stale expired-note flashes', async () => {
+  const f = setup();
+  await f.player.play([
+    { midi: 48, start: 0, duration: 8, sourceId: 'bass' },
+    { midi: 60, start: 0, duration: 0.25, sourceId: 'expired-a' },
+    { midi: 62, start: 1, duration: 0.25, sourceId: 'expired-b' },
+    { midi: 64, start: 2, duration: 1, sourceId: 'current' },
+  ], { bpm: 120 });
+  advance(f, 1.15, false);
+  f.player._flushVisuals();
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['bass', 'current']);
+  assert.deepEqual(f.notes.map(event => event.note.sourceId), ['bass', 'current']);
+  advance(f, 0.5);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['bass']);
+  f.player.stop();
+});
+
+test('active callbacks honor output latency and clear immediately on stop without later updates', async () => {
+  const f = setup();
+  f.context.baseLatency = 0.02;
+  f.context.outputLatency = 0.03;
+  await f.player.play([{ midi: 60, start: 0, duration: 4, sourceId: 'held' }], { bpm: 120 });
+  advance(f, 0.06);
+  assert.deepEqual(f.active.at(-1).notes, []);
+  advance(f, 0.04);
+  assert.equal(f.active.at(-1).notes[0].sourceId, 'held');
+  f.player.stop();
+  assert.deepEqual(f.active.at(-1).notes, []);
+  const count = f.active.length;
+  advance(f, 1);
+  assert.equal(f.active.length, count);
+});
+
+test('all 64 chord notes are preserved while summed synthesis peaks remain below clipping', async () => {
+  const f = setup();
+  const chord = Array.from({ length: 64 }, (_, index) => ({ midi: 48 + index % 24, start: 0, duration: 2, sourceId: `voice-${index}`, velocity: 1 }));
+  const normalized = normalizeScore(chord);
+  assert.equal(normalized.peakPolyphony, 64);
+  assert.ok(normalized.voiceGain > 0 && normalized.voiceGain < 1);
+  assert.equal(normalizeScore(melody).voiceGain, 1, 'ordinary monophonic volume is preserved');
+  await f.player.play(chord, { bpm: 120, volume: 1 });
+  assert.equal(f.context.oscillators.length, 64 * 3);
+  assert.equal(f.player._master.gain.events[0].value, 1);
+  const allPartialPeakSum = f.context.gains.slice(1).reduce((sum, gain) => sum + Math.max(...gain.gain.events.filter(event => 'value' in event).map(event => event.value)), 0);
+  assert.ok(allPartialPeakSum <= 0.851, `summed peak envelope ${allPartialPeakSum} must have headroom`);
+  advance(f, 0.1);
+  assert.equal(f.active.at(-1).notes.length, 64);
+  assert.equal(f.notes.length, 64);
+  f.player.stop();
+  assert.ok(f.context.oscillators.every(voice => voice.disconnected));
+});
+
+test('polyphonic normalization counts held-note overlap and permits clean boundary handoffs', () => {
+  const notes = [{ midi: 48, start: 0, duration: 4 }, { midi: 60, start: 1, duration: 1 }, { midi: 62, start: 2, duration: 1 }];
+  assert.equal(normalizeScore(notes).peakPolyphony, 2);
+  assert.equal(normalizeScore([{ midi: 60, start: 0, duration: 1 }, { midi: 60, start: 1, duration: 1 }]).peakPolyphony, 1);
 });

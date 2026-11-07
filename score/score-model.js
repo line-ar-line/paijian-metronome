@@ -6,7 +6,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
   'use strict';
 
-  const LIMITS = Object.freeze({ maxBars: 2048, maxNotes: 100000 });
+  const LIMITS = Object.freeze({ maxBars: 2048, maxNotes: 100000, maxVoices: 64 });
   const INSTRUMENTS = Object.freeze({ '17C': { low: 60, high: 88 }, '21C': { low: 53, high: 88 } });
   const DEGREES = ['1', '1', '2', '2', '3', '4', '4', '5', '5', '6', '6', '7'];
   const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
@@ -41,6 +41,8 @@
     if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('转谱设置必须是一个对象。');
     const instrument = options.instrument === undefined ? '17C' : options.instrument;
     assertInstrument(instrument);
+    const mode = options.mode === undefined ? 'melody' : options.mode;
+    if (!['melody', 'polyphonic'].includes(mode)) throw new Error('转谱模式须为旋律简化或完整多声部。');
     const transpose = options.transpose === undefined ? 0 : options.transpose;
     if (!Number.isInteger(transpose) || transpose < -24 || transpose > 24) throw new Error('移调范围为 -24 到 +24 个半音。');
     const meter = options.meter === undefined ? [4, 4] : options.meter;
@@ -50,7 +52,7 @@
     if (options.grid !== undefined && options.grid !== 0.25) throw new Error('当前数字谱按十六分音符（四分之一拍）整理节奏。');
     const totalBeats = options.totalBeats === undefined ? 0 : options.totalBeats;
     if (typeof totalBeats !== 'number' || !Number.isFinite(totalBeats) || totalBeats < 0) throw new Error('完整乐曲的总时长须为大于或等于 0 的有限拍数。');
-    return { instrument, transpose, meter: [...meter], grid: 0.25, title: String(options.title ?? '').slice(0, 200), totalBeats };
+    return { instrument, mode, transpose, meter: [...meter], grid: 0.25, title: String(options.title ?? '').slice(0, 200), totalBeats };
   }
 
   function validateNotes(notes) {
@@ -74,7 +76,7 @@
     const maxTicks = barTicks * LIMITS.maxBars;
     const durationError = () => new Error(`完整乐曲超过当前支持的 ${LIMITS.maxBars} 小节，本次拒绝转换整个文件，不生成部分曲谱。`);
     if (options.totalBeats * 4 > maxTicks) throw durationError();
-    const stats = { inputNotes: input.length, outputNotes: 0, unplayable: 0, removedPolyphony: 0, clippedOverlaps: 0, quantized: 0 };
+    const stats = { inputNotes: input.length, outputNotes: 0, unplayable: 0, removedPolyphony: 0, clippedOverlaps: 0, quantized: 0, voiceCount: 0, maxPolyphony: 0 };
     const warnings = [];
     let sourceEndBeat = 0;
 
@@ -92,18 +94,44 @@
       return { sourceId: `n${index}`, midi, startTick, endTick, velocity: note.velocity === undefined ? 0.8 : note.velocity };
     }).sort((a, b) => a.startTick - b.startTick || b.midi - a.midi || b.endTick - a.endTick || a.sourceId.localeCompare(b.sourceId));
 
-    // This intentionally produces a single melody line. All simplifications are
-    // counted and disclosed; the UI must not imply automatic melody extraction.
     const chosen = [];
-    for (const note of prepared) {
-      if (chosen.length && chosen[chosen.length - 1].startTick === note.startTick) stats.removedPolyphony++;
-      else chosen.push({ ...note });
+    if (options.mode === 'polyphonic') {
+      const voices = [];
+      for (const note of prepared) {
+        let voiceIndex = -1;
+        let distance = Infinity;
+        for (let i = 0; i < voices.length; i++) {
+          if (voices[i].endTick <= note.startTick) {
+            const difference = Math.abs(voices[i].midi - note.midi);
+            if (difference < distance) { voiceIndex = i; distance = difference; }
+          }
+        }
+        if (voiceIndex < 0) {
+          if (voices.length >= LIMITS.maxVoices) throw new Error(`同时发声超过完整转谱支持的 ${LIMITS.maxVoices} 个声部，本次拒绝转换整个文件，不省略任何音符。`);
+          voiceIndex = voices.length;
+          voices.push({ endTick: 0, midi: note.midi });
+        }
+        voices[voiceIndex] = { endTick: note.endTick, midi: note.midi };
+        chosen.push({ ...note, voiceIndex });
+      }
+      // Greedy interval partitioning opens a lane only if every existing lane
+      // overlaps, so lane count equals maximum simultaneous sounding notes.
+      stats.voiceCount = stats.maxPolyphony = voices.length;
+    } else {
+      // The optional melody mode is intentionally a single-line simplification.
+      // Its discarded and shortened notes remain explicitly disclosed below.
+      for (const note of prepared) {
+        if (chosen.length && chosen[chosen.length - 1].startTick === note.startTick) stats.removedPolyphony++;
+        else chosen.push({ ...note, voiceIndex: 0 });
+      }
+      chosen.forEach((note, index) => {
+        const next = chosen[index + 1];
+        if (next && note.endTick > next.startTick) { note.endTick = next.startTick; stats.clippedOverlaps++; }
+      });
+      stats.voiceCount = stats.maxPolyphony = chosen.length ? 1 : 0;
     }
-    chosen.forEach((note, index) => {
-      const next = chosen[index + 1];
-      if (next && note.endTick > next.startTick) { note.endTick = next.startTick; stats.clippedOverlaps++; }
-    });
-    const finalTick = chosen.length ? chosen[chosen.length - 1].endTick : 0;
+    let finalTick = 0;
+    for (const note of chosen) finalTick = Math.max(finalTick, note.endTick);
     // A selected melody can finish before the song's end or before a discarded
     // accompaniment note. Preserve that complete timeline as rests instead of
     // shortening the piece. A too-short supplied duration never clips notes.
@@ -114,35 +142,66 @@
     const notes = chosen.map(note => {
       const info = pitchInfo(note.midi, options.instrument);
       if (!info.playable) stats.unplayable++;
-      return { ...info, pitchInfo: info, sourceId: note.sourceId, start: note.startTick / 4, duration: (note.endTick - note.startTick) / 4, velocity: note.velocity };
+      return { ...info, pitchInfo: info, sourceId: note.sourceId, voiceIndex: note.voiceIndex, start: note.startTick / 4, duration: (note.endTick - note.startTick) / 4, velocity: note.velocity };
     });
     stats.outputNotes = notes.length;
 
     let nextTokenId = 0;
-    function addSpan(startTick, endTick, note = null) {
+    const voiceMaps = options.mode === 'polyphonic' ? bars.map(() => new Map()) : null;
+    function addSpan(startTick, endTick, note = null, voiceIndex = 0) {
       let cursor = startTick;
       while (cursor < endTick) {
         const barIndex = Math.floor(cursor / barTicks);
         const available = Math.min(endTick, (barIndex + 1) * barTicks) - cursor;
         const duration = DURATIONS.find(value => value <= available);
         const info = note ? note.pitchInfo : { midi: null, degree: '0', accidental: '', octave: 0, playable: true, reason: '' };
-        bars[barIndex].tokens.push({
+        const token = {
           ...info, id: `token-${nextTokenId++}`, sourceId: note ? note.sourceId : null,
+          voiceIndex: note ? note.voiceIndex : voiceIndex,
           start: cursor / 4, duration: duration / 4,
           tieIn: !!note && cursor > note.start * 4,
           tieOut: !!note && cursor + duration < (note.start + note.duration) * 4,
-        });
+        };
+        if (voiceMaps) {
+          const lanes = voiceMaps[barIndex];
+          if (!lanes.has(token.voiceIndex)) lanes.set(token.voiceIndex, { index: token.voiceIndex, tokens: [] });
+          lanes.get(token.voiceIndex).tokens.push(token);
+        } else bars[barIndex].tokens.push(token);
         cursor += duration;
       }
     }
-    let cursor = 0;
-    notes.forEach(note => {
-      const start = note.start * 4;
-      if (cursor < start) addSpan(cursor, start);
-      cursor = start + note.duration * 4;
-      addSpan(start, cursor, note);
-    });
-    if (cursor < barCount * barTicks) addSpan(cursor, barCount * barTicks);
+    if (voiceMaps) {
+      // Only sounding lanes are materialized per bar. Each present lane gets
+      // complete rests; the renderer supplies whole-bar rests when another
+      // lane in the same printed system is silent for this bar.
+      for (const note of notes) addSpan(note.start * 4, (note.start + note.duration) * 4, note);
+      for (const bar of bars) {
+        const lanes = voiceMaps[bar.index];
+        if (!lanes.size) lanes.set(0, { index: 0, tokens: [] });
+        for (const lane of lanes.values()) {
+          const pitched = lane.tokens;
+          lane.tokens = [];
+          let cursor = bar.start * 4;
+          for (const token of pitched) {
+            if (cursor < token.start * 4) addSpan(cursor, token.start * 4, null, lane.index);
+            lane.tokens.push(token);
+            cursor = (token.start + token.duration) * 4;
+          }
+          if (cursor < (bar.start + bar.duration) * 4) addSpan(cursor, (bar.start + bar.duration) * 4, null, lane.index);
+        }
+        bar.voices = [...lanes.values()].sort((a, b) => a.index - b.index);
+        bar.tokens = bar.voices.flatMap(lane => lane.tokens);
+      }
+    } else {
+      let cursor = 0;
+      notes.forEach(note => {
+        const start = note.start * 4;
+        if (cursor < start) addSpan(cursor, start);
+        cursor = start + note.duration * 4;
+        addSpan(start, cursor, note);
+      });
+      if (cursor < barCount * barTicks) addSpan(cursor, barCount * barTicks);
+    }
 
     if (stats.removedPolyphony) warnings.push(`同一位置有多个音符，已保留最高音并省略 ${stats.removedPolyphony} 个同时音；这是单旋律简化，并非自动识别主旋律。`);
     if (stats.clippedOverlaps) warnings.push(`有 ${stats.clippedOverlaps} 个音符与后续音符重叠，已缩短至后续音符开始处。`);

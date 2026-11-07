@@ -14,11 +14,10 @@
   let playGeneration = 0;
   let importGeneration = 0;
   let scoreRevision = 0;
-  let activeSource = null;
-  let activeNoteEnd = Infinity;
+  let activeSources = new Set();
   let activeGroups = [];
   let renderOptions;
-  const player = new ScorePlayer({ onNote: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '试听暂时无法启动，请重试。') });
+  const player = new ScorePlayer({ onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '试听暂时无法启动，请重试。') });
 
   function message(value, kind = 'error') {
     $('workshop-message').textContent = value;
@@ -28,7 +27,6 @@
   function seconds(beats) { return beats * 60 / state.bpm; }
   function clock(value) { return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`; }
   function progress({ beat, totalBeats }) {
-    if (beat >= activeNoteEnd - 1e-7) clearHighlight();
     $('playback-progress').max = totalBeats || 1;
     $('playback-progress').value = beat;
     $('playback-time').textContent = `${clock(seconds(beat))} / ${clock(seconds(totalBeats))}`;
@@ -40,19 +38,15 @@
   }
   function clearHighlight() {
     activeGroups.forEach((group) => group.classList.remove('is-active'));
-    activeGroups = []; activeSource = null; activeNoteEnd = Infinity;
+    activeGroups = []; activeSources.clear();
   }
-  function highlight({ note }) {
-    if (activeSource === note.sourceId) return;
-    clearHighlight(); activeSource = note.sourceId;
-    activeNoteEnd = note.start + note.duration;
+  function highlight({ notes }) {
+    activeSources = new Set(notes.map(note => note.sourceId));
     paintHighlight();
-    const bar = Math.floor(note.start / score.barBeats) + 1;
-    $('playback-status').textContent = `正在试听 · 第 ${bar} / ${score.bars.length} 小节`;
   }
   function paintHighlight() {
     activeGroups.forEach((group) => group.classList.remove('is-active'));
-    activeGroups = nodesBySource.get(activeSource) || [];
+    activeGroups = [...activeSources].flatMap(id => nodesBySource.get(id) || []);
     activeGroups.forEach((group) => group.classList.add('is-active'));
   }
   function showPage(index) {
@@ -78,11 +72,11 @@
     const playing = playback === 'playing';
     $('score-play').setAttribute('aria-pressed', String(playing));
     $('play-glyph').textContent = playing ? '■' : '▶';
-    $('play-label').textContent = playing ? '停止试听' : '试听旋律';
+    $('play-label').textContent = playing ? '停止试听' : '试听全曲';
     if (!playing) {
       clearHighlight();
       $('playback-status').textContent = reason === 'ended' ? '试听结束，可以跟着谱慢慢练习。' : '已停止 · 再次试听将从头开始。';
-      if (reason === 'interrupted' || reason === 'stalled') message('浏览器或音频设备中断了试听。请保持页面在前台，再点击“试听旋律”重新开始。');
+      if (reason === 'interrupted' || reason === 'stalled') message('浏览器或音频设备中断了试听。请保持页面在前台，再点击“试听全曲”重新开始。');
     }
   }
   function stop() {
@@ -100,7 +94,7 @@
     finally {
       if (generation === playGeneration) {
         starting = false; $('score-play').removeAttribute('aria-busy');
-        $('play-label').textContent = player.isPlaying ? '停止试听' : '试听旋律';
+        $('play-label').textContent = player.isPlaying ? '停止试听' : '试听全曲';
       }
     }
   }
@@ -108,7 +102,11 @@
   function controls() {
     $('score-name').value = state.title;
     $('instrument-select').value = state.instrument;
-    document.querySelector('.workshop-intro .instrument-tag').textContent = `${state.instrument === '21C' ? '21' : '17'} 音 C 调 · 旋律转谱`;
+    document.querySelector('.workshop-intro .instrument-tag').textContent = `${state.instrument === '21C' ? '21' : '17'} 音 C 调 · ${state.mode === 'polyphonic' ? '多音转谱' : '单音转谱'}`;
+    $('score-mode').value = state.mode;
+    $('mode-description').textContent = state.mode === 'polyphonic'
+      ? '保留所选音轨的和弦、伴奏与独立延音。上下声部对齐的音同时拨响；声部行用于排版，不代表左右手。'
+      : '同一拍只保留最高音，重叠长音会截短。适合先练旋律；这不会自动识别主旋律。';
     $('score-bpm').value = state.bpm;
     $('transpose').value = state.transpose;
     const meter = state.meter.join('/');
@@ -125,7 +123,9 @@
     }
     if (state.tracks) {
       $('example-select').value = '';
-      $('track-select').replaceChildren(...state.tracks.map((track) => {
+      const allTracks = document.createElement('option');
+      allTracks.value = '__all__'; allTracks.textContent = `合并全部声部 · ${state.tracks.length} 条音轨`;
+      $('track-select').replaceChildren(...(state.tracks.length > 1 ? [allTracks] : []), ...state.tracks.map((track) => {
         const option = document.createElement('option');
         option.value = track.id;
         option.textContent = `${track.name || '未命名音轨'} · ${track.notes.length} 音`;
@@ -136,11 +136,12 @@
   }
   function warnings() {
     const list = [...new Set([...(state.warnings || []), ...score.warnings.filter((item) => !item.includes('原音高已保留并标注'))])];
-    if (score.stats.unplayable) list.unshift(`${score.stats.unplayable} 个旋律音在当前琴型上无法直接弹奏，已标为橙色。试听保留这些原始音高；请尝试移调或人工改编。`);
+    if (score.stats.unplayable) list.unshift(`${score.stats.unplayable} 个音符在当前琴型上无法直接弹奏，已标为橙色。试听保留这些原始音高；请尝试移调或人工改编。`);
+    if (state.mode === 'polyphonic' && score.stats.maxPolyphony > 2) list.unshift(`最多 ${score.stats.maxPolyphony} 个音同时持续，已全部保留。琴键音域可覆盖不等于双拇指能原样弹奏，密集和弦可能需要滑音或人工改编。`);
     $('score-warnings').replaceChildren();
     if (!list.length) {
       const ok = document.createElement('p'); ok.className = 'all-playable';
-      ok.textContent = `✓ ${score.stats.outputNotes} 个旋律音均在当前琴型的可弹奏音域内。`;
+      ok.textContent = `✓ ${score.stats.outputNotes} 个音符均在当前琴型的音域内。${state.mode === 'polyphonic' && score.stats.maxPolyphony > 1 ? `最多 ${score.stats.maxPolyphony} 音同时持续。` : ''}`;
       $('score-warnings').append(ok); return;
     }
     const details = document.createElement('details');
@@ -151,7 +152,7 @@
     details.append(summary, ul); $('score-warnings').append(details);
   }
   function render() {
-    renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: state.subtitle };
+    renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: `${state.subtitle} · ${state.mode === 'polyphonic' ? '保留多音' : '单音简化'}` };
     pages = ScoreRenderer.paginate(score, renderOptions);
     barToPage = new Array(score.bars.length);
     pages.forEach((page, index) => page.bars.forEach((bar) => { barToPage[bar.index] = index; }));
@@ -169,7 +170,7 @@
   function apply(next) {
     const candidate = { ...state, ...next };
     try {
-      const result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25, totalBeats: candidate.totalBeats });
+      const result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25, totalBeats: candidate.totalBeats, mode: candidate.mode });
       stop(); state = candidate; score = result; scoreRevision++; render(); message(''); return true;
     } catch (error) {
       if (state) controls();
@@ -182,7 +183,7 @@
     if (!data) return;
     importGeneration++;
     $('upload-zone').removeAttribute('aria-busy');
-    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', tracks: null, trackId: null, exampleId: data.id, warnings: [] });
+    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', mode: data.mode || state?.mode || 'polyphonic', tracks: null, trackId: null, exampleId: data.id, warnings: [] });
   }
   async function importFile(file) {
     if (!file) return;
@@ -199,12 +200,13 @@
       const tracks = midi.tracks.filter((track) => !track.isPercussion && track.channel !== 9 && track.notes.length);
       if (!tracks.length) throw new Error('这个 MIDI 只有打击乐或没有完整的旋律音符。请换一个包含主旋律的 MIDI。');
       const chosen = tracks.find((track) => /melody|lead|vocal|主旋律|旋律/i.test(track.name)) || tracks[0];
+      const merge = state.mode === 'polyphonic' && tracks.length > 1;
       const bpm = clamp(Math.round(midi.tempo), 30, 240);
       const importWarnings = [...midi.warnings];
       if (Math.round(midi.tempo) !== bpm) importWarnings.push(`原速度 ${Math.round(midi.tempo)} BPM 超出试听范围，已设为 ${bpm} BPM；谱面音符时值不变。`);
       const title = shorten(file.name.replace(/\.midi?$/i, ''), 80) || midi.title || '导入曲谱';
-      if (apply({ title, subtitle: '源文件全时长 · 旋律声部数字谱', notes: chosen.notes, source: `已导入完整文件：${file.name} · ${tracks.length} 条可选音轨`, sourceUrl: null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, tracks, trackId: chosen.id, exampleId: null, warnings: importWarnings })) {
-        message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${tracks.length > 1 ? '请选择并试听确认旋律音轨。' : '可以试听核对，再导出全谱。'}`, 'success');
+      if (apply({ title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source: `已导入完整文件：${file.name} · ${tracks.length} 条可选音轨`, sourceUrl: null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, warnings: importWarnings })) {
+        message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${merge ? '已合并全部非鼓声音轨，可以切换单条音轨练习。' : '可以试听核对，再导出全谱。'}`, 'success');
       }
     } catch (error) { if (generation === importGeneration) message(error.message || '读取失败，请检查 MIDI 文件是否完整。'); }
     finally { if (generation === importGeneration) $('upload-zone').removeAttribute('aria-busy'); }
@@ -285,9 +287,11 @@
   window.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); });
   window.addEventListener('drop', (event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); });
   $('track-select').addEventListener('change', (event) => {
+    if (event.target.value === '__all__' && state.tracks) { apply({ notes: state.tracks.flatMap(track => track.notes), trackId: '__all__' }); return; }
     const track = state.tracks?.find((item) => item.id === event.target.value);
     if (track) apply({ notes: track.notes, trackId: track.id });
   });
+  $('score-mode').addEventListener('change', (event) => apply({ mode: event.target.value }));
   $('instrument-select').addEventListener('change', (event) => apply({ instrument: event.target.value }));
   $('score-meter').addEventListener('change', (event) => { if (event.target.value !== 'custom') apply({ meter: event.target.value.split('/').map(Number) }); });
   $('transpose').addEventListener('change', (event) => {
@@ -298,7 +302,7 @@
   $('suggest-transpose').addEventListener('click', () => {
     try {
       const suggestion = KalimbaScore.suggestTranspose(state.notes, state.instrument);
-      if (apply({ transpose: suggestion.transpose })) message(`已整体${suggestion.transpose === 0 ? '保留原调' : `${suggestion.transpose > 0 ? '升' : '降'} ${Math.abs(suggestion.transpose)} 个半音`}。生成旋律中 ${score.stats.outputNotes - score.stats.unplayable} / ${score.stats.outputNotes} 个音可直接弹奏。`, 'success');
+      if (apply({ transpose: suggestion.transpose })) message(`已整体${suggestion.transpose === 0 ? '保留原调' : `${suggestion.transpose > 0 ? '升' : '降'} ${Math.abs(suggestion.transpose)} 个半音`}。谱中 ${score.stats.outputNotes - score.stats.unplayable} / ${score.stats.outputNotes} 个音在琴键音域内。`, 'success');
     } catch (error) { message(error.message); }
   });
   $('score-bpm').addEventListener('change', (event) => {
@@ -316,5 +320,5 @@
   $('print-score').addEventListener('click', printScore);
   window.addEventListener('pagehide', stop);
   const initialExample = new URLSearchParams(location.search).get('example');
-  example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'twinkle');
+  example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'ode-duet');
 })();

@@ -163,7 +163,7 @@ test('complete pieces remain intact through pagination, playback following, expo
     await page.evaluate(() => {
       fullTestPlayer.simulatePlaying = true;
       fullTestPlayer.onStateChange({ state: 'playing', reason: 'play' });
-      fullTestPlayer.onNote({ note: fullTestScore.notes.at(-1) });
+      fullTestPlayer.onActiveNotes({ notes: [fullTestScore.notes.at(-1)], beat: 1196.1 });
       fullTestPlayer.onProgress({ beat: 1196.1, totalBeats: 1200 });
     });
     assert.equal(await page.locator('#page-select').inputValue(), String(pageCount - 1));
@@ -176,6 +176,7 @@ test('complete pieces remain intact through pagination, playback following, expo
     await page.evaluate(() => fullTestPlayer.onProgress({ beat: 1196.75, totalBeats: 1200 }));
     assert.equal(await page.locator('#page-select').inputValue(), String(pageCount - 1));
     await page.evaluate(() => {
+      fullTestPlayer.onActiveNotes({ notes: [], beat: 1197.2 });
       fullTestPlayer.onProgress({ beat: 1197.2, totalBeats: 1200 });
       fullTestPlayer.simulatePlaying = false;
       fullTestPlayer.onStateChange({ state: 'stopped', reason: 'stop' });

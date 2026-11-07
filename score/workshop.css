@@ -33,6 +33,7 @@
 .track-field { margin-top: 17px; }
 .track-field[hidden] { display: none; }
 .track-field>label, .field-label { display: block; font-size: 11px; color: #6f8062; margin: 0 0 8px; }
+.instrument-label { margin-top: 18px; }
 .field-label small { color: #9ba58f; font-size: 9px; margin-left: 3px; }
 .form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
 .text-input { min-width: 0; width: 100%; height: 43px; background: #fffefb; border: 1px solid #dfe5d5; border-radius: 8px; padding: 9px 11px; color: var(--ink); font: inherit; font-size: 12px; }
