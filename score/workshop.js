@@ -21,6 +21,8 @@
   let currentBar = -1;
   let scrubbing = false;
   let resumeAfterScrub = false;
+  let pendingScoreLoad = null;
+  const scoreControlIds = ['score-play', 'score-restart', 'playback-progress', 'score-bpm', 'score-name', 'page-select', 'previous-page', 'next-page', 'export-svg', 'export-png', 'export-json', 'print-score', 'score-mode', 'instrument-select', 'score-meter', 'transpose', 'suggest-transpose', 'track-select'];
   const favorites = globalThis.ScoreUserLibrary;
   const player = new ScorePlayer({ onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '播放暂时无法启动，请重试。') });
 
@@ -29,7 +31,59 @@
     $('workshop-message').hidden = !value;
     $('workshop-message').dataset.kind = kind;
   }
-  function seconds(beats) { return beats * 60 / state.bpm; }
+  function setScoreReady(ready) {
+    scoreControlIds.forEach(id => { $(id).disabled = !ready; });
+    document.querySelector('.playback-hint').hidden = !ready;
+    if (!ready) $('favorite-score').disabled = true;
+  }
+  function scorePlaceholder(title, detail) {
+    const panel = document.createElement('div'); panel.className = 'score-load-state';
+    const heading = document.createElement('strong'); heading.textContent = title;
+    const description = document.createElement('p'); description.textContent = detail;
+    panel.append(heading, description); $('score-preview').replaceChildren(panel);
+  }
+  function beginScoreLoad(kind, id) {
+    scrubbing = false; resumeAfterScrub = false; stop();
+    score = undefined; state = undefined; pages = []; pageIndex = 0;
+    barToPage = []; nodesBySource.clear(); positionBeat = 0; currentBar = -1; scoreRevision++;
+    pendingScoreLoad = { kind, id };
+    setScoreReady(false);
+    $('score-name').value = ''; $('score-name').placeholder = '正在加载所选曲目…';
+    $('source-label').textContent = ''; $('score-summary').textContent = '';
+    $('full-score-info').textContent = '正在载入所选曲目的完整数字谱…';
+    $('example-select').value = '';
+    $('page-select').replaceChildren(); $('page-range').textContent = '';
+    $('score-warnings').replaceChildren();
+    for (const name of ['original-score', 'edit-authored', 'export-json', 'score-performance-note', 'track-field', 'score-load-actions']) $(name).hidden = true;
+    $('favorite-score').textContent = '☆ 收藏'; $('favorite-score').setAttribute('aria-pressed', 'false');
+    updateTime(0, 0); $('playback-status').textContent = '曲谱加载后即可播放。';
+    scorePlaceholder('正在加载所选曲目', '加载完成后会在这里显示完整数字谱。');
+    $('score-preview').setAttribute('aria-busy', 'true');
+    document.title = '正在加载曲谱 · 拍间';
+    message('正在载入所选曲目…', 'success');
+  }
+  function namePendingScore(title) {
+    $('score-name').value = shorten(title, 80);
+    $('full-score-info').textContent = `正在载入《${title}》的完整数字谱…`;
+    document.title = `${title} · 正在加载 · 拍间`;
+    scorePlaceholder(`正在加载《${title}》`, '加载完成后会在这里显示完整数字谱。');
+  }
+  function failScoreLoad(error) {
+    const detail = error.name === 'AbortError' ? '曲谱加载超时，请点击“重新加载”重试。'
+      : error instanceof TypeError ? '曲谱暂时无法加载，请检查网络后重试。' : error.message || '曲谱暂时无法加载，请重试。';
+    score = undefined; state = undefined; pages = []; barToPage = []; nodesBySource.clear();
+    setScoreReady(false);
+    for (const id of ['original-score', 'edit-authored', 'export-json', 'score-performance-note', 'track-field']) $(id).hidden = true;
+    scorePlaceholder('这首曲谱尚未加载成功', detail);
+    $('full-score-info').textContent = '未载入所选曲谱';
+    $('playback-status').textContent = '加载成功后即可播放。';
+    $('score-summary').textContent = '';
+    $('score-load-actions').hidden = false;
+    $('score-preview').removeAttribute('aria-busy');
+    document.title = `${$('score-name').value || '所选曲谱'} · 加载失败 · 拍间`;
+    message(detail);
+  }
+  function seconds(beats) { return beats * 60 / (state?.bpm || 80); }
   function hasUnmetered() { return Boolean(score?.unmeteredSections?.length); }
   function totalBeats() { return state?.compiled?.totalBeats || score?.sourceTotalBeats || 0; }
   function playLabel() { return positionBeat > 0 && positionBeat < totalBeats() ? '继续播放' : '播放'; }
@@ -174,6 +228,7 @@
     syncPlayButton();
   }
   async function startPlayback(beat = positionBeat) {
+    if (!score) return;
     scrubbing = false; resumeAfterScrub = false;
     message('');
     // Stop first so the old clock cannot overwrite a newly chosen position.
@@ -199,7 +254,7 @@
     startPlayback(positionBeat >= totalBeats() ? 0 : positionBeat);
   }
   function beginScrub() {
-    if (scrubbing) return;
+    if (!score || scrubbing) return;
     resumeAfterScrub = player.isPlaying || starting;
     // Capture the audible position before suppressing further progress events.
     stop('seek');
@@ -223,6 +278,7 @@
     if (resume) startPlayback(beat);
   }
   function playMeasure(index) {
+    if (!score) return;
     let performanceBar = index;
     if (score.playbackBarMap) {
       const occurrences = score.playbackBarMap.flatMap((bar, played) => bar === index ? [played] : []);
@@ -233,6 +289,7 @@
   }
 
   function controls() {
+    if (!score || !state) return;
     const authored = !!state.document;
     syncPlayButton();
     $('score-performance-note').hidden = !hasUnmetered();
@@ -320,6 +377,7 @@
     details.append(summary, ul); $('score-warnings').append(details);
   }
   function render() {
+    setScoreReady(true);
     renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: `${state.subtitle} · ${state.mode === 'polyphonic' ? '保留多音' : '单音简化'}` };
     if (state.document) renderOptions.credits = state.document.credits;
     if (state.catalogEntry) {
@@ -344,6 +402,10 @@
     $('playback-status').textContent = hasUnmetered() ? '准备好，试听正文从第一小节开始；间奏不参与试听。' : '准备好，从第一小节开始。';
     controls(); warnings(); progress({ beat: 0, totalBeats: state.compiled?.totalBeats || score.sourceTotalBeats });
     document.title = `${state.title} · 卡林巴数字谱 · 拍间`;
+    $('score-load-actions').hidden = true;
+    $('score-preview').removeAttribute('aria-busy');
+    $('score-name').placeholder = '给这页谱起个名字';
+    pendingScoreLoad = null;
   }
   function apply(next) {
     const candidate = { ...state, ...next };
@@ -380,7 +442,7 @@
     const tracks = midi.tracks.filter((track) => !track.isPercussion && track.channel !== 9 && track.notes.length);
     if (!tracks.length) throw new Error('这个 MIDI 只有打击乐或没有完整的旋律音符。请换一个包含主旋律的 MIDI。');
     const chosen = tracks.find((track) => /melody|lead|vocal|主旋律|旋律/i.test(track.name)) || tracks[0];
-    const mode = catalogEntry ? 'polyphonic' : state.mode;
+    const mode = catalogEntry ? 'polyphonic' : state?.mode || 'polyphonic';
     const merge = mode === 'polyphonic' && tracks.length > 1;
     const bpm = clamp(Math.round(midi.tempo), 30, 240);
     const importWarnings = [...midi.warnings];
@@ -389,9 +451,9 @@
     const source = catalogEntry
       ? `内置曲库 · ${catalogEntry.title} · ${catalogEntry.composer} · ${catalogEntry.scope || '来源发布的完整 MIDI 文件'}`
       : `已导入完整文件：${name} · ${tracks.length} 条可选音轨`;
-    if (apply({ document: null, authoredEntry: null, title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source, sourceUrl: catalogEntry?.sourceUrl || null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, mode, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, catalogEntry, warnings: importWarnings })) {
+    if (apply({ document: null, authoredEntry: null, title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source, sourceUrl: catalogEntry?.sourceUrl || null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state?.instrument || '17C', mode, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, catalogEntry, warnings: importWarnings })) {
       message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${merge ? '已合并全部非鼓声音轨，可以切换单条音轨练习。' : '可以试听核对，再导出全谱。'}`, 'success');
-    }
+    } else throw new Error($('workshop-message').textContent || '这首曲谱转换失败，请重试。');
   }
   async function importFile(file) {
     if (!file) return;
@@ -420,11 +482,14 @@
   function openDocument(data, entry = null) {
     const compiled = ScoreDocument.compile(data), doc = compiled.document;
     if (apply({ document: doc, authoredEntry: entry, title: doc.title, bpm: doc.bpm, meter: doc.meter, instrument: doc.instrument, mode: 'polyphonic', transpose: 0, notes: compiled.score.notes, totalBeats: compiled.score.totalBeats, tracks: null, trackId: null, exampleId: null, catalogEntry: null, subtitle: '人工编配 · 双声部与技法按谱保留', source: entry?.attribution || (entry ? `内置曲库 · ${doc.title}` : '导入的拍间制谱文件'), sourceUrl: entry?.sourceUrl || null, warnings: doc.description ? [doc.description] : [] })) message(hasUnmetered() ? '已载入正文与全部间奏数字谱；试听正文，间奏暂不参与试听。' : '已载入完整编配，试听会执行反复与向上滑奏。', 'success');
+    else throw new Error($('workshop-message').textContent || '这首曲谱转换失败，请重试。');
   }
   async function openPublishedScore(id) {
     const generation = ++importGeneration;
+    beginScoreLoad('score', id);
     const entry = globalThis.CuratedScores?.entries?.find(e => e.id === id);
-    if (!entry || !/^scores\/[a-z0-9-]+\.json$/.test(entry.file) || (entry.sourceUrl && !/^scores\/[a-z0-9-]+\.(jpg|png|webp)$/.test(entry.sourceUrl))) { message('没有找到这份已发布曲谱，请返回曲库选择。'); return; }
+    if (!entry || !/^scores\/[a-z0-9-]+\.json$/.test(entry.file) || (entry.sourceUrl && !/^scores\/[a-z0-9-]+\.(jpg|png|webp)$/.test(entry.sourceUrl))) { failScoreLoad(new Error('没有找到这份已发布曲谱，请返回曲库选择。')); return; }
+    namePendingScore(entry.title);
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
     $('score-preview').setAttribute('aria-busy', 'true');
     try {
@@ -437,14 +502,13 @@
         data = await response.json();
       }
       if (generation === importGeneration) openDocument(data, entry);
-    } catch (error) { if (generation === importGeneration) message(error.name === 'AbortError' ? '曲谱加载超时，请重试。' : error instanceof TypeError ? '曲谱暂时无法加载，请检查网络后刷新重试。' : error.message); }
+    } catch (error) { if (generation === importGeneration) failScoreLoad(error); }
     finally { clearTimeout(timeout); if (generation === importGeneration) $('score-preview').removeAttribute('aria-busy'); }
   }
   async function openCatalogPiece(id) {
     const generation = ++importGeneration;
-    if (!/^mutopia-\d+$/.test(id)) { message('曲目链接无效，请从内置曲库重新选择。'); return; }
-    $('score-preview').setAttribute('aria-busy', 'true');
-    message('正在载入内置曲谱…', 'success');
+    beginScoreLoad('piece', id);
+    if (!/^mutopia-\d+$/.test(id)) { failScoreLoad(new Error('曲目链接无效，请从内置曲库重新选择。')); return; }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
@@ -462,6 +526,7 @@
       if (generation !== importGeneration) return;
       const entry = globalThis.ScoreCatalog?.entries?.find(item => item.id === id);
       if (!entry || entry.file !== `catalog/midi/${id}.mid`) throw new Error('曲库中没有这首曲子，请返回内置曲库重新选择。');
+      namePendingScore(entry.title);
       if (location.protocol === 'file:') throw new Error('本地直接打开网页时，请在曲库下载这首 MIDI 后用“导入完整 MIDI 文件”打开，或通过本地网页服务器访问。在线网站可直接载入。');
       const response = await fetch(entry.file, { signal: controller.signal });
       if (!response.ok) throw new Error('这首 MIDI 暂时无法载入，请刷新重试或从曲库下载原文件。');
@@ -470,7 +535,7 @@
       if (data.byteLength !== entry.bytes) throw new Error('下载的 MIDI 文件大小不完整，未生成部分曲谱，请刷新重试。');
       importMidiData(data, `${id}.mid`, entry);
     } catch (error) {
-      if (generation === importGeneration) message(error.name === 'AbortError' ? '曲谱加载超时，请检查网络后重试。' : error.message || '曲谱载入失败，请返回曲库重试。');
+      if (generation === importGeneration) failScoreLoad(error);
     } finally {
       clearTimeout(timeout);
       if (generation === importGeneration) $('score-preview').removeAttribute('aria-busy');
@@ -504,6 +569,7 @@
     } finally { URL.revokeObjectURL(url); }
   }
   async function exportAll(format) {
+    if (!score) return;
     const buttons = [$('export-png'), $('export-svg')];
     buttons.forEach((button) => { button.disabled = true; });
     const button = format === 'png' ? buttons[0] : buttons[1];
@@ -535,6 +601,7 @@
     finally { buttons.forEach((item) => { item.disabled = false; }); button.textContent = originalLabel; }
   }
   function printScore() {
+    if (!score) return;
     stop();
     $('print-scores').replaceChildren(...pages.map((pageScore) => {
       const page = document.createElement('div'); page.className = 'print-page';
@@ -545,6 +612,12 @@
   }
 
   $('example-select').addEventListener('change', (event) => example(event.target.value));
+  $('retry-score-load').addEventListener('click', () => {
+    if (!pendingScoreLoad) return;
+    const { kind, id } = pendingScoreLoad;
+    if (kind === 'piece') openCatalogPiece(id);
+    else openPublishedScore(id);
+  });
   $('midi-file').addEventListener('change', (event) => { importFile(event.target.files[0]); event.target.value = ''; });
   $('upload-zone').addEventListener('dragover', (event) => { event.preventDefault(); event.currentTarget.classList.add('dragging'); });
   $('upload-zone').addEventListener('dragleave', (event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.classList.remove('dragging'); });
@@ -552,8 +625,8 @@
   window.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); });
   window.addEventListener('drop', (event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); });
   $('track-select').addEventListener('change', (event) => {
-    if (event.target.value === '__all__' && state.tracks) { apply({ notes: state.tracks.flatMap(track => track.notes), trackId: '__all__' }); return; }
-    const track = state.tracks?.find((item) => item.id === event.target.value);
+    if (event.target.value === '__all__' && state?.tracks) { apply({ notes: state.tracks.flatMap(track => track.notes), trackId: '__all__' }); return; }
+    const track = state?.tracks?.find((item) => item.id === event.target.value);
     if (track) apply({ notes: track.notes, trackId: track.id });
   });
   $('score-mode').addEventListener('change', (event) => apply({ mode: event.target.value }));
@@ -565,6 +638,7 @@
     apply({ transpose: clamp(Math.round(Number(raw)), -24, 24) });
   });
   $('suggest-transpose').addEventListener('click', () => {
+    if (!score) return;
     try {
       const suggestion = KalimbaScore.suggestTranspose(state.notes, state.instrument);
       if (apply({ transpose: suggestion.transpose })) message(`已整体${suggestion.transpose === 0 ? '保留原调' : `${suggestion.transpose > 0 ? '升' : '降'} ${Math.abs(suggestion.transpose)} 个半音`}。谱中 ${score.stats.outputNotes - score.stats.unplayable} / ${score.stats.outputNotes} 个音在琴键音域内。`, 'success');
@@ -603,7 +677,7 @@
   $('export-svg').addEventListener('click', () => exportAll('svg'));
   $('export-png').addEventListener('click', () => exportAll('png'));
   $('print-score').addEventListener('click', printScore);
-  $('export-json').addEventListener('click', () => { if (state.document) download(new Blob([JSON.stringify(state.document, null, 2)], { type: 'application/json' }), filename('json')); });
+  $('export-json').addEventListener('click', () => { if (score && state?.document) download(new Blob([JSON.stringify(state.document, null, 2)], { type: 'application/json' }), filename('json')); });
   $('favorite-score').addEventListener('click', () => {
     const id = favoriteId(); if (!id) return;
     const result = favorites.toggle(id);
@@ -614,7 +688,7 @@
   window.addEventListener('pagehide', stop);
   const query = new URLSearchParams(location.search);
   const initialExample = query.get('example');
-  example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'ode-duet');
   if (query.has('score')) openPublishedScore(query.get('score'));
   else if (query.has('piece')) openCatalogPiece(query.get('piece'));
+  else example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'ode-duet');
 })();

@@ -59,6 +59,11 @@
 .paper-edge { height: 5px; margin: 0 24px; border-bottom: 1px solid #eff0e7; }
 .score-preview { overflow-x: auto; scrollbar-color: #cad5bc #f1f4eb; scrollbar-width: thin; padding-bottom: 8px; }
 .score-preview svg { display: block; width: 100%; min-width: 680px; height: auto; }
+.score-load-state { padding: 65px 24px; min-height: 250px; text-align: center; color: #617752; overflow-wrap: anywhere; }
+.score-load-state strong { font-size: 17px; font-weight: 500; line-height: 1.8; }
+.score-load-state p { font-size: 12px; line-height: 1.9; color: #7d8e6e; }
+.score-load-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+.score-load-actions[hidden], .playback-hint[hidden] { display: none; }
 .scroll-hint { display: none; font-size: 10px; color: #9aa58d; margin: 9px 2px; }
 .score-player { position: sticky; top: 8px; z-index: 10; display: flex; gap: 18px; align-items: center; margin-top: 14px; box-shadow: 0 4px 18px #263d3210; border: 1px solid #dfe6d4; border-radius: 13px; padding: 16px; background: #eef2e7; }
 .playback-buttons { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }

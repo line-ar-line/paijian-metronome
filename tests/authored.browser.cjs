@@ -28,6 +28,28 @@ async function serve() {
   return { server, base: `http://127.0.0.1:${server.address().port}${prefix}` };
 }
 
+async function assertNoSelectedScore(page, label) {
+  assert.equal(await page.locator('#score-preview svg').count(), 0, `${label}: an unrelated default score must never substitute for the requested piece`);
+  assert.doesNotMatch(await page.locator('#score-summary').innerText(), /94 个音符|16 小节/);
+  assert.doesNotMatch(await page.locator('#score-name').inputValue(), /欢乐颂|小星星/);
+  for (const id of ['score-play', 'score-restart', 'playback-progress', 'export-png', 'export-svg', 'print-score']) {
+    assert.equal(await page.locator('#' + id).isDisabled(), true, `${label}: ${id} needs a successfully loaded score`);
+  }
+  assert.equal(await page.locator('#export-json').isVisible(), false);
+  assert.equal(await page.locator('#example-select').isEnabled(), true, 'an explicit example remains available');
+  assert.equal(await page.locator('#midi-file').isEnabled(), true, 'an explicit local import remains available');
+}
+
+async function assertRecoveredExample(page, id = 'ode-duet') {
+  await page.locator('#example-select').selectOption(id);
+  const expectedSummary = id === 'ode-duet' ? '94 个音符 · 16 小节' : '42 个音符 · 12 小节';
+  assert.equal(await page.locator('#score-summary').innerText(), expectedSummary);
+  assert.ok(await page.locator('#score-preview svg').count() > 0);
+  for (const control of ['score-play', 'score-restart', 'playback-progress', 'export-png', 'export-svg', 'print-score']) assert.equal(await page.locator('#' + control).isEnabled(), true);
+  assert.equal(await page.locator('#workshop-message').isVisible(), false);
+  assert.equal(await page.locator('#retry-score-load').isVisible(), false);
+}
+
 test('bundled authored score works with all score JSON requests blocked, preserving pages, playback, favorites and downloads', { timeout: 45000 }, async () => {
   const { server, base } = await serve();
   const output = fs.mkdtempSync(path.join(tmpdir(), 'paijian-authored-qa-'));
@@ -168,9 +190,8 @@ test('bundled authored score works with all score JSON requests blocked, preserv
     await page.goto(base + 'score.html?score=nonexistent-score');
     await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
     assert.match(await page.locator('#workshop-message').innerText(), /没有找到这份已发布曲谱/);
-    assert.equal(await page.locator('#score-play').isEnabled(), true, 'an invalid published ID leaves the default example usable');
-    assert.match(await page.locator('#score-summary').innerText(), /94 个音符 · 16 小节/);
-    assert.equal(await page.locator('#export-json').isVisible(), false);
+    await assertNoSelectedScore(page, 'unknown published ID');
+    await assertRecoveredExample(page);
     assert.deepEqual(blockedJsonRequests, [], 'bundled scores and unknown IDs require no score JSON requests');
     assert.deepEqual(errors, []);
     console.log(`Verified 29 bars, 189 source notes, 5 pages, 12 glissandi, 245 playback notes/148 beats, repeat navigation, favorites, original image, JSON round-trip and mobile layout. QA outputs: ${output}`);
@@ -180,7 +201,7 @@ test('bundled authored score works with all score JSON requests blocked, preserv
   }
 });
 
-test('entry-only published scores keep the JSON fallback and report load failures without replacing the usable example', { timeout: 30000 }, async () => {
+test('entry-only published scores use a loading placeholder and recover failed JSON loads through retry', { timeout: 30000 }, async () => {
   const { server, base } = await serve();
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   try {
@@ -192,30 +213,97 @@ test('entry-only published scores keep the JSON fallback and report load failure
     await page.route('**/curated/index.js*', route => route.fulfill({ contentType: 'application/javascript', body: `globalThis.CuratedScores = ${JSON.stringify({ version: 1, entries: [entry] })};` }));
     let failure = 'none';
     const requests = [];
-    await page.route('**/scores/future-score.json*', route => {
+    let releaseInitial, notifyInitial;
+    const initialGate = new Promise(resolve => { releaseInitial = resolve; });
+    const initialRequest = new Promise(resolve => { notifyInitial = resolve; });
+    await page.route('**/scores/future-score.json*', async route => {
       requests.push(route.request().url());
+      notifyInitial();
+      await initialGate;
       if (failure === 'network') return route.abort('failed');
       if (failure === 'http') return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
+      if (failure === 'notation') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...source, voices: [{ name: '无效声部', notation: 'BROKEN' }] }) });
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(source) });
     });
-    await page.goto(base + 'score.html?score=future-score');
+    try {
+      await page.goto(base + 'score.html?score=future-score', { waitUntil: 'domcontentloaded' });
+      await initialRequest;
+      assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), 'true');
+      await assertNoSelectedScore(page, 'pending published JSON');
+      assert.match(await page.locator('#workshop-message').innerText(), /加载|载入|读取/);
+    } finally { releaseInitial(); }
     await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
     assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复播放 37 小节/);
     assert.equal(requests.length, 1, 'a published entry without bundled data still loads its JSON');
-    for (failure of ['network', 'http']) {
+    for (const failedMode of ['network', 'http', 'notation']) {
+      failure = failedMode;
       await page.reload();
       await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
       const message = await page.locator('#workshop-message').innerText();
-      assert.match(message, /曲谱|网络/);
+      assert.match(message, /曲谱|网络|音符/);
       assert.doesNotMatch(message, /Failed to fetch|NetworkError|Load failed/);
-      assert.match(await page.locator('#score-summary').innerText(), /94 个音符 · 16 小节/);
-      assert.equal(await page.locator('#score-play').isEnabled(), true);
-      assert.equal(await page.locator('#export-json').isVisible(), false);
+      await assertNoSelectedScore(page, `${failedMode} failure`);
       assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), null);
+      assert.equal(await page.locator('#retry-score-load').isVisible(), true);
+      failure = 'none';
+      await page.locator('#retry-score-load').click();
+      await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
+      assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复播放 37 小节/);
+      assert.equal(await page.locator('#score-name').inputValue(), source.title);
+      for (const id of ['score-play', 'export-json', 'export-svg', 'export-png', 'print-score']) assert.equal(await page.locator('#' + id).isEnabled(), true);
+      assert.equal(await page.locator('#retry-score-load').isVisible(), false);
     }
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 7, 'each failed attempt is retried once through the same JSON fallback');
+    failure = 'http';
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
+    await assertNoSelectedScore(page, 'failure before explicit example');
+    await assertRecoveredExample(page);
     assert.deepEqual(errors, []);
   } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('an explicit example chosen during a slow published JSON load cannot be replaced by the stale response', { timeout: 30000 }, async () => {
+  const { server, base } = await serve();
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  let release;
+  try {
+    const page = await browser.newPage();
+    page.setDefaultTimeout(5000);
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const entry = { id: 'slow-score', format: 'paijian-score', file: 'scores/slow-score.json', title: source.title };
+    await page.route('**/curated/index.js*', route => route.fulfill({ contentType: 'application/javascript', body: `globalThis.CuratedScores = ${JSON.stringify({ version: 1, entries: [entry] })};` }));
+    let notifyRequested, notifyHandled;
+    const gate = new Promise(resolve => { release = resolve; });
+    const requested = new Promise(resolve => { notifyRequested = resolve; });
+    const handled = new Promise(resolve => { notifyHandled = resolve; });
+    await page.route('**/scores/slow-score.json*', async route => {
+      notifyRequested();
+      await gate;
+      try { await route.fulfill({ contentType: 'application/json', body: JSON.stringify(source) }); }
+      finally { notifyHandled(); }
+    });
+    await page.goto(base + 'score.html?score=slow-score', { waitUntil: 'domcontentloaded' });
+    await requested;
+    await assertNoSelectedScore(page, 'slow published load');
+    await assertRecoveredExample(page);
+    const chosen = await page.locator('#score-preview').innerHTML();
+    release();
+    await handled;
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await page.locator('#score-preview').innerHTML(), chosen);
+    assert.equal(await page.locator('#example-select').inputValue(), 'ode-duet');
+    assert.equal(await page.locator('#score-name').inputValue(), '欢乐颂 · 双音伴奏版');
+    assert.equal(await page.locator('#score-summary').innerText(), '94 个音符 · 16 小节');
+    assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), null);
+    assert.equal(await page.locator('#retry-score-load').isVisible(), false);
+    assert.deepEqual(errors, []);
+  } finally {
+    release?.();
     await browser.close();
     await new Promise(resolve => server.close(resolve));
   }

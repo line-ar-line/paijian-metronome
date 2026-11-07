@@ -57,6 +57,125 @@ async function staticServer() {
   return { server, base: `http://127.0.0.1:${server.address().port}${prefix}` };
 }
 
+async function assertUnloadedScore(page, busy) {
+  assert.equal(await page.locator('#score-preview svg').count(), 0, 'a deep link cannot show an unrelated example score');
+  assert.doesNotMatch(await page.locator('#score-name').inputValue(), /欢乐颂|小星星/);
+  assert.doesNotMatch(await page.locator('#score-summary').innerText(), /\d+\s*个音符|\d+\s*小节/);
+  assert.equal(await page.locator('#source-label a[download]').count(), 0);
+  assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), busy ? 'true' : null);
+  for (const id of ['score-play', 'score-restart', 'playback-progress', 'export-svg', 'export-png', 'print-score', 'export-json']) {
+    assert.equal(await page.locator('#' + id).isDisabled(), true, `${id} cannot act on an unloaded score`);
+  }
+}
+
+// Hold actual browser requests so both asynchronous loading stages can be
+// inspected without timing-dependent sleeps. Completion accepts cancellation.
+async function holdResponse(page, pattern, response) {
+  let release, requested, handled, settled;
+  let intercepted;
+  const gate = new Promise(resolve => { release = resolve; });
+  const requestReady = new Promise(resolve => { requested = resolve; });
+  const handlerDone = new Promise(resolve => { handled = resolve; });
+  const requestDone = new Promise(resolve => { settled = resolve; });
+  const onSettled = request => { if (request === intercepted) settled(); };
+  page.on('requestfinished', onSettled);
+  page.on('requestfailed', onSettled);
+  const handler = async route => {
+    intercepted = route.request();
+    requested();
+    await gate;
+    try { await route.fulfill(response); handled(null); }
+    catch (error) { handled(intercepted.failure() ? null : error); }
+  };
+  await page.route(pattern, handler);
+  return {
+    requested: requestReady,
+    async release() {
+      release();
+      const error = await handlerDone;
+      if (error) throw error;
+      await requestDone;
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      page.off('requestfinished', onSettled);
+      page.off('requestfailed', onSettled);
+      await page.unroute(pattern, handler);
+    },
+  };
+}
+
+test('catalog deep links stay empty through loading and never replace a newer explicit score choice', { timeout: 60000 }, async () => {
+  const { server, base } = await staticServer();
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    page.setDefaultTimeout(7000);
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(() => {
+      window.catalogRenderedTitles = [];
+      let scoreApi, renderer;
+      Object.defineProperty(window, 'KalimbaScore', {
+        get: () => scoreApi,
+        set: value => { scoreApi = { ...value, buildScore(...args) { const result = value.buildScore(...args); window.catalogAcceptanceScore = result; return result; } }; },
+      });
+      Object.defineProperty(window, 'ScoreRenderer', {
+        get: () => renderer,
+        set: value => { renderer = { ...value, render(score, options, ...args) { window.catalogRenderedTitles.push(options.title); return value.render(score, options, ...args); } }; },
+      });
+    });
+    const selected = catalog.entries.find(entry => entry.id === 'mutopia-528');
+    assert.ok(selected);
+    const indexPattern = '**/catalog/index.js*';
+    const midiPattern = `**/${selected.file}*`;
+    const indexResponse = { status: 200, contentType: 'application/javascript', body: fs.readFileSync(path.join(project, 'catalog/index.js')) };
+    const midiResponse = { status: 200, contentType: 'audio/midi', body: fs.readFileSync(path.join(project, selected.file)) };
+    const index = await holdResponse(page, indexPattern, indexResponse);
+    const midi = await holdResponse(page, midiPattern, midiResponse);
+    await page.goto(base + `score.html?piece=${selected.id}`, { waitUntil: 'domcontentloaded' });
+    await index.requested;
+    await assertUnloadedScore(page, true);
+    assert.deepEqual(await page.evaluate(() => catalogRenderedTitles), [], 'no example SVG is rendered before the catalog index arrives');
+    await index.release();
+    await midi.requested;
+    await assertUnloadedScore(page, true);
+    assert.deepEqual(await page.evaluate(() => catalogRenderedTitles), [], 'no example SVG is rendered while the selected MIDI is loading');
+    await midi.release();
+    await page.waitForFunction(id => document.getElementById('source-label').querySelector(`a[download="${id}.mid"]`) && document.getElementById('workshop-message').dataset.kind === 'success', selected.id);
+    assert.equal(await page.locator('#score-name').inputValue(), selected.title);
+    assert.equal(await page.locator('#score-summary').innerText(), `${selected.notes} 个音符 · ${selected.bars} 小节`);
+    assert.deepEqual(await page.evaluate(() => [catalogAcceptanceScore.notes.length, catalogAcceptanceScore.bars.length]), [selected.notes, selected.bars]);
+    assert.ok((await page.evaluate(() => catalogRenderedTitles)).every(title => title === selected.title));
+    assert.equal(await page.locator('#score-play').isDisabled(), false);
+    assert.equal(await page.locator('#export-svg').isDisabled(), false);
+
+    for (const stage of ['index', 'midi']) {
+      for (const choice of ['example', 'import']) {
+        const pending = await holdResponse(page, stage === 'index' ? indexPattern : midiPattern, stage === 'index' ? indexResponse : midiResponse);
+        await page.goto(base + `score.html?piece=${selected.id}`, { waitUntil: 'domcontentloaded' });
+        await pending.requested;
+        await assertUnloadedScore(page, true);
+        if (choice === 'example') await page.locator('#example-select').selectOption('twinkle');
+        else await page.locator('#midi-file').setInputFiles({ name: '我的练习曲.mid', mimeType: 'audio/midi', buffer: fs.readFileSync(path.join(project, 'examples/twinkle.mid')) });
+        const expectedTitle = choice === 'example' ? '小星星' : '我的练习曲';
+        await page.waitForFunction(title => document.getElementById('score-name').value === title && document.getElementById('score-summary').textContent === '42 个音符 · 12 小节', expectedTitle);
+        const chosenSvg = await page.locator('#score-preview').innerHTML();
+        await pending.release();
+        assert.equal(await page.locator('#score-name').inputValue(), expectedTitle, `${stage} completion cannot replace the explicit ${choice}`);
+        assert.equal(await page.locator('#score-preview').innerHTML(), chosenSvg);
+        assert.equal(await page.locator('#score-summary').innerText(), '42 个音符 · 12 小节');
+        assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), null);
+        assert.equal(await page.locator('#source-label a[download]').count(), 0);
+        assert.equal(await page.locator('#score-play').isDisabled(), false);
+        assert.ok((await page.evaluate(() => catalogRenderedTitles)).every(title => title === expectedTitle));
+      }
+    }
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('catalog search, pages, downloads and complete score links work at a GitHub Pages project path', { timeout: 60000 }, async () => {
   const { server, base } = await staticServer();
   const screenshots = fs.mkdtempSync(path.join(tmpdir(), 'paijian-catalog-qa-'));
@@ -209,49 +328,30 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
     await page.goto(base + 'score.html?piece=mutopia-999999999');
     await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
     assert.match(await page.locator('#workshop-message').innerText(), /没有这首曲子/);
-    assert.ok(await page.locator('#score-preview svg').count() > 0, 'invalid links leave a usable default score');
+    await assertUnloadedScore(page, false);
 
-    const filePattern = `**/${selected.file}`;
+    const filePattern = `**/${selected.file}*`;
     await page.route(filePattern, route => route.fulfill({ status: 503, body: 'Unavailable' }));
     await page.goto(base + `score.html?piece=${selected.id}`);
     await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
     assert.match(await page.locator('#workshop-message').innerText(), /无法载入/);
-    assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), null);
+    await assertUnloadedScore(page, false);
     await page.unroute(filePattern);
+    await page.locator('#retry-score-load').click();
+    await page.waitForFunction(id => document.getElementById('source-label').querySelector(`a[download="${id}.mid"]`) && document.getElementById('workshop-message').dataset.kind === 'success', selected.id);
+    assert.equal(await page.locator('#score-name').inputValue(), selected.title);
+    assert.equal(await page.locator('#score-summary').innerText(), `${selected.notes} 个音符 · ${selected.bars} 小节`);
+    assert.equal(await page.locator('#score-play').isDisabled(), false);
+    assert.equal(await page.locator('#export-svg').isDisabled(), false);
 
     await page.route(filePattern, route => route.fulfill({ status: 200, contentType: 'audio/midi', body: fs.readFileSync(path.join(project, selected.file)).subarray(0, 20) }));
     await page.goto(base + `score.html?piece=${selected.id}`);
     await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
     assert.match(await page.locator('#workshop-message').innerText(), /不完整/);
-    assert.ok(await page.locator('#score-preview svg').count() > 0);
+    await assertUnloadedScore(page, false);
     await page.unroute(filePattern);
 
-    // A slow catalog request must not replace a newer, explicit example choice.
-    let releaseDownload;
-    let notifyRequested;
-    const heldDownload = new Promise(resolve => { releaseDownload = resolve; });
-    const downloadRequested = new Promise(resolve => { notifyRequested = resolve; });
-    await page.route(filePattern, async route => {
-      notifyRequested();
-      await heldDownload;
-      await route.fulfill({ status: 200, contentType: 'audio/midi', body: fs.readFileSync(path.join(project, selected.file)) });
-    });
-    await page.goto(base + `score.html?piece=${selected.id}`);
-    await downloadRequested;
-    assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), 'true');
-    await page.locator('#example-select').selectOption('twinkle');
-    assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), null);
-    const exampleBefore = await page.locator('#score-preview').innerHTML();
-    const completedDownload = page.waitForEvent('requestfinished', request => request.url().endsWith(selected.file));
-    releaseDownload();
-    await completedDownload;
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    assert.equal(await page.locator('#example-select').inputValue(), 'twinkle');
-    assert.equal(await page.locator('#score-preview').innerHTML(), exampleBefore, 'late source download cannot replace the chosen example');
-    assert.equal(await page.locator('#source-label a[download]').count(), 0);
-    await page.unroute(filePattern);
-
-    await page.route('**/catalog/index.js', route => route.abort());
+    await page.route('**/catalog/index.js*', route => route.abort());
     await page.goto(base + 'library.html');
     assert.equal(await page.locator('#catalog-empty').isVisible(), true);
     assert.match(await page.locator('#catalog-empty-title').innerText(), /没有加载成功/);
@@ -259,7 +359,12 @@ test('catalog search, pages, downloads and complete score links work at a GitHub
     await page.goto(base + `score.html?piece=${selected.id}`);
     await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
     assert.match(await page.locator('#workshop-message').innerText(), /无法加载曲目索引/);
-    await page.unroute('**/catalog/index.js');
+    await assertUnloadedScore(page, false);
+    await page.unroute('**/catalog/index.js*');
+    await page.locator('#retry-score-load').click();
+    await page.waitForFunction(id => document.getElementById('source-label').querySelector(`a[download="${id}.mid"]`) && document.getElementById('workshop-message').dataset.kind === 'success', selected.id);
+    assert.equal(await page.locator('#score-name').inputValue(), selected.title);
+    assert.equal(await page.locator('#score-summary').innerText(), `${selected.notes} 个音符 · ${selected.bars} 小节`);
     assert.deepEqual(errors, []);
     console.log(`Verified ${allEntries.length}-entry catalog under ${prefix}, search/filter/sort, ${totalPages} pages, source-hash download, complete ${selected.id} deep link, attribution, error recovery, and 320/390/768px layouts.`);
     console.log(`Catalog QA screenshots retained at ${screenshots}`);

@@ -8,7 +8,7 @@
   <title>曲谱工坊 · 拍间</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="score/workshop.css?v=playback-nav-1">
+  <link rel="stylesheet" href="score/workshop.css?v=score-load-1">
   <script src="score/score-model.js" defer></script>
   <script src="score/document.js?v=xu-body-5" defer></script>
   <script src="score/user-library.js?v=authoring-1" defer></script>
@@ -18,7 +18,7 @@
   <script src="score/renderer.js?v=xu-body-5" defer></script>
   <script src="score/player.js?v=playback-nav-1" defer></script>
   <script src="score/export.js" defer></script>
-  <script src="score/workshop.js?v=playback-nav-1" defer></script>
+  <script src="score/workshop.js?v=score-load-1" defer></script>
 </head>
 <body class="workshop-page">
   <div class="page-shell workshop-shell">
@@ -35,12 +35,12 @@
             <label class="upload-zone" id="upload-zone" for="midi-file"><span class="upload-icon" aria-hidden="true">↑</span><strong>导入 MIDI 或制谱文件</strong><span>点击选择，或把文件拖到这里</span><small>MIDI 最大 20 MB · JSON 最大 2 MB</small><input class="sr-only" id="midi-file" type="file" accept=".mid,.midi,.json,audio/midi,audio/x-midi,application/json"></label>
             <p class="control-note">文件仅在当前浏览器处理，不会上传。<a href="examples/ode-duet.mid" download="欢乐颂-双声部.mid">下载双音示例 MIDI ↗</a></p>
             <div class="field-divider"><span>也可以先试一首</span></div>
-            <label class="sr-only" for="example-select">选择完整示例曲</label><select id="example-select"><option value="ode-duet">欢乐颂 · 双音伴奏 · 完整 16 小节</option><option value="twinkle">小星星 · 完整 12 小节</option><option value="ode">欢乐颂 · 完整 16 小节主题</option><option value="higher">指尖小练习 · 完整 4 小节</option></select>
+            <label class="sr-only" for="example-select">选择完整示例曲</label><select id="example-select"><option value="" disabled selected>选择一首示例曲</option><option value="ode-duet">欢乐颂 · 双音伴奏 · 完整 16 小节</option><option value="twinkle">小星星 · 完整 12 小节</option><option value="ode">欢乐颂 · 完整 16 小节主题</option><option value="higher">指尖小练习 · 完整 4 小节</option></select>
             <a class="library-entry" href="./library.html">打开 1,000 首内置曲库 ↗</a>
             <a class="library-entry" href="./score.html?score=heixiu-rhapsody">练习《嘿咻狂想曲》· 原谱滑音版 ↗</a>
             <a class="library-entry" href="./composer.html">手动制谱 · 保存自己的编配 ↗</a>
             <div id="track-field" class="track-field" hidden><label for="track-select">参与转谱的音轨</label><select id="track-select"></select><p class="control-note">可合并全部声部，也可单独练习一条音轨。鼓轨不参与转谱。</p></div>
-            <p id="source-label" class="source-label">公版传统旋律 · 内置练习编排</p>
+            <p id="source-label" class="source-label"></p>
           </section>
 
           <section class="control-card">
@@ -57,10 +57,11 @@
 
         <section class="score-workspace" aria-label="数字谱预览">
           <div id="workshop-message" class="workshop-message" role="status" hidden></div>
+          <div id="score-load-actions" class="score-load-actions" hidden><button id="retry-score-load" class="secondary-button" type="button">重新加载这首曲谱</button><a class="secondary-button" href="./library.html">返回曲库选曲</a></div>
           <div class="score-topbar"><div><span class="eyebrow">YOUR COMPLETE SCORE</span><h2>从第一拍，到最后一拍。</h2></div><span id="score-summary" class="score-summary"></span></div>
           <p id="full-score-info" class="full-score-info"></p>
           <div class="score-toolbar">
-            <label class="score-title-field"><span class="sr-only">曲谱标题</span><input id="score-name" class="text-input" type="text" maxlength="80" value="小星星" placeholder="给这页谱起个名字"></label>
+            <label class="score-title-field"><span class="sr-only">曲谱标题</span><input id="score-name" class="text-input" type="text" maxlength="80" value="" placeholder="正在准备曲谱…" disabled></label>
             <div class="export-actions"><button id="favorite-score" class="secondary-button" type="button" aria-pressed="false">☆ 收藏</button><a id="edit-authored" class="secondary-button" href="composer.html" hidden>编辑副本</a><button id="export-json" class="secondary-button" type="button" hidden>可编辑 JSON</button><button id="export-png" class="secondary-button" type="button">全谱图片</button><button id="export-svg" class="secondary-button" type="button">全谱 SVG</button><button id="print-score" class="secondary-button" type="button">打印 / PDF</button></div>
           </div>
           <div class="page-navigation" aria-label="全谱分页"><div class="page-buttons"><button id="previous-page" class="secondary-button" type="button" aria-label="上一页">←</button><label class="sr-only" for="page-select">选择谱页</label><select id="page-select"></select><button id="next-page" class="secondary-button" type="button" aria-label="下一页">→</button></div><span id="page-range"></span><label class="follow-pages"><input id="follow-pages" type="checkbox" checked>播放时自动跟随</label></div>

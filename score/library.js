@@ -99,7 +99,7 @@
     heading.append(element('span', `catalog-piece-badge${polyphonic ? ' polyphonic' : ''}`, texture));
     const title = element('h3');
     const titleLink = element('a', 'catalog-piece-title', entry.title);
-    titleLink.href = `./score.html?${entry.format === 'paijian-score' ? 'score' : 'piece'}=${encodeURIComponent(entry.id)}`;
+    titleLink.href = `./score.html?${entry.format === 'paijian-score' ? 'score' : 'piece'}=${encodeURIComponent(entry.id)}${entry.format === 'midi' ? '&v=score-load-1' : ''}`;
     title.append(titleLink);
     const details = element('dl', 'catalog-piece-details');
     addDetail(details, '原编制', entry.instrument);
