@@ -7,6 +7,16 @@ const { render, paginate } = require('../score/renderer.js');
 
 const original = JSON.parse(fs.readFileSync(path.join(__dirname, '../scores/heixiu-rhapsody.json'), 'utf8'));
 
+test('bundled published documents exactly match their editable JSON originals', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../curated/index.js'), 'utf8');
+  const catalog = JSON.parse(source.replace(/^globalThis\.CuratedScores\s*=\s*/, '').replace(/;\s*$/, ''));
+  for (const entry of catalog.entries.filter(entry => entry.format === 'paijian-score')) {
+    const editable = JSON.parse(fs.readFileSync(path.join(__dirname, '..', entry.file), 'utf8'));
+    assert.deepEqual(catalog.documents[entry.id], editable, `${entry.id} must not need a second download or have stale notes`);
+    assert.equal(compile(catalog.documents[entry.id]).score.notes.length, entry.notes);
+  }
+});
+
 // Independently transcribed from the supplied photograph, not from the parser's
 // notation or compiled output. Each bar has [upper, lower]; each event has
 // [duration in sixteenths, ...absolute MIDI pitches]. An empty pitch list is a

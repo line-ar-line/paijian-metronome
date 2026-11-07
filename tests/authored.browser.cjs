@@ -28,7 +28,7 @@ async function serve() {
   return { server, base: `http://127.0.0.1:${server.address().port}${prefix}` };
 }
 
-test('published authored score preserves every page, glissando, repeat, source image, favorite and editable document', { timeout: 45000 }, async () => {
+test('bundled authored score works with all score JSON requests blocked, preserving pages, playback, favorites and downloads', { timeout: 45000 }, async () => {
   const { server, base } = await serve();
   const output = fs.mkdtempSync(path.join(tmpdir(), 'paijian-authored-qa-'));
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -36,6 +36,8 @@ test('published authored score preserves every page, glissando, repeat, source i
     const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, acceptDownloads: true });
     const page = await context.newPage();
     page.setDefaultTimeout(7000);
+    const blockedJsonRequests = [];
+    await context.route('**/scores/*.json*', route => { blockedJsonRequests.push(route.request().url()); return route.abort('failed'); });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
@@ -166,8 +168,50 @@ test('published authored score preserves every page, glissando, repeat, source i
     assert.equal(await page.locator('#score-play').isEnabled(), true, 'an invalid published ID leaves the default example usable');
     assert.match(await page.locator('#score-summary').innerText(), /94 个音符 · 16 小节/);
     assert.equal(await page.locator('#export-json').isVisible(), false);
+    assert.deepEqual(blockedJsonRequests, [], 'bundled scores and unknown IDs require no score JSON requests');
     assert.deepEqual(errors, []);
     console.log(`Verified 29 bars, 189 source notes, 5 pages, 12 glissandi, 245 playback notes/148 beats, repeat navigation, favorites, original image, JSON round-trip and mobile layout. QA outputs: ${output}`);
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('entry-only published scores keep the JSON fallback and report load failures without replacing the usable example', { timeout: 30000 }, async () => {
+  const { server, base } = await serve();
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  try {
+    const page = await browser.newPage();
+    page.setDefaultTimeout(5000);
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const entry = { id: 'future-score', format: 'paijian-score', file: 'scores/future-score.json', title: source.title, attribution: '未来曲目测试' };
+    await page.route('**/curated/index.js*', route => route.fulfill({ contentType: 'application/javascript', body: `globalThis.CuratedScores = ${JSON.stringify({ version: 1, entries: [entry] })};` }));
+    let failure = 'none';
+    const requests = [];
+    await page.route('**/scores/future-score.json*', route => {
+      requests.push(route.request().url());
+      if (failure === 'network') return route.abort('failed');
+      if (failure === 'http') return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(source) });
+    });
+    await page.goto(base + 'score.html?score=future-score');
+    await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
+    assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复试听 37 小节/);
+    assert.equal(requests.length, 1, 'a published entry without bundled data still loads its JSON');
+    for (failure of ['network', 'http']) {
+      await page.reload();
+      await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
+      const message = await page.locator('#workshop-message').innerText();
+      assert.match(message, /曲谱|网络/);
+      assert.doesNotMatch(message, /Failed to fetch|NetworkError|Load failed/);
+      assert.match(await page.locator('#score-summary').innerText(), /94 个音符 · 16 小节/);
+      assert.equal(await page.locator('#score-play').isEnabled(), true);
+      assert.equal(await page.locator('#export-json').isVisible(), false);
+      assert.equal(await page.locator('#score-preview').getAttribute('aria-busy'), null);
+    }
+    assert.equal(requests.length, 3);
+    assert.deepEqual(errors, []);
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

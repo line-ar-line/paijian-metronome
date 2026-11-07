@@ -457,18 +457,29 @@
         message('没有找到这首公开曲谱，请从曲库重新打开。', true);
       } else {
         message('正在载入公开曲谱的可编辑副本…');
-        root.fetch(new URL(entry.file, root.location.href)).then(async response => {
+        const controller = new AbortController();
+        const timeout = root.setTimeout(() => controller.abort(), 15000);
+        const generation = ++importGeneration;
+        const load = async () => {
+          const documents = root.CuratedScores?.documents;
+          if (documents && Object.prototype.hasOwnProperty.call(documents, requestedScore)) return root.ScoreDocument.normalize(documents[requestedScore]);
+          const response = await root.fetch(new URL(entry.file, root.location.href), { signal: controller.signal });
           if (!response.ok) throw new Error(`公开曲谱加载失败（${response.status}）。`);
           const text = await response.text();
           if (text.length > MAX_IMPORT_BYTES) throw new Error('公开曲谱超过 2 MB，无法载入。');
           return root.ScoreDocument.normalize(JSON.parse(text));
-        }).then(imported => {
+        };
+        load().then(imported => {
+          if (generation !== importGeneration) return;
           create(imported);
           const cleanUrl = new URL(root.location.href);
           cleanUrl.searchParams.delete('score');
           root.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
           message(`已创建“${imported.title}”的可编辑副本，修改将保存为你的本地草稿。`);
-        }).catch(error => message(error.message || '公开曲谱暂时无法加载，请稍后重试。', true));
+        }).catch(error => {
+          if (generation !== importGeneration) return;
+          message(error.name === 'AbortError' ? '公开曲谱加载超时，请稍后重试。' : error instanceof TypeError ? '公开曲谱暂时无法加载，请检查网络后重试。' : error.message || '公开曲谱暂时无法加载，请稍后重试。', true);
+        }).finally(() => root.clearTimeout(timeout));
       }
     }
   }

@@ -291,11 +291,16 @@
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
     $('score-preview').setAttribute('aria-busy', 'true');
     try {
-      const response = await fetch(entry.file, { signal: controller.signal });
-      if (!response.ok) throw new Error('曲谱暂时无法加载，请刷新重试。');
-      const data = await response.json();
+      let data;
+      const documents = globalThis.CuratedScores?.documents;
+      if (documents && Object.prototype.hasOwnProperty.call(documents, id)) data = documents[id];
+      else {
+        const response = await fetch(entry.file, { signal: controller.signal });
+        if (!response.ok) throw new Error('曲谱暂时无法加载，请刷新重试。');
+        data = await response.json();
+      }
       if (generation === importGeneration) openDocument(data, entry);
-    } catch (error) { if (generation === importGeneration) message(error.name === 'AbortError' ? '曲谱加载超时，请重试。' : error.message); }
+    } catch (error) { if (generation === importGeneration) message(error.name === 'AbortError' ? '曲谱加载超时，请重试。' : error instanceof TypeError ? '曲谱暂时无法加载，请检查网络后刷新重试。' : error.message); }
     finally { clearTimeout(timeout); if (generation === importGeneration) $('score-preview').removeAttribute('aria-busy'); }
   }
   async function openCatalogPiece(id) {

@@ -10,7 +10,7 @@
 
 1. 在 `composer.html` 制谱，填写曲名和署名，确认所有小节节拍正确。
 2. 点击“导出 JSON”保存可编辑原稿。SVG 是展示文件，不能代替 JSON 原稿。
-3. 在仓库目录执行：`node tools/add-score.cjs /path/to/song.json my-song`。该命令会完整校验曲谱，写入 `scores/my-song.json` 并加入 `curated/index.js`，不会自动提交或推送。
+3. 在仓库目录执行：`node tools/add-score.cjs /path/to/song.json my-song`。该命令会完整校验曲谱，写入 `scores/my-song.json`，并把目录条目与谱面数据一起加入 `curated/index.js`；打开练习页与编辑副本时无需再次下载 JSON。命令不会自动提交或推送。
 4. 核对文件后提交到 GitHub 的 `main` 分支。现有 GitHub Pages 会自动部署，曲库中可找到新曲，也可通过 `score.html?score=my-song` 打开。
 
 也可将导出的 JSON 交给网站维护者完成第 3–4 步。只上传 JSON、没有更新目录索引，尚不会出现在曲库中。

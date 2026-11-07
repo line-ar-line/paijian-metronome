@@ -299,10 +299,18 @@ test('composer treats imported titles, credits, and invalid notation as text and
   });
 });
 
-test('composer opens a whitelisted public score as a local copy without losing drafts or fetching arbitrary score paths', { timeout: 45000 }, async () => {
+test('composer opens the complete bundled public score with JSON requests blocked, retaining drafts and editable downloads', { timeout: 45000 }, async () => {
   await browserSession(async ({ page, url }) => {
     const expected = JSON.parse(fs.readFileSync(path.join(project, 'scores/heixiu-rhapsody.json'), 'utf8'));
     const fetches = [];
+    await page.route('**/scores/*.json*', route => route.abort('failed'));
+    await page.addInitScript(() => {
+      let Player;
+      Object.defineProperty(window, 'ScorePlayer', {
+        get: () => Player,
+        set: Original => { Player = class extends Original { constructor(...args) { super(...args); window.publicCopyPlayer = this; } }; },
+      });
+    });
     page.on('request', request => {
       if (['fetch', 'xhr'].includes(request.resourceType())) fetches.push(request.url());
     });
@@ -323,21 +331,39 @@ test('composer opens a whitelisted public score as a local copy without losing d
     assert.equal(new URL(page.url()).searchParams.get('keep'), '1');
     assert.equal(new URL(page.url()).hash, '#editor');
     assert.equal(await page.locator('.notation-input').count(), expected.voices.length);
+    const pages = await page.locator('#composer-page-select option').count();
+    const bars = [], ids = new Set();
+    for (let i = 0; i < pages; i++) {
+      await page.locator('#composer-page-select').selectOption(String(i));
+      const rendered = await page.locator('#composer-preview').evaluate(node => ({
+        bars: [...node.querySelectorAll('[data-measure]')].map(item => Number(item.dataset.measure)),
+        ids: [...node.querySelectorAll('.note-group[data-source-id]')].map(item => item.dataset.sourceId).filter(Boolean),
+      }));
+      bars.push(...rendered.bars);
+      rendered.ids.forEach(id => ids.add(id));
+    }
+    assert.deepEqual(bars, Array.from({ length: 29 }, (_, i) => i));
+    assert.equal(ids.size, 189);
+    await page.locator('#composer-play').click();
+    await page.waitForFunction(() => publicCopyPlayer.isPlaying && publicCopyPlayer._voices.size > 0);
+    assert.deepEqual(await page.evaluate(() => ({ notes: publicCopyPlayer._score.entries.length, beats: publicCopyPlayer._score.totalBeats, state: publicCopyPlayer._context.state })), { notes: 245, beats: 148, state: 'running' }, 'the full 37-bar playback reaches the real audio engine');
+    await page.locator('#composer-play').click();
     const exported = JSON.parse((await downloadThrough(page, '#composer-export-json')).bytes.toString('utf8'));
     assertSampleDocument(exported, expected);
     assert.equal(exported.description, expected.description);
-    assert.deepEqual(fetches, [new URL('scores/heixiu-rhapsody.json', url).href]);
+    assert.deepEqual(fetches, [], 'the bundled public copy needs no JSON fetch');
 
     await page.reload();
     await page.locator('.notation-input').first().waitFor();
     assert.equal(await page.locator('.draft-item').count(), 2);
     assert.equal(await page.locator('.draft-item[aria-current="true"]').getAttribute('data-draft-id'), copyId);
-    assert.equal(fetches.length, 1, 'refresh of the copied score does not fetch it again');
+    assert.equal(fetches.length, 0, 'refresh of the copied score needs no fetch');
     await page.locator(`.draft-item[data-draft-id="${originalId}"]`).click();
     assert.equal(await page.locator('#composer-title').inputValue(), '本地保留草稿');
     assert.equal(await page.locator('.notation-input').first().inputValue(), unfinished);
 
     const rejected = [
+      'nonexistent-score',
       '../scores/private.json',
       'https://example.invalid/injected.json',
       '//example.invalid/injected.json',
@@ -355,8 +381,44 @@ test('composer opens a whitelisted public score as a local copy without losing d
       assert.equal(await page.locator('.draft-item[aria-current="true"]').getAttribute('data-draft-id'), originalId);
       assert.equal(await page.locator('.notation-input').first().inputValue(), unfinished);
       assert.equal(await page.evaluate(() => window.__composerXss), undefined);
-      assert.equal(fetches.length, 1, `invalid public id must not issue a fetch: ${score}`);
+      assert.equal(fetches.length, 0, `invalid public id must not issue a fetch: ${score}`);
     }
+  });
+});
+
+test('composer supports entry-only public scores and preserves the current draft on JSON fallback failures', { timeout: 30000 }, async () => {
+  await browserSession(async ({ page, url }) => {
+    const expected = JSON.parse(fs.readFileSync(path.join(project, 'scores/heixiu-rhapsody.json'), 'utf8'));
+    const entry = { id: 'future-score', format: 'paijian-score', file: 'scores/future-score.json', title: expected.title };
+    await page.route('**/curated/index.js*', route => route.fulfill({ contentType: 'application/javascript', body: `globalThis.CuratedScores = ${JSON.stringify({ version: 1, entries: [entry] })};` }));
+    let failure = 'none';
+    const requests = [];
+    await page.route('**/scores/future-score.json*', route => {
+      requests.push(route.request().url());
+      if (failure === 'network') return route.abort('failed');
+      if (failure === 'http') return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(expected) });
+    });
+    await page.goto(url + '?score=future-score');
+    await page.waitForFunction(title => document.getElementById('composer-title').value === title, expected.title);
+    await waitForPreview(page);
+    const copyId = await page.locator('.draft-item[aria-current="true"]').getAttribute('data-draft-id');
+    const count = await page.locator('.draft-item').count();
+    assertSampleDocument(JSON.parse((await downloadThrough(page, '#composer-export-json')).bytes.toString('utf8')), expected);
+    assert.equal(requests.length, 1, 'metadata-only published scores still load from JSON');
+    for (failure of ['network', 'http']) {
+      await page.goto(url + '?score=future-score');
+      await page.waitForFunction(() => document.getElementById('composer-message').dataset.kind === 'error');
+      const message = await page.locator('#composer-message').innerText();
+      assert.match(message, /曲谱|网络/);
+      assert.doesNotMatch(message, /Failed to fetch|NetworkError|Load failed/);
+      assert.equal(await page.locator('.draft-item').count(), count);
+      assert.equal(await page.locator('.draft-item[aria-current="true"]').getAttribute('data-draft-id'), copyId);
+      assert.equal(await page.locator('#composer-title').inputValue(), expected.title);
+      assert.equal(await page.locator('.notation-input').first().inputValue(), expected.voices[0].notation);
+      assert.equal(await page.locator('#composer-play').isEnabled(), true);
+    }
+    assert.equal(requests.length, 3);
   });
 });
 

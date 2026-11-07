@@ -18,6 +18,7 @@ try {
   const index = JSON.parse(fs.readFileSync(indexPath, 'utf8').replace(/^globalThis\.CuratedScores\s*=\s*/, '').replace(/;\s*$/, ''));
   if (index.entries.some(e => e.id === id)) throw new Error('目录已经使用这个曲目 ID。');
   index.entries.push({ id, title: document.title, format: 'paijian-score', file: `scores/${id}.json`, license: '作者自定，参见署名', composer: '参见曲谱署名', instrument: `${document.instrument === '17C' ? '17' : '21'}音C调卡林巴`, scope: `完整${score.bars.length}小节，反复展开${score.playbackBarMap.length}小节`, notes: score.notes.length, bars: score.bars.length, maxPolyphony: score.stats.maxPolyphony, playable17Count: score.notes.filter(n => n.midi >= 60 && n.midi <= 88 && [0,2,4,5,7,9,11].includes(n.midi % 12)).length, attribution: document.credits.join('；') || '作者未填写署名' });
+  index.documents = { ...(index.documents || {}), [id]: document };
   fs.writeFileSync(target, JSON.stringify(document, null, 2) + '\n', { flag: 'wx' });
   fs.writeFileSync(indexPath, 'globalThis.CuratedScores = ' + JSON.stringify(index, null, 2) + ';\n');
   console.log(`已加入完整曲谱：${document.title}\n请检查 scores/${id}.json 与 curated/index.js，再提交并推送到 GitHub。\n发布后链接：https://line-ar-line.github.io/paijian-metronome/score.html?score=${id}`);
