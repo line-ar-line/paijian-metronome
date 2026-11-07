@@ -10,15 +10,15 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="score/workshop.css">
   <script src="score/score-model.js" defer></script>
-  <script src="score/document.js?v=authoring-1" defer></script>
+  <script src="score/document.js?v=xu-digital-4" defer></script>
   <script src="score/user-library.js?v=authoring-1" defer></script>
-  <script src="curated/index.js?v=score-bundle-2" defer></script>
+  <script src="curated/index.js?v=xu-digital-4" defer></script>
   <script src="score/midi.js" defer></script>
   <script src="score/examples.js" defer></script>
-  <script src="score/renderer.js?v=authoring-1" defer></script>
+  <script src="score/renderer.js?v=xu-digital-4" defer></script>
   <script src="score/player.js" defer></script>
   <script src="score/export.js" defer></script>
-  <script src="score/workshop.js?v=score-bundle-2" defer></script>
+  <script src="score/workshop.js?v=xu-digital-4" defer></script>
 </head>
 <body class="workshop-page">
   <div class="page-shell workshop-shell">
@@ -72,6 +72,7 @@
             <label class="tempo-field" for="score-bpm"><span>速度 <small>♩ BPM</small></span><input id="score-bpm" class="text-input" type="number" min="30" max="240" step="1" value="80"></label>
           </div>
           <div id="score-warnings" class="score-warnings" aria-label="转谱说明"></div>
+          <p id="score-performance-note" class="control-note" hidden></p>
           <details id="original-score" class="original-score" hidden><summary>查看用户提供原图 · 对照声部、反复与滑音</summary><p><a id="original-link" href="scores/heixiu-rhapsody-original.jpg" target="_blank" rel="noopener">打开原尺寸图片 ↗</a></p><img id="original-image" loading="lazy" alt="用户提供原谱"></details>
           <div class="score-bottom-note"><span>多页图片与 SVG 会打包成 ZIP，包含全部谱页。完整转谱覆盖源文件时长；原文件是否为完整原曲，请核对来源。</span><a href="./index.html">打开节拍器练习 ↗</a></div>
         </section>

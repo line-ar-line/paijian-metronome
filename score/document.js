@@ -34,7 +34,16 @@
     normalizedRepeats.forEach((r, i) => { if (i && r.startBar <= normalizedRepeats[i - 1].endBar) throw new Error('暂不支持重叠或嵌套的反复段。'); });
     const credits = input.credits ?? [];
     if (!Array.isArray(credits) || credits.length > 12 || credits.some(c => typeof c !== 'string' || c.length > 1000)) throw new Error('署名须为最多 12 行文字，每行不超过 1000 字。');
-    return { format: 'paijian-score', version: 1, title: clean(input.title || '未命名曲谱', 80), bpm, meter: [...meter], instrument: input.instrument, voices, repeats: normalizedRepeats, credits: [...credits], description: clean(input.description, 1500) };
+    const sections = input.unmeteredSections ?? [];
+    if (!Array.isArray(sections) || sections.length > 8) throw new Error('未定节奏段最多支持 8 段。');
+    const unmeteredSections = sections.map(section => {
+      if (!section || !Number.isInteger(section.afterBar) || section.afterBar < 1 || !Array.isArray(section.voices) || !section.voices.length || section.voices.length > 4) throw new Error('未定节奏段须填写正文位置及 1–4 个声部。');
+      return { title: clean(section.title || '未定节奏段', 80), afterBar: section.afterBar, description: clean(section.description, 1500), voices: section.voices.map((voice, i) => {
+        if (!voice || typeof voice.notation !== 'string' || voice.notation.length > 20000) throw new Error('未定节奏段的声部格式无效或过长。');
+        return { name: clean(voice.name || `声部 ${i + 1}`, 16), notation: voice.notation };
+      }) };
+    }).sort((a, b) => a.afterBar - b.afterBar);
+    return { format: 'paijian-score', version: 1, title: clean(input.title || '未命名曲谱', 80), bpm, meter: [...meter], instrument: input.instrument, voices, repeats: normalizedRepeats, credits: [...credits], description: clean(input.description, 1500), ...(unmeteredSections.length ? { unmeteredSections } : {}) };
   }
   function pitch(value) {
     const match = /^(#?)([1-7])('{1,2}|_{1,2})?$/.exec(value);
@@ -49,23 +58,49 @@
     const bars = text.split('|');
     if (bars.length > 2048) throw new Error('曲谱最多支持 2048 个小节。');
     return bars.map((bar, index) => {
-      const tokens = bar.trim().match(/~?\([^)]*\)(?::[^\s|]+)?|[^\s|]+/g) || [];
+      const tokens = bar.trim().match(/~?\([^)]*\)(?::[^\s|]+)?~?|[^\s|]+/g) || [];
       let tick = 0;
       const events = tokens.map(token => {
-        const match = /^(.*?)(?::(\d+(?:\.\d+)?))?$/.exec(token);
+        const tieOut = token.endsWith('~');
+        const match = /^(.*?)(?::(\d+(?:\.\d+)?))?$/.exec(tieOut ? token.slice(0, -1) : token);
         const body = match[1], duration = match[2] === undefined ? 1 : Number(match[2]);
         if (!(duration > 0) || !Number.isInteger(duration * 4) || duration * 4 > barTicks) throw new Error(`「${voice.name}」第 ${index + 1} 小节：时值须为 0.25 拍的倍数，且不超过一小节。`);
         const chord = /^(~?)\((.+)\)$/.exec(body);
         const pitches = body === '0' ? [] : chord ? chord[2].split(',').map(v => pitch(v.trim())) : [pitch(body)];
         if (pitches.length > 8 || new Set(pitches).size !== pitches.length) throw new Error('和弦最多 8 个音，且不能重复同一音高。');
         if (chord && pitches.length < 2) throw new Error('和弦或滑音至少需要两个音。');
-        const event = { tick, ticks: duration * 4, pitches: pitches.sort((a, b) => b - a), glissando: !!chord?.[1] };
+        if (tieOut && (!pitches.length || chord?.[1])) throw new Error('休止与滑音不能作为延音连线起点。');
+        const event = { tick, ticks: duration * 4, pitches: pitches.sort((a, b) => b - a), glissando: !!chord?.[1], tieOut };
         tick += event.ticks;
         return event;
       });
       if (tick !== barTicks) throw new Error(`「${voice.name}」第 ${index + 1} 小节有 ${tick / 4} 拍，需要 ${barTicks / 4} 拍。用 0 补休止，或修改音符时值。`);
       return events;
     });
+  }
+  function compileUnmetered(section, sectionIndex, instrument) {
+    const voices = section.voices.map(voice => {
+      const groups = voice.notation.trim().replace(/\|\s*$/, '').split('|');
+      if (groups.length > 32) throw new Error('每段未定节奏谱最多支持 32 组。');
+      return groups.map(group => {
+        const columns = group.trim().split(/\s+/);
+        if (columns.length > 64 || columns.some(value => !value)) throw new Error('未定节奏分组不可为空，每组最多 64 列。');
+        return columns.map(value => {
+          if (value === '.') return [];
+          const chord = /^\(([^()]+)\)$/.exec(value);
+          const values = chord ? chord[1].split(',') : [value];
+          const pitches = values.map(pitch);
+          if (pitches.length > 8 || new Set(pitches).size !== pitches.length || (chord && pitches.length < 2)) throw new Error('未定节奏和弦须为 2–8 个不同音高。');
+          return pitches.sort((a, b) => b - a);
+        });
+      });
+    });
+    if (voices.some(groups => groups.length !== voices[0].length)) throw new Error('未定节奏段各声部的分组数量必须相同。');
+    const groups = voices[0].map((columns, groupIndex) => {
+      if (voices.some(groups => groups[groupIndex].length !== columns.length)) throw new Error(`未定节奏段第 ${groupIndex + 1} 组各声部列数须一致；空位用 .，不表示休止时值。`);
+      return { index: groupIndex, columns: columns.map((_, columnIndex) => ({ voices: voices.map((groups, voiceIndex) => groups[groupIndex][columnIndex].map((midi, pitchIndex) => ({ ...model.pitchInfo(midi, instrument), sourceId: `u${sectionIndex}-g${groupIndex}-c${columnIndex}-v${voiceIndex}-p${pitchIndex}` }))) })) };
+    });
+    return { title: section.title, description: section.description, afterBar: section.afterBar, voiceNames: section.voices.map(voice => voice.name), groups };
   }
   function compile(input) {
     const document = normalize(input);
@@ -77,21 +112,31 @@
     const notes = [], warnings = [];
     const bars = Array.from({ length: count }, (_, index) => ({ index, start: index * barTicks / 4, duration: barTicks / 4, tokens: [], voices: [] }));
     const rest = { midi: null, degree: '0', octave: 0, accidental: '', playable: true, reason: '' };
-    voices.forEach((voiceBars, voiceIndex) => voiceBars.forEach((events, barIndex) => {
-      const bar = bars[barIndex], lane = { index: voiceIndex, tokens: [] };
-      events.forEach((event, eventIndex) => {
-        const group = `v${voiceIndex}-b${barIndex}-e${eventIndex}`;
-        const infos = event.pitches.map((midi, i) => ({ ...model.pitchInfo(midi, document.instrument), sourceId: `${group}-p${i}` }));
-        infos.forEach(info => notes.push({ ...info, start: bar.start + event.tick / 4, duration: event.ticks / 4, velocity: voiceIndex ? .68 : .85, voiceIndex, glissandoGroup: event.glissando ? group : null }));
-        let offset = 0;
-        while (offset < event.ticks) {
-          const ticks = lengths.find(n => n <= event.ticks - offset);
-          const token = { ...(infos[0] || rest), sourceId: infos[0]?.sourceId || null, id: `${group}-t${offset}`, start: bar.start + (event.tick + offset) / 4, duration: ticks / 4, voiceIndex, tieIn: infos.length > 0 && offset > 0, tieOut: infos.length > 0 && offset + ticks < event.ticks, ...(infos.length > 1 ? { pitches: infos } : {}), glissando: event.glissando && offset === 0 };
-          lane.tokens.push(token); bar.tokens.push(token); offset += ticks;
-        }
+    voices.forEach((voiceBars, voiceIndex) => {
+      let tied = null;
+      voiceBars.forEach((events, barIndex) => {
+        const bar = bars[barIndex], lane = { index: voiceIndex, tokens: [] };
+        events.forEach((event, eventIndex) => {
+          const group = `v${voiceIndex}-b${barIndex}-e${eventIndex}`;
+          if (tied && (event.glissando || tied.infos.length !== event.pitches.length || tied.infos.some((info, i) => info.midi !== event.pitches[i]))) throw new Error(`「${document.voices[voiceIndex].name}」第 ${barIndex + 1} 小节：延音连线两端须为相同音高或相同和弦。`);
+          if (tied && eventIndex === 0 && document.repeats.some(r => r.startBar === barIndex + 1 || r.endBar === barIndex)) throw new Error('延音连线暂不支持跨越反复跳转边界。');
+          const tieIn = !!tied;
+          const infos = tied?.infos || event.pitches.map((midi, i) => ({ ...model.pitchInfo(midi, document.instrument), sourceId: `${group}-p${i}` }));
+          const eventNotes = tied?.notes || infos.map(info => ({ ...info, start: bar.start + event.tick / 4, duration: event.ticks / 4, velocity: voiceIndex ? .68 : .85, voiceIndex, glissandoGroup: event.glissando ? group : null }));
+          if (tied) eventNotes.forEach(note => { note.duration += event.ticks / 4; });
+          else notes.push(...eventNotes);
+          let offset = 0;
+          while (offset < event.ticks) {
+            const ticks = lengths.find(n => n <= event.ticks - offset);
+            const token = { ...(infos[0] || rest), sourceId: infos[0]?.sourceId || null, id: `${group}-t${offset}`, start: bar.start + (event.tick + offset) / 4, duration: ticks / 4, voiceIndex, tieIn: infos.length > 0 && (offset > 0 || tieIn), tieOut: infos.length > 0 && (offset + ticks < event.ticks || event.tieOut), ...(infos.length > 1 ? { pitches: infos } : {}), glissando: event.glissando && offset === 0 };
+            lane.tokens.push(token); bar.tokens.push(token); offset += ticks;
+          }
+          tied = event.tieOut ? { infos, notes: eventNotes } : null;
+        });
+        bar.voices.push(lane);
       });
-      bar.voices.push(lane);
-    }));
+      if (tied) throw new Error('曲谱末尾的延音连线没有后续音符，请移除末尾 ~。');
+    });
     if (notes.length > 100000) throw new Error('曲谱超过 100000 个音符，无法保存为完整练习谱。');
     const unplayable = notes.filter(n => !n.playable).length;
     if (unplayable) warnings.push(`${unplayable} 个音符超出当前琴的自然音范围，已保留原音并标橙色。`);
@@ -121,7 +166,11 @@
     let active = 0, maxPolyphony = 0;
     changes.forEach(c => { active += c.delta; maxPolyphony = Math.max(maxPolyphony, active); });
     const totalBeats = playbackBarMap.length * barTicks / 4;
-    const score = { bars, notes, warnings, stats: { inputNotes: notes.length, outputNotes: notes.length, unplayable, voiceCount: voices.length, maxPolyphony, quantized: 0, removedPolyphony: 0, clippedOverlaps: 0 }, voiceNames: document.voices.map(v => v.name), authored: true, playbackBarMap, totalBeats: count * barTicks / 4, sourceTotalBeats: count * barTicks / 4, barBeats: barTicks / 4, options: { instrument: document.instrument, mode: 'polyphonic', meter: document.meter, title: document.title } };
+    if (document.unmeteredSections?.some(section => section.afterBar > count)) throw new Error('未定节奏段的位置超出了正文小节范围。');
+    const unmeteredSections = (document.unmeteredSections || []).map((section, i) => compileUnmetered(section, i, document.instrument));
+    const unmeteredNotes = unmeteredSections.flatMap(section => section.groups.flatMap(group => group.columns.flatMap(column => column.voices.flat())));
+    if (unmeteredSections.length) warnings.push(`未定节奏段共 ${unmeteredNotes.length} 个音符，已全部排入数字谱；试听仅含正文，不含未定节奏段。空位只表示原稿未写音符，不代表休止时长。`);
+    const score = { bars, notes, warnings, stats: { inputNotes: notes.length, outputNotes: notes.length, unplayable, voiceCount: voices.length, maxPolyphony, quantized: 0, removedPolyphony: 0, clippedOverlaps: 0, ...(unmeteredSections.length ? { unmeteredNotes: unmeteredNotes.length, unmeteredUnplayable: unmeteredNotes.filter(note => !note.playable).length } : {}) }, voiceNames: document.voices.map(v => v.name), authored: true, playbackBarMap, totalBeats: count * barTicks / 4, sourceTotalBeats: count * barTicks / 4, barBeats: barTicks / 4, options: { instrument: document.instrument, mode: 'polyphonic', meter: document.meter, title: document.title }, ...(unmeteredSections.length ? { unmeteredSections } : {}) };
     return { document, score, playbackNotes, totalBeats, warnings };
   }
   return { normalize, compile };

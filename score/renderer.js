@@ -16,6 +16,8 @@
 
   const positiveInteger = value => Number.isInteger(value) && value > 0;
   const totalBarCount = (score, options) => positiveInteger(options.totalBars) ? options.totalBars : positiveInteger(score.totalBarCount) ? score.totalBarCount : score.bars.length;
+  const hasUnmetered = score => !!score.unmeteredSection || !!score.unmeteredSections?.length;
+  const pieceScope = (score, options) => `${hasUnmetered(score) ? '正文' : '全曲'} ${totalBarCount(score, options)} 小节${hasUnmetered(score) ? ' + 间奏' : ''}`;
   const isPolyphonic = score => !!score.authored || (score.options?.mode === 'polyphonic' && score.stats?.voiceCount > 1);
   const measureWidths = score => score.bars.map(bar => {
     if (!isPolyphonic(score)) return { bar, minimum: Math.max(180, bar.tokens.reduce((n, token) => n + widthOf(token), 0) + 24) };
@@ -125,26 +127,58 @@
   // maxHeight, that row gets its own page rather than being lost or truncated.
   function paginate(score, options = {}, maxHeight = 1380) {
     if (typeof maxHeight !== 'number' || !Number.isFinite(maxHeight) || maxHeight <= 0) throw new Error('分页高度必须是大于 0 的有限数值。');
-    if (!score.bars.length) return [];
+    const sections = score.unmeteredSections || [];
+    if (!score.bars.length && !sections.length) return [];
     const measures = measureWidths(score);
     const totalBars = totalBarCount(score, options);
     const credits = scoreCredits(score, options);
+    const insertions = new Map();
+    for (const section of sections) {
+      if (!Number.isInteger(section.afterBar) || section.afterBar < 0 || section.afterBar > totalBars || !Array.isArray(section.groups) || !section.groups.length) throw new Error('间奏须包含音序分组，并放在有效的正文小节之后。');
+      if (!insertions.has(section.afterBar)) insertions.set(section.afterBar, []);
+      insertions.get(section.afterBar).push(section);
+    }
     const pages = [];
+    const maximumPageCount = score.bars.length + sections.reduce((sum, section) => sum + section.groups.length, 0);
+    const pageData = () => ({ ...score, totalBarCount: totalBars, pageNumber: pages.length + 1, ...(credits.length || score.credits !== undefined ? { credits: credits.slice() } : {}) });
+    const reservedOptions = () => ({ ...options, pageNumber: pages.length + 1, pageCount: maximumPageCount, totalBars });
     let current = [];
     function savePage() {
-      pages.push({ ...score, bars: current.map(entry => entry.bar), totalBarCount: totalBars, pageNumber: pages.length + 1, ...(credits.length || score.credits !== undefined ? { credits: credits.slice() } : {}) });
+      if (!current.length) return;
+      pages.push({ ...pageData(), bars: current.map(entry => entry.bar) });
+      current = [];
     }
+    function insertSections(afterBar) {
+      const following = insertions.get(afterBar);
+      if (!following) return;
+      savePage();
+      for (const section of following) {
+        let groups = [];
+        const saveGroups = () => {
+          pages.push({ ...pageData(), bars: [], unmeteredSection: { ...section, groups } });
+          groups = [];
+        };
+        for (const group of section.groups) {
+          const candidate = groups.concat(group);
+          const candidateScore = { ...score, bars: [], unmeteredSection: { ...section, groups: candidate } };
+          if (groups.length && (candidate.length > 3 || unmeteredLayout(candidateScore, reservedOptions()).height > maxHeight)) saveGroups();
+          groups.push(group);
+        }
+        if (groups.length) saveGroups();
+      }
+    }
+    insertSections(0);
     for (const measure of measures) {
       const candidate = current.concat(measure);
       const candidateScore = { ...score, bars: candidate.map(entry => entry.bar) };
       // Reserve enough space for the longest possible page count before its
       // exact value is known. This may leave a little whitespace, never overflow.
-      const reserved = { ...options, pageNumber: pages.length + 1, pageCount: score.bars.length, totalBars };
-      const geometry = layout(candidateScore, reserved, candidate);
+      const geometry = layout(candidateScore, reservedOptions(), candidate);
       if (current.length && geometry.height > maxHeight) {
         savePage();
         current = [measure];
       } else current = candidate;
+      insertSections(measure.bar.index + 1);
     }
     if (current.length) savePage();
     for (const page of pages) page.pageCount = pages.length;
@@ -180,21 +214,21 @@
     const rest = token.midi === null;
     const source = token.sourceId === null || token.sourceId === undefined ? '' : token.sourceId;
     const bad = !rest && !token.playable;
-    const extension = Math.max(0, Math.floor(token.duration) - 1);
+    const extension = token.unmetered ? 0 : Math.max(0, Math.floor(token.duration) - 1);
     const unit = box.width / (extension + 1);
     items.push(`<g class="note-group${bad ? ' unplayable' : ''}" data-token-id="${escape(token.id)}" data-source-id="${escape(source)}" data-voice-index="${voiceIndex}">`);
     items.push(`<rect class="note-focus" x="${box.x + 1}" y="${baseline - 43}" width="${Math.max(1, box.width - 2)}" height="77" rx="6"/>`);
-    items.push(`<title>${escape(rest ? `休止 ${token.duration} 拍` : `${token.accidental || ''}${token.degree}，${token.octave > 0 ? `高 ${token.octave} 个八度，` : token.octave < 0 ? `低 ${-token.octave} 个八度，` : ''}${token.duration} 拍${bad ? `；${token.reason}` : ''}`)}</title>`);
+    items.push(`<title>${escape(rest ? `休止 ${token.duration} 拍` : `${token.accidental || ''}${token.degree}，${token.octave > 0 ? `高 ${token.octave} 个八度，` : token.octave < 0 ? `低 ${-token.octave} 个八度，` : ''}${token.unmetered ? '时值待定' : `${token.duration} 拍`}${bad ? `；${token.reason}` : ''}`)}</title>`);
     items.push(text(noteX, baseline, rest ? '0' : token.degree, 'class="note-number" text-anchor="middle"'));
     if (token.accidental && !rest) items.push(text(noteX - 17, baseline - 8, token.accidental, 'class="accidental" font-size="19" text-anchor="middle"'));
     if (!rest) for (let dot = 0; dot < Math.abs(token.octave || 0); dot++) {
       const dotY = token.octave > 0 ? baseline - 33 - dot * 7 : baseline + 21 + dot * 7;
       items.push(`<circle class="note-dot" cx="${noteX}" cy="${dotY}" r="2"/>`);
     }
-    if (token.duration < 1) for (let line = 0; line < (token.duration < 0.5 ? 2 : 1); line++) {
+    if (!token.unmetered && token.duration < 1) for (let line = 0; line < (token.duration < 0.5 ? 2 : 1); line++) {
       items.push(`<path class="note-line" d="M${noteX - 10} ${baseline + 7 + line * 5}h20"/>`);
     }
-    if (token.duration === 1.5 || token.duration === 0.75) items.push(`<circle class="note-dot" cx="${noteX + 17}" cy="${baseline - 6}" r="2"/>`);
+    if (!token.unmetered && (token.duration === 1.5 || token.duration === 0.75)) items.push(`<circle class="note-dot" cx="${noteX + 17}" cy="${baseline - 6}" r="2"/>`);
     for (let dash = 1; dash <= extension; dash++) {
       const dashX = beatWidth === null ? box.x + unit * (dash + 0.5) : noteX + dash * beatWidth;
       items.push(text(dashX, rest ? baseline : baseline - 2, rest ? '0' : '−', rest ? 'class="note-number" text-anchor="middle"' : 'font-size="26" text-anchor="middle"'));
@@ -231,7 +265,102 @@
     }
   }
 
+  const unmeteredNotice = '时值待定，横向间距不表示节奏；间奏不参与试听';
+  const wrapParagraphs = (value, limit) => String(value ?? '').split(/\r\n|\r|\n/).flatMap(paragraph => wrap(paragraph, limit));
+  const columnPitches = (column, voiceIndex) => (column.voices?.[voiceIndex] || []).slice().sort((a, b) => b.midi - a.midi);
+
+  function unmeteredLayout(score, options) {
+    const section = score.unmeteredSection;
+    const margin = 52;
+    let width = 1040;
+    let voiceCount = section.voiceNames?.length || 1;
+    for (const group of section.groups) {
+      width = Math.max(width, margin * 2 + 56 + group.columns.length * 64);
+      for (const column of group.columns) voiceCount = Math.max(voiceCount, column.voices.length);
+    }
+    const innerWidth = width - margin * 2;
+    const voiceNames = Array.from({ length: voiceCount }, (_, index) => section.voiceNames?.[index] || `声部 ${index + 1}`);
+    const header = pageHeader(score, { ...options, subtitle: options.subtitle || '间奏数字谱 · 未标时值' });
+    const sectionTitleLines = wrapParagraphs(section.title || '间奏', Math.max(1, Math.floor(innerWidth / 18) - 2));
+    const descriptionLines = section.description ? wrapParagraphs(section.description, Math.max(1, Math.floor(innerWidth / 12) - 2)) : [];
+    const sectionTitleY = header.headerHeight + 14;
+    const descriptionY = sectionTitleY + sectionTitleLines.length * 24 + 4;
+    const noticeY = descriptionY + descriptionLines.length * 18 + 8;
+    const headerHeight = noticeY + 24;
+    let bodyHeight = 0;
+    const rows = section.groups.map(group => {
+      const voices = voiceNames.map((_, index) => ({ index, tokens: group.columns.flatMap(column => {
+        const pitches = columnPitches(column, index);
+        return pitches.length ? [{ ...pitches[0], pitches }] : [];
+      }) }));
+      const geometry = rowGeometry([{ bar: { voices } }], true, voiceNames);
+      const row = { group, ...geometry, offset: bodyHeight };
+      bodyHeight += geometry.height;
+      return row;
+    });
+    const credits = creditLayout(score, options, innerWidth);
+    return { ...header, headerHeight, margin, width, innerWidth, voiceNames, rows, sectionTitleLines, descriptionLines, sectionTitleY, descriptionY, noticeY, creditLines: credits.lines, creditExtraHeight: credits.extraHeight, height: headerHeight + bodyHeight + 72 + credits.extraHeight };
+  }
+
+  function renderUnmetered(score, options) {
+    const geometry = unmeteredLayout(score, options);
+    const { margin, width, innerWidth, height, rows, voiceNames, headerHeight, title, titleLines, titleExtra, headerExtra, subtitleLines, pageNumber, sectionTitleLines, descriptionLines, sectionTitleY, descriptionY, noticeY, creditLines, creditExtraHeight } = geometry;
+    const titleId = `score-title${pageNumber ? `-${pageNumber}` : ''}`;
+    const descriptionId = `score-description${pageNumber ? `-${pageNumber}` : ''}`;
+    const instrument = (options.instrument || score.options?.instrument) === '21C' ? '21 音 C 调' : '17 音 C 调';
+    const items = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"${width > 1040 ? ` style="min-width:${width}px"` : ''} role="img" aria-labelledby="${titleId} ${descriptionId}" data-unmetered="true">`,
+      `<title id="${titleId}">${escape(title)} · ${escape(score.unmeteredSection.title || '间奏')} · 卡林巴数字谱</title>`,
+      `<desc id="${descriptionId}">${escape(unmeteredNotice)}。1 等于 C4；上下圆点表示八度；纵向堆叠表示同一位置的多个音。分组不是小节，空白不表示休止。</desc>`,
+      '<style>text{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;fill:#263d32}.note-number{font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:500}.note-group .note-focus{fill:transparent}.note-group.unplayable .note-number,.note-group.unplayable .accidental{fill:#b16337}.note-group.unplayable .note-focus{fill:#fff1df}.note-dot{fill:#263d32}.small{font-size:12px;fill:#7f8b76}.score-credit{font-size:10px;fill:#6f7b63;white-space:pre}.unmetered-description{font-size:12px;white-space:pre}.unmetered-section-title{font-size:18px;font-weight:550;white-space:pre}</style>',
+      `<rect width="${width}" height="${height}" fill="#fffefb"/>`,
+      text(margin, 38, '拍间  /  KALIMBA SCORE', 'class="small" letter-spacing="2"'),
+      ...titleLines.map((line, index) => text(width / 2, 85 + index * 35, line, 'class="score-heading" text-anchor="middle" font-size="28" font-weight="600"')),
+      ...subtitleLines.map((line, index) => text(width / 2, 112 + titleExtra + index * 18, line, 'text-anchor="middle" class="small score-subtitle"')),
+      text(margin, 151 + headerExtra, '1 = C4 · 保留原稿音序', 'font-size="15"'),
+      text(width - margin, 151 + headerExtra, `${instrument} · ${pieceScope(score, options)}`, 'text-anchor="end" class="small"'),
+      `<path d="M${margin} ${164 + headerExtra}H${width - margin}" stroke="#e2e6da" fill="none"/>`,
+      ...sectionTitleLines.map((line, index) => text(margin, sectionTitleY + index * 24, line, 'class="unmetered-section-title" xml:space="preserve"')),
+      ...descriptionLines.map((line, index) => text(margin, descriptionY + index * 18, line, 'class="unmetered-description" xml:space="preserve"')),
+      text(margin, noticeY, unmeteredNotice, 'class="small unmetered-notice"'),
+    ];
+    for (const row of rows) {
+      const y = headerHeight + row.offset;
+      const group = row.group;
+      const columnWidth = (innerWidth - 56) / Math.max(1, group.columns.length);
+      items.push(`<g class="unmetered-group" data-unmetered-group="${escape(group.index)}">`);
+      items.push(text(margin + 4, y + 17, `音序分组 ${group.index + 1}（非小节）`, 'class="small unmetered-group-label"'));
+      for (const voiceIndex of row.voiceIndices) {
+        const nameLines = wrap(voiceNames[voiceIndex], 4);
+        const baseline = y + row.baselines.get(voiceIndex);
+        items.push(`<g class="voice-name"><title>${escape(voiceNames[voiceIndex])}</title>`);
+        nameLines.forEach((line, index) => items.push(text(margin - 8, baseline - 6 - (nameLines.length - 1 - index) * 12, line, 'class="small voice-label" text-anchor="end" style="font-size:10px"')));
+        items.push('</g>');
+      }
+      group.columns.forEach((column, columnIndex) => {
+        const noteX = margin + 28 + (columnIndex + 0.5) * columnWidth;
+        items.push(`<g class="unmetered-column" data-unmetered-column="${columnIndex}">`);
+        for (const voiceIndex of row.voiceIndices) {
+          const pitches = columnPitches(column, voiceIndex);
+          if (!pitches.length) continue;
+          const token = { ...pitches[0], id: `unmetered-${group.index}-${columnIndex}-${voiceIndex}`, pitches: pitches.length > 1 ? pitches : null, unmetered: true };
+          drawToken(items, token, { x: noteX - columnWidth / 2, width: columnWidth }, noteX, y + row.baselines.get(voiceIndex), voiceIndex);
+        }
+        items.push('</g>');
+      });
+      items.push('</g>');
+    }
+    const baseHeight = height - creditExtraHeight;
+    items.push(`<path d="M${margin} ${baseHeight - 58}H${width - margin}" stroke="#e2e6da"/>`);
+    items.push(text(margin, baseHeight - 33, '分组对应原稿音序，不是小节 · 空白不表示休止 · 上下圆点表示八度', 'class="small"'));
+    items.push(text(width - margin, baseHeight - 33, '拍间 · 把旋律放在指尖', 'text-anchor="end" class="small"'));
+    creditLines.forEach((line, index) => items.push(text(margin, baseHeight - 10 + index * 14, line.text, `class="score-credit" data-credit-index="${line.creditIndex}" xml:space="preserve"`)));
+    items.push('</svg>');
+    return items.join('\n');
+  }
+
   function render(score, options = {}) {
+    if (score.unmeteredSection) return renderUnmetered(score, options);
     const { margin, width, innerWidth, rows, rowHeight, height, title, titleLines, subtitleLines, titleExtra, headerExtra, headerHeight, pageNumber, polyphonic, creditLines, creditExtraHeight } = layout(score, options);
     const totalBars = totalBarCount(score, options);
     const titleId = `score-title${pageNumber ? `-${pageNumber}` : ''}`;
@@ -248,7 +377,7 @@
       ...titleLines.map((line, index) => text(width / 2, 85 + index * 35, line, 'class="score-heading" text-anchor="middle" font-size="28" font-weight="600"')),
       ...subtitleLines.map((line, index) => text(width / 2, 112 + titleExtra + index * 18, line, 'text-anchor="middle" class="small score-subtitle"')),
       text(margin, 151 + headerExtra, `1 = C4 · ${meter[0]}/${meter[1]} · ♩ = ${options.bpm || 80}`, 'font-size="15"'),
-      text(width - margin, 151 + headerExtra, `${instrument} · 全曲 ${totalBars} 小节`, 'text-anchor="end" class="small"'),
+      text(width - margin, 151 + headerExtra, `${instrument} · ${pieceScope(score, options)}`, 'text-anchor="end" class="small"'),
       `<path d="M${margin} ${164 + headerExtra}H${width - margin}" stroke="#e2e6da" fill="none"/>`,
     ];
     for (const current of rows) {

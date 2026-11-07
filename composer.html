@@ -11,12 +11,12 @@
   <link rel="stylesheet" href="score/workshop.css">
   <link rel="stylesheet" href="score/composer.css">
   <script src="score/score-model.js" defer></script>
-  <script src="score/document.js" defer></script>
-  <script src="score/renderer.js?v=authoring-1" defer></script>
+  <script src="score/document.js?v=xu-digital-4" defer></script>
+  <script src="score/renderer.js?v=xu-digital-4" defer></script>
   <script src="score/player.js" defer></script>
   <script src="score/export.js" defer></script>
-  <script src="curated/index.js?v=score-bundle-2" defer></script>
-  <script src="score/composer.js?v=score-bundle-2" defer></script>
+  <script src="curated/index.js?v=xu-digital-4" defer></script>
+  <script src="score/composer.js?v=xu-digital-4" defer></script>
 </head>
 <body class="composer-page">
   <div class="page-shell composer-shell">
@@ -50,6 +50,7 @@
               <div><dt><code>0　0:2</code></dt><dd>休止一拍、休止二拍</dd></div>
               <div><dt><code>(1,3,5):1</code></dt><dd>一拍和弦，三个音同时拨响</dd></div>
               <div><dt><code>~(1,3,5):1</code></dt><dd>一拍滑音，从低到高拨响</dd></div>
+              <div><dt><code>1':3~ | 1':2 5</code></dt><dd>末尾 ~ 将同音延到下一小节，只拨一次；开头 ~(…) 才表示滑音。</dd></div>
             </dl>
             <p>这里的“一拍”均为四分音符；6/8 每小节共 3 拍。延音直接写时值，不使用单独的横线。琴键限制会在预览中提示。</p>
             <button id="new-example" type="button" class="secondary-button full-width">新建一份练习示例</button>
@@ -67,6 +68,11 @@
               </div>
               <div id="composer-voices" class="composer-voices"></div>
               <div class="voice-tools"><button id="add-voice" class="secondary-button" type="button">＋ 添加声部</button><span>最多 4 声部；每一行声部从同一拍开始。</span></div>
+              <section id="composer-unmetered" class="credits-field" aria-labelledby="unmetered-heading" hidden>
+                <div class="composer-section-title"><h2 id="unmetered-heading">未定节奏间奏</h2></div>
+                <p id="unmetered-syntax" class="composer-note">用 | 分组，空格分列；同组各声部列数须一致。音高和和弦与正文写法相同，例如 1'、(1,3,5)，不写时值。用 . 保留原稿空位，它不代表休止或任何时长。间奏会保存、排版和导出，不参与试听。</p>
+                <div id="composer-unmetered-sections" class="composer-voices"></div>
+              </section>
               <details class="composer-extra">
                 <summary>反复与署名</summary>
                 <p class="composer-note">按印刷小节号填写；次数包括第一次演奏。试听会展开反复，谱面保留反复标记。</p>
@@ -84,6 +90,7 @@
             <div class="score-paper composer-paper"><div id="composer-preview" class="score-preview"><p class="preview-placeholder">正在载入曲谱…</p></div></div>
             <div class="page-navigation composer-page-navigation"><div class="page-buttons"><button id="composer-previous-page" type="button" class="secondary-button" aria-label="上一页" disabled>←</button><label class="sr-only" for="composer-page-select">选择谱页</label><select id="composer-page-select" disabled><option>第 1 页</option></select><button id="composer-next-page" type="button" class="secondary-button" aria-label="下一页" disabled>→</button></div><span id="composer-page-range"></span><label class="follow-pages"><input id="composer-follow-pages" type="checkbox" checked>试听自动翻页</label></div>
             <ul id="composer-warnings" class="composer-warnings"></ul>
+            <p id="composer-performance-note" class="composer-note" hidden></p>
             <p class="composer-note export-note">多页 SVG 会打包成 ZIP，包含全部谱页。小屏幕可在谱面内左右滑动查看。</p>
           </section>
           <section class="publish-note" aria-label="保存与发布说明"><span aria-hidden="true">↓</span><div><h2>让这份曲谱，留下来。</h2><p>JSON 保存可继续编辑的音符、声部、反复和署名，是你的完整备份。要长期公开曲谱，请把导出的 JSON 提交到项目仓库，并加入公开曲谱索引；网页编辑与本地保存不会自动发布。</p><a href="https://github.com/line-ar-line/paijian-metronome" target="_blank" rel="noopener noreferrer">打开项目仓库 ↗</a> · <a href="https://github.com/line-ar-line/paijian-metronome/blob/main/scores/README.md" target="_blank" rel="noopener noreferrer">查看长期发布步骤 ↗</a></div></section>

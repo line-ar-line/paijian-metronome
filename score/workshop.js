@@ -26,6 +26,8 @@
     $('workshop-message').dataset.kind = kind;
   }
   function seconds(beats) { return beats * 60 / state.bpm; }
+  function hasUnmetered() { return Boolean(score?.unmeteredSections?.length); }
+  function playLabel() { return hasUnmetered() ? '试听正文' : '试听全曲'; }
   function clock(value) { return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`; }
   function progress({ beat, totalBeats }) {
     $('playback-progress').max = totalBeats || 1;
@@ -34,7 +36,7 @@
     if (player.isPlaying && score) {
       const playedBar = Math.floor(beat / score.barBeats);
       const bar = score.playbackBarMap ? score.playbackBarMap[Math.min(playedBar, score.playbackBarMap.length - 1)] : Math.min(score.bars.length - 1, playedBar);
-      $('playback-status').textContent = `正在试听 · 第 ${bar + 1} / ${score.bars.length} 小节`;
+      $('playback-status').textContent = `正在${hasUnmetered() ? '试听正文' : '试听'} · 第 ${bar + 1} / ${score.bars.length} 小节`;
       if ($('follow-pages').checked && barToPage[bar] !== pageIndex) showPage(barToPage[bar]);
     }
   }
@@ -67,18 +69,22 @@
     $('page-select').value = String(pageIndex);
     $('previous-page').disabled = pageIndex === 0;
     $('next-page').disabled = pageIndex === pages.length - 1;
-    const bars = pages[pageIndex].bars;
-    $('page-range').textContent = `第 ${bars[0].index + 1}–${bars[bars.length - 1].index + 1} 小节 · 共 ${score.bars.length} 小节`;
+    const { bars, unmeteredSection } = pages[pageIndex];
+    $('page-range').textContent = unmeteredSection
+      ? `${unmeteredSection.title} · 未定节奏间奏页 · 不参与试听`
+      : bars.length ? `第 ${bars[0].index + 1}–${bars[bars.length - 1].index + 1} 小节 · 共 ${score.bars.length} 小节` : '';
   }
   function playbackState({ state: playback, reason }) {
     const playing = playback === 'playing';
     $('score-play').setAttribute('aria-pressed', String(playing));
     $('play-glyph').textContent = playing ? '■' : '▶';
-    $('play-label').textContent = playing ? '停止试听' : '试听全曲';
+    $('play-label').textContent = playing ? (hasUnmetered() ? '停止试听正文' : '停止试听') : playLabel();
     if (!playing) {
       clearHighlight();
-      $('playback-status').textContent = reason === 'ended' ? '试听结束，可以跟着谱慢慢练习。' : '已停止 · 再次试听将从头开始。';
-      if (reason === 'interrupted' || reason === 'stalled') message('浏览器或音频设备中断了试听。请保持页面在前台，再点击“试听全曲”重新开始。');
+      $('playback-status').textContent = hasUnmetered()
+        ? (reason === 'ended' ? '正文试听结束；间奏请按数字谱自行练习。' : '已停止试听正文 · 再次试听将从正文第一小节开始。')
+        : reason === 'ended' ? '试听结束，可以跟着谱慢慢练习。' : '已停止 · 再次试听将从头开始。';
+      if (reason === 'interrupted' || reason === 'stalled') message(`浏览器或音频设备中断了试听。请保持页面在前台，再点击“${playLabel()}”重新开始。`);
     }
   }
   function stop() {
@@ -96,19 +102,22 @@
     finally {
       if (generation === playGeneration) {
         starting = false; $('score-play').removeAttribute('aria-busy');
-        $('play-label').textContent = player.isPlaying ? '停止试听' : '试听全曲';
+        $('play-label').textContent = player.isPlaying ? (hasUnmetered() ? '停止试听正文' : '停止试听') : playLabel();
       }
     }
   }
 
   function controls() {
     const authored = !!state.document;
+    $('play-label').textContent = playLabel();
+    $('score-performance-note').hidden = !hasUnmetered();
+    $('score-performance-note').textContent = hasUnmetered() ? '试听仅含正文；间奏音高已完整保留，时值待定。' : '';
     for (const id of ['score-mode', 'score-meter', 'transpose', 'suggest-transpose']) $(id).disabled = authored;
     $('score-name').value = state.title;
     $('instrument-select').value = state.instrument;
     document.querySelector('.workshop-intro .instrument-tag').textContent = `${state.instrument === '21C' ? '21' : '17'} 音 C 调 · ${authored ? '人工编配' : state.mode === 'polyphonic' ? '多音转谱' : '单音转谱'}`;
     document.querySelector('.workshop-intro .intro-copy').textContent = authored ? '读谱、试听、收藏，保留完整声部与演奏标记。' : '导入一首 MIDI，把旋律与伴奏一起变成完整数字谱。';
-    document.querySelector('.guide-footnote').textContent = authored ? '声部按编配保留；同一拍上下堆叠的是和弦，波形向上箭头表示从低到高滑奏。试听按反复标记展开；有原图时可在谱面下方对照。' : '声部行是自动排版，不是左右手指法。节奏按十六分音符网格规整，三连音与复杂指法需人工校对。单音 MIDI 本身没有伴奏，切换模式不会凭空生成和声。';
+    document.querySelector('.guide-footnote').textContent = hasUnmetered() ? '正文按拍点对齐；间奏保留原稿各声部的列对齐，空位不代表休止时长。间奏分组不是小节，暂无确定节奏，不参与试听。' : authored ? '声部按编配保留；同一拍上下堆叠的是和弦，波形向上箭头表示从低到高滑奏。试听按反复标记展开；有原图时可在谱面下方对照。' : '声部行是自动排版，不是左右手指法。节奏按十六分音符网格规整，三连音与复杂指法需人工校对。单音 MIDI 本身没有伴奏，切换模式不会凭空生成和声。';
     $('score-mode').value = state.mode;
     $('mode-description').textContent = authored ? '保留作者声部、和弦、反复和滑音。需要改音符或拍号，可打开“编辑副本”。' : state.mode === 'polyphonic'
       ? '保留所选音轨的和弦、伴奏与独立延音。上下声部对齐的音同时拨响；声部行用于排版，不代表左右手。'
@@ -201,12 +210,13 @@
     pages.forEach((page, index) => page.bars.forEach((bar) => { barToPage[bar.index] = index; }));
     $('page-select').replaceChildren(...pages.map((page, index) => {
       const option = document.createElement('option'); option.value = String(index);
-      option.textContent = `第 ${index + 1} / ${pages.length} 页`; return option;
+      option.textContent = `第 ${index + 1} / ${pages.length} 页${page.unmeteredSection ? ` · ${page.unmeteredSection.title}` : ''}`; return option;
     }));
     showPage(0);
-    $('score-summary').textContent = `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
-    $('full-score-info').textContent = state.document ? `完整编配 · 谱面 ${score.bars.length} 小节 / ${pages.length} 页 · 含反复试听 ${score.playbackBarMap.length} 小节` : `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
-    $('playback-status').textContent = '准备好，从第一小节开始。';
+    const groups = (score.unmeteredSections || []).reduce((total, section) => total + section.groups.length, 0);
+    $('score-summary').textContent = hasUnmetered() ? `正文 ${score.stats.outputNotes} 个音符 · 间奏 ${score.stats.unmeteredNotes} 个音符` : `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
+    $('full-score-info').textContent = hasUnmetered() ? `完整数字谱 · 正文 ${score.bars.length} 小节 + 间奏 ${groups} 组 / ${pages.length} 页 · 试听正文，导出包含全部页` : state.document ? `完整编配 · 谱面 ${score.bars.length} 小节 / ${pages.length} 页 · 含反复试听 ${score.playbackBarMap.length} 小节` : `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
+    $('playback-status').textContent = hasUnmetered() ? '准备好，试听正文从第一小节开始；间奏不参与试听。' : '准备好，从第一小节开始。';
     controls(); warnings(); progress({ beat: 0, totalBeats: state.compiled?.totalBeats || score.sourceTotalBeats });
     document.title = `${state.title} · 卡林巴数字谱 · 拍间`;
   }
@@ -282,7 +292,7 @@
   }
   function openDocument(data, entry = null) {
     const compiled = ScoreDocument.compile(data), doc = compiled.document;
-    if (apply({ document: doc, authoredEntry: entry, title: doc.title, bpm: doc.bpm, meter: doc.meter, instrument: doc.instrument, mode: 'polyphonic', transpose: 0, notes: compiled.score.notes, totalBeats: compiled.score.totalBeats, tracks: null, trackId: null, exampleId: null, catalogEntry: null, subtitle: '人工编配 · 双声部与技法按谱保留', source: entry?.attribution || '导入的拍间制谱文件', sourceUrl: entry?.sourceUrl || null, warnings: doc.description ? [doc.description] : [] })) message('已载入完整编配，试听会执行反复与向上滑奏。', 'success');
+    if (apply({ document: doc, authoredEntry: entry, title: doc.title, bpm: doc.bpm, meter: doc.meter, instrument: doc.instrument, mode: 'polyphonic', transpose: 0, notes: compiled.score.notes, totalBeats: compiled.score.totalBeats, tracks: null, trackId: null, exampleId: null, catalogEntry: null, subtitle: '人工编配 · 双声部与技法按谱保留', source: entry?.attribution || '导入的拍间制谱文件', sourceUrl: entry?.sourceUrl || null, warnings: doc.description ? [doc.description] : [] })) message(hasUnmetered() ? '已载入正文与全部间奏数字谱；试听正文，间奏暂不参与试听。' : '已载入完整编配，试听会执行反复与向上滑奏。', 'success');
   }
   async function openPublishedScore(id) {
     const generation = ++importGeneration;

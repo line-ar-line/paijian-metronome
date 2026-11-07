@@ -39,6 +39,8 @@
     if (!Array.isArray(repeats) || repeats.length > 100 || repeats.some(repeat => !object(repeat) || ['startBar', 'endBar', 'times'].some(field => typeof repeat[field] !== 'number' || !Number.isFinite(repeat[field])))) throw new Error('JSON 中的反复段字段格式无效。');
     const credits = input.credits ?? [];
     if (!Array.isArray(credits) || credits.length > 16000 || credits.some(credit => typeof credit !== 'string') || credits.join('\n').length > 16000) throw new Error('JSON 中的署名字段格式无效或超过 16000 字。');
+    const sections = input.unmeteredSections ?? [];
+    if (!Array.isArray(sections) || sections.length > 8 || sections.some(section => !object(section) || typeof section.title !== 'string' || section.title.length > 1000 || typeof section.afterBar !== 'number' || !Number.isFinite(section.afterBar) || (section.description !== undefined && (typeof section.description !== 'string' || section.description.length > 16000)) || !Array.isArray(section.voices) || !section.voices.length || section.voices.length > 4 || section.voices.some(voice => !object(voice) || typeof voice.name !== 'string' || voice.name.length > 1000 || typeof voice.notation !== 'string' || voice.notation.length > 20000))) throw new Error('JSON 中的未定节奏段格式无效。');
     return { ...clone(input), repeats: clone(repeats), credits: clone(credits) };
   }
 
@@ -135,12 +137,14 @@
       onStateChange(event) {
         starting = false;
         const playing = event.state === 'playing';
-        $('composer-play').textContent = playing ? '■ 停止试听' : '▶ 试听全曲';
+        $('composer-play').textContent = playing ? (hasUnmetered() ? '■ 停止试听正文' : '■ 停止试听') : `▶ ${playLabel()}`;
         $('composer-play').setAttribute('aria-pressed', String(playing));
         if (!playing) {
           activeNotes = [];
           paintHighlight();
-          $('composer-playback-status').textContent = event.reason === 'ended' ? '这一遍，练习完成。' : event.reason === 'stalled' || event.reason === 'interrupted' ? '试听已中断，点击可重新开始。' : '已停止，可以继续修改。';
+          $('composer-playback-status').textContent = hasUnmetered()
+            ? (event.reason === 'ended' ? '正文试听完成；间奏请按数字谱自行练习。' : event.reason === 'stalled' || event.reason === 'interrupted' ? '正文试听已中断，点击“试听正文”重新开始。' : '已停止试听正文，可以继续修改。')
+            : event.reason === 'ended' ? '这一遍，练习完成。' : event.reason === 'stalled' || event.reason === 'interrupted' ? '试听已中断，点击可重新开始。' : '已停止，可以继续修改。';
         }
       },
       onError(error) { starting = false; message(error.message || '试听暂时无法启动，请重试。', true); },
@@ -162,6 +166,8 @@
       catch (error) { storageWarning(error); return false; }
     }
     function time(value) { return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`; }
+    function hasUnmetered() { return Array.isArray(documentData.unmeteredSections) && documentData.unmeteredSections.length > 0; }
+    function playLabel() { return hasUnmetered() ? '试听正文' : '试听全曲'; }
     function updateProgress({ beat, totalBeats }) {
       const bpm = compiled?.document?.bpm || Number(documentData.bpm) || 80;
       $('composer-progress').max = totalBeats || 1;
@@ -172,7 +178,7 @@
         const map = compiled.score.playbackBarMap;
         const printBar = Array.isArray(map) ? map[Math.min(playingBar, map.length - 1)] : playingBar;
         const barIndex = Number.isInteger(printBar) ? printBar : printBar?.barIndex ?? printBar?.index ?? playingBar;
-        $('composer-playback-status').textContent = `正在试听 · 印刷第 ${barIndex + 1} 小节`;
+        $('composer-playback-status').textContent = `正在${hasUnmetered() ? '试听正文' : '试听'} · 印刷第 ${barIndex + 1} 小节`;
         if ($('composer-follow-pages').checked && barToPage[barIndex] !== undefined && barToPage[barIndex] !== pageIndex) showPage(barToPage[barIndex]);
       }
     }
@@ -197,8 +203,10 @@
       $('composer-page-select').value = String(pageIndex);
       $('composer-previous-page').disabled = pageIndex === 0;
       $('composer-next-page').disabled = pageIndex === pages.length - 1;
-      const bars = pages[pageIndex].bars;
-      $('composer-page-range').textContent = `第 ${bars[0].index + 1}–${bars[bars.length - 1].index + 1} 小节`;
+      const { bars, unmeteredSection } = pages[pageIndex];
+      $('composer-page-range').textContent = unmeteredSection
+        ? `${unmeteredSection.title} · 未定节奏间奏页 · 不参与试听`
+        : bars.length ? `第 ${bars[0].index + 1}–${bars[bars.length - 1].index + 1} 小节` : '';
     }
     function placeholder(text) {
       $('composer-preview').replaceChildren();
@@ -227,7 +235,10 @@
       root.clearTimeout(timer);
       timer = null;
       $('notation-error').hidden = true;
-      $('composer-voices').querySelectorAll('textarea').forEach(input => input.setAttribute('aria-invalid', 'false'));
+      $('composer-play').textContent = `▶ ${playLabel()}`;
+      $('composer-performance-note').hidden = !hasUnmetered();
+      $('composer-performance-note').textContent = hasUnmetered() ? [documentData.description, '试听正文；未定节奏间奏保留全部音高与列对齐，不参与试听。'].filter(Boolean).join(' ') : '';
+      $('composer-form').querySelectorAll('.notation-input').forEach(input => input.setAttribute('aria-invalid', 'false'));
       if (!documentData.voices.some(voice => voice.notation.trim())) {
         clearPreview('在上方写下第一小节，数字谱会出现在这里。');
         $('composer-playback-status').textContent = '写好后，试听你的旋律。';
@@ -242,13 +253,14 @@
         pages = nextPages;
         barToPage = [];
         pages.forEach((page, index) => page.bars.forEach(bar => { barToPage[bar.index] = index; }));
-        $('composer-page-select').replaceChildren(...pages.map((_, index) => new Option(`第 ${index + 1} / ${pages.length} 页`, String(index))));
+        $('composer-page-select').replaceChildren(...pages.map((page, index) => new Option(`第 ${index + 1} / ${pages.length} 页${page.unmeteredSection ? ` · ${page.unmeteredSection.title}` : ''}`, String(index))));
         $('composer-page-select').disabled = false;
         showPage(pageIndex);
-        $('composer-summary').textContent = `${result.score.bars.length} 小节 · ${result.document.voices.length} 声部 · ${pages.length} 页`;
+        const groups = (result.score.unmeteredSections || []).reduce((total, section) => total + section.groups.length, 0);
+        $('composer-summary').textContent = hasUnmetered() ? `正文 ${result.score.bars.length} 小节 + 间奏 ${groups} 组 · ${pages.length} 页` : `${result.score.bars.length} 小节 · ${result.document.voices.length} 声部 · ${pages.length} 页`;
         $('composer-play').disabled = !result.playbackNotes.length;
         $('composer-export-svg').disabled = false;
-        $('composer-playback-status').textContent = result.playbackNotes.length ? '已更新，随时可以试听。' : '全曲是休止，可预览和导出。';
+        $('composer-playback-status').textContent = hasUnmetered() ? (result.playbackNotes.length ? '已更新，可试听正文；间奏不参与试听。' : '正文全部为休止；正文和间奏均可预览、导出。') : result.playbackNotes.length ? '已更新，随时可以试听。' : '全曲是休止，可预览和导出。';
         updateProgress({ beat: 0, totalBeats: result.totalBeats });
         const warnings = [...new Set([...(result.warnings || []), ...(result.score.warnings || [])])];
         $('composer-warnings').replaceChildren(...warnings.map(warning => { const li = root.document.createElement('li'); li.textContent = warning; return li; }));
@@ -256,7 +268,7 @@
         clearPreview('修正上方提示后，预览会自动更新。你的编辑内容仍保留在草稿中。');
         $('notation-error').textContent = error.message || '暂时无法生成曲谱，请检查数字谱格式。';
         $('notation-error').hidden = false;
-        $('composer-voices').querySelectorAll('textarea').forEach(input => input.setAttribute('aria-invalid', 'true'));
+        $('composer-form').querySelectorAll('.notation-input').forEach(input => input.setAttribute('aria-invalid', 'true'));
         $('composer-playback-status').textContent = '请先修正格式，再试听或导出谱图。';
       }
     }
@@ -326,6 +338,38 @@
         row.append(remove); return row;
       }));
     }
+    function renderUnmetered() {
+      const sections = Array.isArray(documentData.unmeteredSections) ? documentData.unmeteredSections : [];
+      $('composer-unmetered').hidden = !sections.length;
+      $('composer-unmetered-sections').replaceChildren(...sections.map((section, index) => {
+        const card = element('section', { className: 'composer-card unmetered-section' });
+        card.dataset.sectionIndex = index;
+        const field = (key, text, input) => {
+          const label = element('label', { className: 'composer-field credits-field', htmlFor: `unmetered-${index}-${key}` });
+          input.id = label.htmlFor; input.dataset.sectionField = key;
+          label.append(element('span', { textContent: text }), input); card.append(label);
+        };
+        field('title', `间奏 ${index + 1} 标题`, element('input', { className: 'text-input', type: 'text', value: section.title || '', maxLength: 80 }));
+        field('afterBar', '排在正文第几小节之后', element('input', { className: 'text-input', type: 'number', min: 1, max: 2048, step: 1, value: section.afterBar }));
+        field('description', '间奏说明', element('textarea', { className: 'text-input', rows: 3, maxLength: 1500, value: section.description || '' }));
+        const voices = element('div', { className: 'composer-voices' });
+        (section.voices || []).forEach((voice, voiceIndex) => {
+          const editor = element('div', { className: 'unmetered-voice' });
+          const heading = element('div', { className: 'voice-heading' });
+          const nameId = `unmetered-${index}-voice-${voiceIndex}-name`;
+          const label = element('label', { htmlFor: nameId });
+          label.append(element('span', { textContent: `声部 ${voiceIndex + 1}` }), element('input', { id: nameId, className: 'text-input voice-name', type: 'text', maxLength: 16, value: voice.name || '' }));
+          heading.append(label);
+          const notation = element('textarea', { id: `unmetered-${index}-voice-${voiceIndex}-notation`, className: 'text-input notation-input unmetered-notation', rows: 4, maxLength: 20000, value: voice.notation, spellcheck: false });
+          notation.setAttribute('aria-label', `间奏 ${index + 1} 声部 ${voiceIndex + 1} 数字谱`);
+          notation.setAttribute('aria-describedby', 'unmetered-syntax notation-error');
+          notation.setAttribute('autocapitalize', 'off'); notation.setAttribute('autocomplete', 'off');
+          editor.append(heading, notation); voices.append(editor);
+        });
+        card.append(voices);
+        return card;
+      }));
+    }
     function collect() {
       return {
         ...documentData,
@@ -336,6 +380,13 @@
         voices: Array.from($('composer-voices').querySelectorAll('.voice-editor'), section => ({ name: section.querySelector('.voice-name').value, notation: section.querySelector('.notation-input').value })),
         repeats: Array.from($('composer-repeats').querySelectorAll('.repeat-row'), row => Object.fromEntries(Array.from(row.querySelectorAll('input'), input => [input.dataset.repeatField, Number(input.value)]))),
         credits: $('composer-credits').value.split('\n').filter(line => line.trim()),
+        ...(hasUnmetered() ? { unmeteredSections: Array.from($('composer-unmetered-sections').querySelectorAll('.unmetered-section'), (section, index) => ({
+          ...documentData.unmeteredSections[index],
+          title: section.querySelector('[data-section-field="title"]').value,
+          afterBar: Number(section.querySelector('[data-section-field="afterBar"]').value),
+          description: section.querySelector('[data-section-field="description"]').value,
+          voices: Array.from(section.querySelectorAll('.unmetered-voice'), (voice, voiceIndex) => ({ ...documentData.unmeteredSections[index].voices[voiceIndex], name: voice.querySelector('.voice-name').value, notation: voice.querySelector('.unmetered-notation').value })),
+        })) } : {}),
       };
     }
     function stop() { root.clearTimeout(timer); timer = null; player.stop('edit'); starting = false; }
@@ -360,7 +411,7 @@
       $('composer-meter').value = meter;
       $('composer-instrument').value = documentData.instrument || '17C';
       $('composer-credits').value = Array.isArray(documentData.credits) ? documentData.credits.join('\n') : '';
-      renderVoices(); renderRepeats(); renderDraftList();
+      renderVoices(); renderRepeats(); renderUnmetered(); renderDraftList();
       pageIndex = 0;
       refreshPreview();
       if (drafts.error) storageWarning(drafts.error);
