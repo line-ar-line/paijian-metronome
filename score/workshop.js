@@ -292,7 +292,7 @@
   }
   function openDocument(data, entry = null) {
     const compiled = ScoreDocument.compile(data), doc = compiled.document;
-    if (apply({ document: doc, authoredEntry: entry, title: doc.title, bpm: doc.bpm, meter: doc.meter, instrument: doc.instrument, mode: 'polyphonic', transpose: 0, notes: compiled.score.notes, totalBeats: compiled.score.totalBeats, tracks: null, trackId: null, exampleId: null, catalogEntry: null, subtitle: '人工编配 · 双声部与技法按谱保留', source: entry?.attribution || '导入的拍间制谱文件', sourceUrl: entry?.sourceUrl || null, warnings: doc.description ? [doc.description] : [] })) message(hasUnmetered() ? '已载入正文与全部间奏数字谱；试听正文，间奏暂不参与试听。' : '已载入完整编配，试听会执行反复与向上滑奏。', 'success');
+    if (apply({ document: doc, authoredEntry: entry, title: doc.title, bpm: doc.bpm, meter: doc.meter, instrument: doc.instrument, mode: 'polyphonic', transpose: 0, notes: compiled.score.notes, totalBeats: compiled.score.totalBeats, tracks: null, trackId: null, exampleId: null, catalogEntry: null, subtitle: '人工编配 · 双声部与技法按谱保留', source: entry?.attribution || (entry ? `内置曲库 · ${doc.title}` : '导入的拍间制谱文件'), sourceUrl: entry?.sourceUrl || null, warnings: doc.description ? [doc.description] : [] })) message(hasUnmetered() ? '已载入正文与全部间奏数字谱；试听正文，间奏暂不参与试听。' : '已载入完整编配，试听会执行反复与向上滑奏。', 'success');
   }
   async function openPublishedScore(id) {
     const generation = ++importGeneration;

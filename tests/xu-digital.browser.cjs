@@ -14,7 +14,6 @@ const source = JSON.parse(fs.readFileSync(path.join(project, 'scores/xu.json'), 
 const expected = ScoreDocument.compile(source);
 const output = fs.mkdtempSync(path.join(tmpdir(), 'paijian-xu-digital-qa-'));
 const favoriteKey = 'paijian.score-favorites.v1';
-const groupColumns = [12, 10, 8, 12, 10, 5];
 
 async function browserSession(run) {
   const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml' };
@@ -60,11 +59,12 @@ async function readyWorkshop(page, url) {
 function inspectSvgTexts(texts) {
   const documents = texts ? texts.map(text => new DOMParser().parseFromString(text, 'image/svg+xml')) : [document];
   return documents.map(doc => {
-    const svg = texts ? doc.documentElement : doc.querySelector('#score-preview svg');
+    const svg = texts ? doc.documentElement : doc.querySelector('#score-preview svg, #composer-preview svg');
     const sources = node => [...node.querySelectorAll('.note-group[data-source-id]')].map(group => group.dataset.sourceId).filter(Boolean);
     return {
       parseErrors: doc.querySelectorAll('parsererror').length,
       images: svg.querySelectorAll('image, foreignObject').length,
+      credits: svg.querySelectorAll('.score-credit').length,
       unmetered: svg.getAttribute('data-unmetered') === 'true',
       measures: [...svg.querySelectorAll('[data-measure]')].map(bar => Number(bar.dataset.measure)),
       measureSources: Object.fromEntries([...svg.querySelectorAll('[data-measure]')].map(bar => [bar.dataset.measure, sources(bar)])),
@@ -84,32 +84,15 @@ function inspectSvgTexts(texts) {
 }
 
 function assertWholeScore(pages) {
-  assert.ok(pages.length > 2, 'the complete edition has several body and interlude pages');
+  assert.ok(pages.length > 0, 'the complete edition has printable pages');
   assert.ok(pages.every(page => page.parseErrors === 0 && page.images === 0), 'every page is valid vector notation with no embedded photographs');
   assert.deepEqual(pages.flatMap(page => page.measures), Array.from({ length: 73 }, (_, i) => i), 'all 73 numbered body measures occur once and in order');
-  const groups = pages.flatMap(page => page.groups);
-  assert.deepEqual(groups.map(group => group.index), [0, 1, 2, 3, 4, 5], 'all six unmetered groups survive pagination in order');
-  assert.deepEqual(groups.map(group => group.columns.length), groupColumns, 'all 57 handwritten columns, including empty upper positions, survive');
-  const bodyIds = [...new Set(pages.filter(page => !page.unmetered).flatMap(page => page.sourceIds))].sort();
-  const interludeIds = [...new Set(groups.flatMap(group => group.sources))].sort();
+  assert.deepEqual(pages.flatMap(page => page.groups), [], 'the removed interlude has no rendered groups');
+  assert.ok(pages.every(page => !page.unmetered && page.credits === 0), 'all pages omit interlude sections and attribution blocks');
+  for (const page of pages) assert.doesNotMatch(page.text, /间奏|署名|拇指琴呆小小/);
+  const bodyIds = [...new Set(pages.flatMap(page => page.sourceIds))].sort();
   assert.equal(bodyIds.length, 295);
-  assert.equal(interludeIds.length, 91);
   assert.deepEqual(bodyIds, expected.score.notes.map(note => note.sourceId).sort());
-  assert.deepEqual(interludeIds, expected.score.unmeteredSections.flatMap(section => section.groups.flatMap(group => group.columns.flatMap(column => column.voices.flat()))).map(note => note.sourceId).sort());
-  const unmeteredPages = pages.filter(page => page.unmetered);
-  assert.ok(unmeteredPages.length > 0);
-  for (const page of unmeteredPages) {
-    assert.equal(page.measures.length, 0, 'unmetered groups must not masquerade as numbered body measures');
-    assert.match(page.text, /时值待定/);
-    assert.match(page.text, /间奏不参与试听/);
-    assert.equal(page.glissandi, 0, 'the handwritten interlude did not specify glissandi');
-    assert.ok(page.noteDigits.every(digit => /^[1-7]$/.test(digit)), 'empty handwritten positions must not turn into rests or duration dashes');
-    assert.ok(page.noteLabels.every(label => label.includes('时值待定')), 'interlude notes must not acquire invented durations');
-  }
-  const firstInterlude = pages.findIndex(page => page.unmetered);
-  const lastInterlude = pages.findLastIndex(page => page.unmetered);
-  assert.equal(pages.slice(0, firstInterlude).flatMap(page => page.measures).at(-1), 31);
-  assert.equal(pages.slice(lastInterlude + 1).flatMap(page => page.measures)[0], 32);
   const measures = Object.assign({}, ...pages.map(page => page.measureSources));
   for (const bar of [32, 48, 64, 72]) {
     assert.ok(measures[bar - 1].some(id => measures[bar].includes(id)), `the printed continuation across ${bar}→${bar + 1} keeps a single source note`);
@@ -166,10 +149,11 @@ function assertDocument(document) {
   assert.equal(result.score.bars.length, 73);
   assert.equal(result.playbackNotes.length, 295);
   assert.equal(result.totalBeats, 219);
-  assert.equal(result.score.stats.unmeteredNotes, 91);
-  assert.deepEqual(result.score.unmeteredSections[0].groups.map(group => group.columns.length), groupColumns);
+  assert.equal(Object.hasOwn(document, 'unmeteredSections'), false);
+  assert.equal(Object.hasOwn(result.score, 'unmeteredSections'), false);
+  assert.deepEqual(document.credits, []);
+  assert.doesNotMatch(document.description || '', /间奏|署名|拇指琴呆小小/);
   assert.deepEqual(document.voices[0].notation.split('|').flatMap((bar, index) => bar.includes('~') ? [index + 1] : []), [32, 48, 64, 72]);
-  assert.ok(document.unmeteredSections[0].voices.some(voice => voice.notation.includes('.')), 'empty handwritten columns remain explicit placeholders');
 }
 
 async function assertMobile(page, label) {
@@ -181,7 +165,7 @@ async function assertMobile(page, label) {
   await page.setViewportSize({ width: 1440, height: 1100 });
 }
 
-test('Xu complete digital edition keeps every body measure and unmetered note in the browser, playback and full SVG/JSON exports', { timeout: 60000 }, async () => {
+test('Xu body-only edition omits the interlude and credits while preserving every measure in the browser, playback and SVG/JSON exports', { timeout: 60000 }, async () => {
   assertDocument(source);
   assert.deepEqual(fs.readdirSync(path.join(project, 'scores')).filter(name => /^xu.*\.(?:jpe?g|png|zip)$/i.test(name)), [], 'the former four Xu photographs and their ZIP are removed from the published score folder');
   await browserSession(async ({ context, base }) => {
@@ -196,9 +180,11 @@ test('Xu complete digital edition keeps every body measure and unmetered note in
     });
     const page = await context.newPage();
     await readyWorkshop(page, base + 'score.html?score=xu');
-    assert.match(await page.locator('#full-score-info').innerText(), /正文 73 小节.*间奏 6 组/);
-    assert.match(await page.locator('#score-summary').innerText(), /295.*91/);
-    assert.equal(await page.locator('#play-label').innerText(), '试听正文');
+    assert.match(await page.locator('#full-score-info').innerText(), /73 小节/);
+    assert.doesNotMatch(await page.locator('#full-score-info').innerText(), /间奏/);
+    assert.match(await page.locator('#score-summary').innerText(), /295.*73 小节/);
+    assert.doesNotMatch(await page.locator('#source-label').innerText(), /署名|拇指琴呆小小|间奏/);
+    assert.equal(await page.locator('#play-label').innerText(), '试听全曲');
     assert.equal(await page.locator('#original-score').isVisible(), false);
     assert.equal(await page.locator('#score-preview image').count(), 0);
     await page.screenshot({ path: path.join(output, 'xu-desktop.png'), fullPage: true });
@@ -209,15 +195,9 @@ test('Xu complete digital edition keeps every body measure and unmetered note in
       await page.locator('#page-select').selectOption(String(index));
       const snapshot = (await page.evaluate(inspectSvgTexts, null))[0];
       pages.push(snapshot);
-      if (snapshot.unmetered) {
-        assert.match(await page.locator('#page-range').innerText(), /间奏.*不参与试听/);
-        await page.locator('#score-preview').screenshot({ path: path.join(output, `xu-interlude-page-${index + 1}.png`) });
-      }
+      assert.doesNotMatch(await page.locator('#page-range').innerText(), /间奏/);
     }
     assertWholeScore(pages);
-    const interludePage = pages.findIndex(page => page.unmetered);
-    await page.locator('#page-select').selectOption(String(interludePage));
-    await assertMobile(page, 'workshop interlude page');
     await page.locator('#page-select').selectOption('0');
     await assertMobile(page, 'workshop body page');
 
@@ -231,23 +211,23 @@ test('Xu complete digital edition keeps every body measure and unmetered note in
     assert.equal(playback.context, 'running');
     assert.equal(playback.notes.length, 295);
     assert.equal(playback.totalBeats, 219);
-    assert.ok(playback.notes.every(note => !note.sourceId.startsWith('u')), 'unmetered interlude pitches are excluded from synthesized playback');
+    assert.ok(playback.notes.every(note => !note.sourceId.startsWith('u')), 'the removed interlude has no synthesized notes');
     for (const [bar, duration] of [[32, 6], [48, 4], [64, 5], [72, 6]]) {
       const attack = playback.notes.filter(note => note.voiceIndex === 0 && note.start === (bar - 1) * 3 && note.midi === 72);
       assert.equal(attack.length, 1);
       assert.equal(attack[0].duration, duration, `tie at ${bar} sustains through the following bar without a second pluck`);
       assert.equal(playback.notes.filter(note => note.voiceIndex === 0 && note.start === bar * 3 && note.midi === 72).length, 0);
     }
-    await page.locator('#page-select').selectOption(String(interludePage));
+    await page.locator('#page-select').selectOption(String(count - 1));
     const followed = await page.evaluate(() => {
       xuAcceptancePlayer.onProgress({ beat: 96, totalBeats: 219 });
       return { bar33: !!document.querySelector('#score-preview [data-measure="32"]'), unmetered: !!document.querySelector('#score-preview svg[data-unmetered]'), status: document.getElementById('playback-status').textContent };
     });
-    assert.equal(followed.bar33, true, 'playback resumes its visual position in body bar 33, skipping unmetered pages');
+    assert.equal(followed.bar33, true, 'playback follows the correct printed position in bar 33');
     assert.equal(followed.unmetered, false);
-    assert.match(followed.status, /正文.*第 33 \/ 73 小节/);
+    assert.match(followed.status, /第 33 \/ 73 小节/);
     await page.locator('#score-play').click();
-    assert.equal(await page.locator('#play-label').innerText(), '试听正文');
+    assert.equal(await page.locator('#play-label').innerText(), '试听全曲');
     assert.equal(await page.evaluate(() => xuAcceptancePlayer._voices.size), 0);
 
     const json = await downloadThrough(page, '#export-json', 'xu-workshop.json');
@@ -256,9 +236,9 @@ test('Xu complete digital edition keeps every body measure and unmetered note in
     const zip = await downloadThrough(page, '#export-svg', 'xu-complete-svg.zip');
     assert.match(zip.name, /\.zip$/);
     const files = unzipSvgPages(zip.bytes);
-    assert.equal(files.length, count, 'ZIP contains every body and interlude page');
+    assert.equal(files.length, count, 'ZIP contains every page of the body-only edition');
     assertWholeScore(await page.evaluate(inspectSvgTexts, files.map(file => file.text)));
-    console.log(`Xu digital acceptance: ${count} SVG pages, 73 body bars, 6 interlude groups / 91 pitches, 295 playback events / 219 beats. Screenshots and exports: ${output}`);
+    console.log(`Xu digital acceptance: ${count} SVG pages, 73 bars, no interlude or credits, 295 playback events / 219 beats. Screenshots and exports: ${output}`);
   });
 });
 
@@ -278,6 +258,7 @@ test('Xu favorites persist across library reloads and the former original-image 
     assert.equal(await card.locator('[data-favorite-id="xu"]').getAttribute('aria-pressed'), 'true');
     assert.match(await card.locator('.catalog-open').getAttribute('href'), /score\.html\?score=xu$/);
     assert.equal(await card.locator('a[href*="original.html"], a[href$=".jpg"], a[href$=".zip"]').count(), 0);
+    assert.doesNotMatch(await card.innerText(), /间奏|署名|拇指琴呆小小/);
     await library.reload();
     await card.waitFor();
     assert.equal(await card.locator('[data-favorite-id="xu"]').getAttribute('aria-pressed'), 'true');
@@ -285,13 +266,13 @@ test('Xu favorites persist across library reloads and the former original-image 
     await page.goto(base + 'original.html?score=xu');
     await page.waitForURL(base + 'score.html?score=xu');
     await page.waitForFunction(() => document.getElementById('score-name')?.value === '嘘' && document.getElementById('score-summary')?.textContent.includes('295'));
-    assert.equal(await page.locator('#play-label').innerText(), '试听正文');
+    assert.equal(await page.locator('#play-label').innerText(), '试听全曲');
     assert.equal(await page.locator('#original-score').isVisible(), false);
     assert.equal(await page.locator('#favorite-score').getAttribute('aria-pressed'), 'true');
   });
 });
 
-test('editing a Xu copy preserves the entire untimed interlude and all tie notation through local saving and JSON recompile', { timeout: 30000 }, async () => {
+test('editing a Xu copy keeps the interlude hidden and credits empty while preserving the body and ties through saving and JSON recompile', { timeout: 30000 }, async () => {
   await browserSession(async ({ context, base }) => {
     const page = await context.newPage();
     await readyWorkshop(page, base + 'score.html?score=xu');
@@ -299,31 +280,28 @@ test('editing a Xu copy preserves the entire untimed interlude and all tie notat
     await page.locator('#edit-authored').click();
     await page.waitForFunction(() => document.getElementById('composer-title')?.value === '嘘'
       && document.querySelector('#composer-preview svg') && document.getElementById('notation-error').hidden);
-    assert.equal(await page.locator('#composer-unmetered').isVisible(), true);
+    assert.equal(await page.locator('#composer-unmetered').isVisible(), false);
     assert.equal(await page.locator('#composer-voices .notation-input').count(), 2);
-    assert.equal(await page.locator('.unmetered-notation').count(), 2);
-    assert.match(await page.locator('#composer-play').innerText(), /试听正文/);
-    for (let i = 0; i < 2; i++) assert.equal(await page.locator('.unmetered-notation').nth(i).inputValue(), source.unmeteredSections[0].voices[i].notation);
+    assert.equal(await page.locator('.unmetered-notation').count(), 0);
+    assert.equal(await page.locator('#composer-credits').inputValue(), '');
+    assert.match(await page.locator('#composer-play').innerText(), /试听全曲/);
     const before = await page.locator('.draft-item').count();
     await page.reload();
     await page.waitForFunction(() => document.getElementById('composer-title')?.value === '嘘' && document.querySelector('#composer-preview svg'));
     assert.equal(await page.locator('.draft-item').count(), before, 'reloading the saved editing copy does not import a second copy');
+    assert.equal(await page.locator('#composer-unmetered').isVisible(), false);
+    assert.equal(await page.locator('#composer-credits').inputValue(), '');
     const json = await downloadThrough(page, '#composer-export-json', 'xu-composer-roundtrip.json');
     const restored = JSON.parse(json.bytes.toString('utf8'));
     assertDocument(restored);
-    assert.deepEqual(restored.unmeteredSections, source.unmeteredSections);
     const count = await page.locator('#composer-page-select option').count();
-    let foundInterlude = false;
+    const pages = [];
     for (let index = 0; index < count; index++) {
       await page.locator('#composer-page-select').selectOption(String(index));
-      if (await page.locator('#composer-preview svg[data-unmetered="true"]').count()) {
-        foundInterlude = true;
-        assert.match(await page.locator('#composer-page-range').innerText(), /间奏.*不参与试听/);
-        assert.equal(await page.locator('#composer-preview image').count(), 0);
-        await assertMobile(page, 'composer with an unmetered interlude');
-        break;
-      }
+      pages.push((await page.evaluate(inspectSvgTexts, null))[0]);
+      assert.doesNotMatch(await page.locator('#composer-page-range').innerText(), /间奏/);
     }
-    assert.equal(foundInterlude, true);
+    assertWholeScore(pages);
+    await assertMobile(page, 'composer with the body-only Xu edition');
   });
 });
