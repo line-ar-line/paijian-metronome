@@ -8,7 +8,7 @@
   <title>曲谱工坊 · 拍间</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="score/workshop.css">
+  <link rel="stylesheet" href="score/workshop.css?v=playback-nav-1">
   <script src="score/score-model.js" defer></script>
   <script src="score/document.js?v=xu-body-5" defer></script>
   <script src="score/user-library.js?v=authoring-1" defer></script>
@@ -16,9 +16,9 @@
   <script src="score/midi.js" defer></script>
   <script src="score/examples.js" defer></script>
   <script src="score/renderer.js?v=xu-body-5" defer></script>
-  <script src="score/player.js" defer></script>
+  <script src="score/player.js?v=playback-nav-1" defer></script>
   <script src="score/export.js" defer></script>
-  <script src="score/workshop.js?v=xu-body-5" defer></script>
+  <script src="score/workshop.js?v=playback-nav-1" defer></script>
 </head>
 <body class="workshop-page">
   <div class="page-shell workshop-shell">
@@ -63,14 +63,15 @@
             <label class="score-title-field"><span class="sr-only">曲谱标题</span><input id="score-name" class="text-input" type="text" maxlength="80" value="小星星" placeholder="给这页谱起个名字"></label>
             <div class="export-actions"><button id="favorite-score" class="secondary-button" type="button" aria-pressed="false">☆ 收藏</button><a id="edit-authored" class="secondary-button" href="composer.html" hidden>编辑副本</a><button id="export-json" class="secondary-button" type="button" hidden>可编辑 JSON</button><button id="export-png" class="secondary-button" type="button">全谱图片</button><button id="export-svg" class="secondary-button" type="button">全谱 SVG</button><button id="print-score" class="secondary-button" type="button">打印 / PDF</button></div>
           </div>
-          <div class="score-paper"><div class="paper-edge" aria-hidden="true"></div><div id="score-preview" class="score-preview"></div></div>
-          <p class="scroll-hint">小屏幕上可以左右滑动查看谱面。</p>
-          <div class="page-navigation" aria-label="全谱分页"><div class="page-buttons"><button id="previous-page" class="secondary-button" type="button" aria-label="上一页">←</button><label class="sr-only" for="page-select">选择谱页</label><select id="page-select"></select><button id="next-page" class="secondary-button" type="button" aria-label="下一页">→</button></div><span id="page-range"></span><label class="follow-pages"><input id="follow-pages" type="checkbox" checked>试听自动翻页</label></div>
-          <div class="score-player" aria-label="曲谱试听">
-            <button id="score-play" class="play-button score-play" type="button" aria-pressed="false"><span id="play-glyph" aria-hidden="true">▶</span><span id="play-label">试听全曲</span></button>
-            <div class="playback-progress"><div class="progress-label"><span id="playback-status">准备好，从第一小节开始。</span><span id="playback-time">0:00 / 0:00</span></div><progress id="playback-progress" max="1" value="0" aria-label="试听进度"></progress></div>
+          <div class="page-navigation" aria-label="全谱分页"><div class="page-buttons"><button id="previous-page" class="secondary-button" type="button" aria-label="上一页">←</button><label class="sr-only" for="page-select">选择谱页</label><select id="page-select"></select><button id="next-page" class="secondary-button" type="button" aria-label="下一页">→</button></div><span id="page-range"></span><label class="follow-pages"><input id="follow-pages" type="checkbox" checked>播放时自动跟随</label></div>
+          <div class="score-player" aria-label="曲谱播放">
+            <div class="playback-buttons"><button id="score-play" class="play-button score-play" type="button" aria-pressed="false"><span id="play-glyph" aria-hidden="true">▶</span><span id="play-label">播放</span></button><button id="score-restart" class="secondary-button" type="button" title="从第一小节重新播放">从头播放</button></div>
+            <div class="playback-progress"><div class="progress-label"><span id="playback-status">准备好，从第一小节开始。</span><span id="playback-time">0:00 / 0:00</span></div><input id="playback-progress" type="range" min="0" max="1" step="0.01" value="0" aria-label="播放进度，可拖动跳转"></div>
             <label class="tempo-field" for="score-bpm"><span>速度 <small>♩ BPM</small></span><input id="score-bpm" class="text-input" type="number" min="30" max="240" step="1" value="80"></label>
           </div>
+          <p class="playback-hint">点击任意小节，从那里开始播放；拖动进度条可跳转。反复段会按当前或下一次出现的位置播放。</p>
+          <div class="score-paper"><div class="paper-edge" aria-hidden="true"></div><div id="score-preview" class="score-preview"></div></div>
+          <p class="scroll-hint">小屏幕上可以左右滑动查看谱面。</p>
           <div id="score-warnings" class="score-warnings" aria-label="转谱说明"></div>
           <p id="score-performance-note" class="control-note" hidden></p>
           <details id="original-score" class="original-score" hidden><summary>查看用户提供原图 · 对照声部、反复与滑音</summary><p><a id="original-link" href="scores/heixiu-rhapsody-original.jpg" target="_blank" rel="noopener">打开原尺寸图片 ↗</a></p><img id="original-image" loading="lazy" alt="用户提供原谱"></details>

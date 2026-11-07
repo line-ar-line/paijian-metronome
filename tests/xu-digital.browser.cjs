@@ -184,7 +184,7 @@ test('Xu body-only edition omits the interlude and credits while preserving ever
     assert.doesNotMatch(await page.locator('#full-score-info').innerText(), /间奏/);
     assert.match(await page.locator('#score-summary').innerText(), /295.*73 小节/);
     assert.doesNotMatch(await page.locator('#source-label').innerText(), /署名|拇指琴呆小小|间奏/);
-    assert.equal(await page.locator('#play-label').innerText(), '试听全曲');
+    assert.equal(await page.locator('#play-label').innerText(), '播放');
     assert.equal(await page.locator('#original-score').isVisible(), false);
     assert.equal(await page.locator('#score-preview image').count(), 0);
     await page.screenshot({ path: path.join(output, 'xu-desktop.png'), fullPage: true });
@@ -227,7 +227,8 @@ test('Xu body-only edition omits the interlude and credits while preserving ever
     assert.equal(followed.unmetered, false);
     assert.match(followed.status, /第 33 \/ 73 小节/);
     await page.locator('#score-play').click();
-    assert.equal(await page.locator('#play-label').innerText(), '试听全曲');
+    assert.equal(await page.locator('#play-label').innerText(), '继续播放');
+    assert.ok(Number(await page.locator('#playback-progress').inputValue()) > 0, 'pausing keeps the current position in the complete 219-beat body');
     assert.equal(await page.evaluate(() => xuAcceptancePlayer._voices.size), 0);
 
     const json = await downloadThrough(page, '#export-json', 'xu-workshop.json');
@@ -266,7 +267,7 @@ test('Xu favorites persist across library reloads and the former original-image 
     await page.goto(base + 'original.html?score=xu');
     await page.waitForURL(base + 'score.html?score=xu');
     await page.waitForFunction(() => document.getElementById('score-name')?.value === '嘘' && document.getElementById('score-summary')?.textContent.includes('295'));
-    assert.equal(await page.locator('#play-label').innerText(), '试听全曲');
+    assert.equal(await page.locator('#play-label').innerText(), '播放');
     assert.equal(await page.locator('#original-score').isVisible(), false);
     assert.equal(await page.locator('#favorite-score').getAttribute('aria-pressed'), 'true');
   });

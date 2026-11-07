@@ -132,6 +132,7 @@ test('complete pieces remain intact through pagination, playback following, expo
     await page.waitForFunction(() => fullTestPlayer.isPlaying);
     assert.equal(await page.evaluate(() => fullTestPlayer._score.totalBeats), 5, 'audio completion must use all and only the source timeline');
     await page.locator('#score-play').click();
+    assert.equal(await page.evaluate(() => fullTestPlayer.isPlaying), false);
 
     async function upload(bars) {
       const filename = `完整测试-${bars}小节.mid`;
@@ -139,6 +140,8 @@ test('complete pieces remain intact through pagination, playback following, expo
       await page.waitForFunction(name => document.getElementById('source-label').textContent.includes(name), filename);
     }
     await upload(300);
+    assert.equal(Number(await page.locator('#playback-progress').inputValue()), 0, 'loading a new complete piece resets the paused position');
+    assert.equal(await page.locator('#play-label').innerText(), '播放');
     assert.equal(await page.locator('#score-summary').innerText(), '2 个音符 · 300 小节');
     assert.deepEqual(await page.evaluate(() => ({ total: fullTestScore.totalBeats, source: fullTestScore.sourceTotalBeats, noteEnd: fullTestScore.sourceEndBeat, last: fullTestScore.notes.at(-1).start, pitch: fullTestScore.notes.at(-1).midi })), { total: 1200, source: 1200, noteEnd: 1197, last: 1196, pitch: 79 });
     assert.equal(await page.locator('#playback-progress').getAttribute('max'), '1200');

@@ -84,21 +84,30 @@ test('workshop imports, renders, plays, exports, and handles errors on desktop a
     assert.equal(await page.locator('.note-group.unplayable .note-number').first().evaluate(node => getComputedStyle(node).fill), 'rgb(177, 99, 55)');
 
     // Real Web Audio and real progress frames: a rest must clear the old note.
+    assert.equal(await page.locator('#play-label').innerText(), '播放');
     await page.locator('#score-play').click();
     await page.waitForFunction(() => acceptancePlayer.isPlaying && document.querySelector('.note-group.is-active'));
+    assert.equal(await page.locator('#play-label').innerText(), '暂停');
     assert.equal(await page.evaluate(() => acceptancePlayer._context.state), 'running');
     assert.ok(await page.evaluate(() => acceptancePlayer._voices.size > 0));
-    await page.waitForFunction(() => { const beat = document.getElementById('playback-progress').value; return beat > 1.1 && beat < 1.9; });
+    await page.waitForFunction(() => { const beat = Number(document.getElementById('playback-progress').value); return beat > 1.1 && beat < 1.9; });
     assert.equal(await page.locator('.note-group.is-active').count(), 0, 'a silent gap must not highlight the previous note');
     await page.locator('#score-play').click();
     assert.equal(await page.evaluate(() => acceptancePlayer.isPlaying), false);
     assert.equal(await page.evaluate(() => acceptancePlayer._voices.size), 0);
     assert.equal(await page.locator('#score-play').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.locator('#play-label').innerText(), '继续播放');
+    assert.match(await page.locator('#playback-status').innerText(), /已暂停/);
+    const pausedBeat = Number(await page.locator('#playback-progress').inputValue());
+    assert.ok(pausedBeat > 1 && pausedBeat < 6, 'pause preserves the current position instead of resetting to the beginning');
     await page.locator('#score-play').click();
-    await page.waitForFunction(() => document.getElementById('playback-status').textContent.includes('试听结束'));
+    await page.waitForFunction(() => acceptancePlayer.isPlaying);
+    assert.ok(Math.abs(await page.evaluate(() => acceptancePlayer._score.startBeat) - pausedBeat) <= 0.011, 'resume starts at the paused position, allowing for the range input step');
+    await page.waitForFunction(() => document.getElementById('playback-status').textContent.includes('播放结束'));
     assert.equal(await page.locator('.note-group.is-active').count(), 0);
     assert.equal(await page.evaluate(() => acceptancePlayer._voices.size), 0);
-    assert.equal(await page.locator('#playback-progress').getAttribute('value'), '6');
+    assert.equal(Number(await page.locator('#playback-progress').inputValue()), 6);
+    assert.equal(await page.locator('#play-label').innerText(), '播放');
 
     await page.locator('#track-select').selectOption('1:0');
     assert.deepEqual(await page.evaluate(() => acceptanceScore.notes.map(note => note.midi)), [48, 55]);

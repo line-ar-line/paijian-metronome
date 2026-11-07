@@ -17,8 +17,12 @@
   let activeSources = new Set();
   let activeGroups = [];
   let renderOptions;
+  let positionBeat = 0;
+  let currentBar = -1;
+  let scrubbing = false;
+  let resumeAfterScrub = false;
   const favorites = globalThis.ScoreUserLibrary;
-  const player = new ScorePlayer({ onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '试听暂时无法启动，请重试。') });
+  const player = new ScorePlayer({ onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '播放暂时无法启动，请重试。') });
 
   function message(value, kind = 'error') {
     $('workshop-message').textContent = value;
@@ -27,17 +31,69 @@
   }
   function seconds(beats) { return beats * 60 / state.bpm; }
   function hasUnmetered() { return Boolean(score?.unmeteredSections?.length); }
-  function playLabel() { return hasUnmetered() ? '试听正文' : '试听全曲'; }
+  function totalBeats() { return state?.compiled?.totalBeats || score?.sourceTotalBeats || 0; }
+  function playLabel() { return positionBeat > 0 && positionBeat < totalBeats() ? '继续播放' : '播放'; }
   function clock(value) { return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`; }
-  function progress({ beat, totalBeats }) {
-    $('playback-progress').max = totalBeats || 1;
-    $('playback-progress').value = beat;
-    $('playback-time').textContent = `${clock(seconds(beat))} / ${clock(seconds(totalBeats))}`;
-    if (player.isPlaying && score) {
-      const playedBar = Math.floor(beat / score.barBeats);
-      const bar = score.playbackBarMap ? score.playbackBarMap[Math.min(playedBar, score.playbackBarMap.length - 1)] : Math.min(score.bars.length - 1, playedBar);
-      $('playback-status').textContent = `正在${hasUnmetered() ? '试听正文' : '试听'} · 第 ${bar + 1} / ${score.bars.length} 小节`;
-      if ($('follow-pages').checked && barToPage[bar] !== pageIndex) showPage(barToPage[bar]);
+  function barAt(beat) {
+    if (!score?.bars.length) return -1;
+    const playedBar = Math.floor(beat / score.barBeats);
+    return score.playbackBarMap
+      ? score.playbackBarMap[Math.min(playedBar, score.playbackBarMap.length - 1)]
+      : Math.min(score.bars.length - 1, playedBar);
+  }
+  function positionLabel(beat) { return score ? `第 ${barAt(beat) + 1} / ${score.bars.length} 小节` : '准备好'; }
+  function updateTime(beat, length = totalBeats()) {
+    const slider = $('playback-progress');
+    slider.max = length || 1;
+    slider.value = beat;
+    slider.style.setProperty('--played', `${length ? beat / length * 100 : 0}%`);
+    slider.setAttribute('aria-valuetext', `${clock(seconds(beat))}，${positionLabel(beat)}，全长 ${clock(seconds(length))}`);
+    $('playback-time').textContent = `${clock(seconds(beat))} / ${clock(seconds(length))}`;
+  }
+  function paintCurrentBar() {
+    $('score-preview').querySelectorAll('[data-measure]').forEach(group => {
+      const current = Number(group.dataset.measure) === currentBar;
+      group.classList.toggle('is-current-measure', current);
+      if (current) group.setAttribute('aria-current', 'step');
+      else group.removeAttribute('aria-current');
+    });
+  }
+  function followBar(bar, immediate = false) {
+    if (bar < 0 || barToPage[bar] === undefined) return;
+    const pageChanged = barToPage[bar] !== pageIndex;
+    if (pageChanged) showPage(barToPage[bar]);
+    const group = $('score-preview').querySelector(`[data-measure="${bar}"]`);
+    if (!group) return;
+    const preview = $('score-preview');
+    const bounds = group.getBoundingClientRect();
+    const viewport = preview.getBoundingClientRect();
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior = immediate || pageChanged || reducedMotion ? 'instant' : 'smooth';
+    // Leave space for the sticky player; only move when the next measure needs it.
+    const top = document.querySelector('.score-player').offsetHeight + 32;
+    if (bounds.top < top || bounds.bottom > innerHeight - 32) {
+      window.scrollTo({ top: Math.max(0, window.scrollY + bounds.top - top - 16), behavior });
+    }
+    if (bounds.left < viewport.left + 12 || bounds.right > viewport.right - 12) {
+      preview.scrollTo({ left: Math.max(0, preview.scrollLeft + bounds.left - viewport.left - 16), behavior });
+    }
+  }
+  function cancelFollowScroll() {
+    window.scrollTo({ top: window.scrollY, left: window.scrollX, behavior: 'instant' });
+    const preview = $('score-preview');
+    preview.scrollTo({ left: preview.scrollLeft, behavior: 'instant' });
+  }
+  function progress({ beat, totalBeats: length }) {
+    if (scrubbing || !score) return;
+    positionBeat = clamp(beat, 0, length);
+    updateTime(positionBeat, length);
+    const bar = barAt(positionBeat);
+    const changed = bar !== currentBar;
+    currentBar = bar;
+    if (changed) paintCurrentBar();
+    if (player.isPlaying) {
+      $('playback-status').textContent = `正在播放${hasUnmetered() ? '正文' : ''} · ${positionLabel(positionBeat)}`;
+      if ($('follow-pages').checked && changed) followBar(bar);
     }
   }
   function clearHighlight() {
@@ -65,7 +121,9 @@
       if (!nodesBySource.has(id)) nodesBySource.set(id, []);
       nodesBySource.get(id).push(group);
     });
+    makeMeasuresInteractive();
     paintHighlight();
+    paintCurrentBar();
     $('page-select').value = String(pageIndex);
     $('previous-page').disabled = pageIndex === 0;
     $('next-page').disabled = pageIndex === pages.length - 1;
@@ -74,50 +132,117 @@
       ? `${unmeteredSection.title} · 未定节奏间奏页 · 不参与试听`
       : bars.length ? `第 ${bars[0].index + 1}–${bars[bars.length - 1].index + 1} 小节 · 共 ${score.bars.length} 小节` : '';
   }
-  function playbackState({ state: playback, reason }) {
-    const playing = playback === 'playing';
+  function makeMeasuresInteractive() {
+    const svg = $('score-preview').querySelector('svg');
+    if (!svg) return;
+    svg.setAttribute('role', 'group');
+    svg.querySelectorAll('[data-measure]').forEach(group => {
+      const index = Number(group.dataset.measure);
+      group.setAttribute('role', 'button');
+      group.setAttribute('tabindex', '0');
+      group.setAttribute('aria-label', `第 ${index + 1} 小节，从这里播放`);
+      const box = group.getBBox();
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      hit.classList.add('measure-hit');
+      for (const [name, value] of Object.entries({ x: box.x - 3, y: box.y - 8, width: box.width + 3, height: box.height + 16, rx: 7 })) hit.setAttribute(name, value);
+      group.prepend(hit);
+    });
+  }
+  function syncPlayButton() {
+    const playing = player.isPlaying;
     $('score-play').setAttribute('aria-pressed', String(playing));
-    $('play-glyph').textContent = playing ? '■' : '▶';
-    $('play-label').textContent = playing ? (hasUnmetered() ? '停止试听正文' : '停止试听') : playLabel();
-    if (!playing) {
+    $('play-glyph').textContent = playing ? 'Ⅱ' : '▶';
+    $('play-label').textContent = starting ? '准备声音…' : playing ? '暂停' : playLabel();
+  }
+  function playbackState({ state: playback, reason }) {
+    if (playback === 'playing') {
+      starting = false;
+      if ($('follow-pages').checked && !scrubbing) followBar(currentBar, true);
+    } else {
       clearHighlight();
-      $('playback-status').textContent = hasUnmetered()
-        ? (reason === 'ended' ? '正文试听结束；间奏请按数字谱自行练习。' : '已停止试听正文 · 再次试听将从正文第一小节开始。')
-        : reason === 'ended' ? '试听结束，可以跟着谱慢慢练习。' : '已停止 · 再次试听将从头开始。';
-      if (reason === 'interrupted' || reason === 'stalled') message(`浏览器或音频设备中断了试听。请保持页面在前台，再点击“${playLabel()}”重新开始。`);
+      cancelFollowScroll();
+      if (!scrubbing) $('playback-status').textContent = reason === 'ended'
+        ? `${hasUnmetered() ? '正文' : '全曲'}播放结束 · 点击播放可从头再练。`
+        : `已暂停 · ${positionLabel(positionBeat)}`;
+      if (reason === 'interrupted' || reason === 'stalled') message('浏览器或音频设备中断了播放。请保持页面在前台，点击“继续播放”接着练习。');
     }
+    syncPlayButton();
   }
-  function stop() {
-    playGeneration++; starting = false; player.stop();
+  function stop(reason = 'pause') {
+    playGeneration++; starting = false; player.stop(reason);
     $('score-play').removeAttribute('aria-busy');
+    syncPlayButton();
   }
-  async function togglePlayback() {
-    if (player.isPlaying || starting) { stop(); return; }
-    message(''); starting = true;
+  async function startPlayback(beat = positionBeat) {
+    scrubbing = false; resumeAfterScrub = false;
+    message('');
+    // Stop first so the old clock cannot overwrite a newly chosen position.
+    stop('seek');
+    positionBeat = clamp(beat, 0, totalBeats());
+    currentBar = -1;
+    progress({ beat: positionBeat, totalBeats: totalBeats() });
+    starting = true;
     const generation = ++playGeneration;
     $('score-play').setAttribute('aria-busy', 'true');
-    $('play-label').textContent = '准备声音…';
-    try { await player.play(state.compiled?.playbackNotes || score.notes, { bpm: state.bpm, volume: .55, totalBeats: state.compiled?.totalBeats || score.sourceTotalBeats }); }
+    syncPlayButton();
+    try { await player.play(state.compiled?.playbackNotes || score.notes, { bpm: state.bpm, volume: .55, totalBeats: totalBeats(), startBeat: positionBeat }); }
     catch (error) { message(error.message || '无法启动音频，请在新版浏览器中重试。'); }
     finally {
       if (generation === playGeneration) {
         starting = false; $('score-play').removeAttribute('aria-busy');
-        $('play-label').textContent = player.isPlaying ? (hasUnmetered() ? '停止试听正文' : '停止试听') : playLabel();
+        syncPlayButton();
       }
     }
+  }
+  function togglePlayback() {
+    if (player.isPlaying || starting) { stop(); return; }
+    startPlayback(positionBeat >= totalBeats() ? 0 : positionBeat);
+  }
+  function beginScrub() {
+    if (scrubbing) return;
+    resumeAfterScrub = player.isPlaying || starting;
+    // Capture the audible position before suppressing further progress events.
+    stop('seek');
+    scrubbing = true;
+  }
+  function previewSeek() {
+    const beat = Number($('playback-progress').value);
+    beginScrub();
+    updateTime(beat);
+    $('playback-status').textContent = `定位到 · ${positionLabel(beat)}`;
+  }
+  function commitSeek() {
+    if (!scrubbing) return;
+    const beat = Number($('playback-progress').value);
+    const resume = resumeAfterScrub;
+    scrubbing = false; resumeAfterScrub = false;
+    progress({ beat, totalBeats: totalBeats() });
+    $('playback-status').textContent = `已定位 · ${positionLabel(beat)}`;
+    syncPlayButton();
+    if ($('follow-pages').checked) followBar(currentBar, true);
+    if (resume) startPlayback(beat);
+  }
+  function playMeasure(index) {
+    let performanceBar = index;
+    if (score.playbackBarMap) {
+      const occurrences = score.playbackBarMap.flatMap((bar, played) => bar === index ? [played] : []);
+      const now = Math.floor(positionBeat / score.barBeats);
+      performanceBar = occurrences.find(played => played >= now) ?? occurrences[0];
+    }
+    if (performanceBar !== undefined) startPlayback(performanceBar * score.barBeats);
   }
 
   function controls() {
     const authored = !!state.document;
-    $('play-label').textContent = playLabel();
+    syncPlayButton();
     $('score-performance-note').hidden = !hasUnmetered();
     $('score-performance-note').textContent = hasUnmetered() ? '试听仅含正文；间奏音高已完整保留，时值待定。' : '';
     for (const id of ['score-mode', 'score-meter', 'transpose', 'suggest-transpose']) $(id).disabled = authored;
     $('score-name').value = state.title;
     $('instrument-select').value = state.instrument;
     document.querySelector('.workshop-intro .instrument-tag').textContent = `${state.instrument === '21C' ? '21' : '17'} 音 C 调 · ${authored ? '人工编配' : state.mode === 'polyphonic' ? '多音转谱' : '单音转谱'}`;
-    document.querySelector('.workshop-intro .intro-copy').textContent = authored ? '读谱、试听、收藏，保留完整声部与演奏标记。' : '导入一首 MIDI，把旋律与伴奏一起变成完整数字谱。';
-    document.querySelector('.guide-footnote').textContent = hasUnmetered() ? '正文按拍点对齐；间奏保留原稿各声部的列对齐，空位不代表休止时长。间奏分组不是小节，暂无确定节奏，不参与试听。' : authored ? '声部按编配保留；同一拍上下堆叠的是和弦，波形向上箭头表示从低到高滑奏。试听按反复标记展开；有原图时可在谱面下方对照。' : '声部行是自动排版，不是左右手指法。节奏按十六分音符网格规整，三连音与复杂指法需人工校对。单音 MIDI 本身没有伴奏，切换模式不会凭空生成和声。';
+    document.querySelector('.workshop-intro .intro-copy').textContent = authored ? '读谱、播放、收藏，保留完整声部与演奏标记。' : '导入一首 MIDI，把旋律与伴奏一起变成完整数字谱。';
+    document.querySelector('.guide-footnote').textContent = hasUnmetered() ? '正文按拍点对齐；间奏保留原稿各声部的列对齐，空位不代表休止时长。间奏分组不是小节，暂无确定节奏，不参与试听。' : authored ? '声部按编配保留；同一拍上下堆叠的是和弦，波形向上箭头表示从低到高滑奏。播放按反复标记展开；有原图时可在谱面下方对照。' : '声部行是自动排版，不是左右手指法。节奏按十六分音符网格规整，三连音与复杂指法需人工校对。单音 MIDI 本身没有伴奏，切换模式不会凭空生成和声。';
     $('score-mode').value = state.mode;
     $('mode-description').textContent = authored ? '保留作者声部、和弦、反复和滑音。需要改音符或拍号，可打开“编辑副本”。' : state.mode === 'polyphonic'
       ? '保留所选音轨的和弦、伴奏与独立延音。上下声部对齐的音同时拨响；声部行用于排版，不代表左右手。'
@@ -215,7 +340,7 @@
     showPage(0);
     const groups = (score.unmeteredSections || []).reduce((total, section) => total + section.groups.length, 0);
     $('score-summary').textContent = hasUnmetered() ? `正文 ${score.stats.outputNotes} 个音符 · 间奏 ${score.stats.unmeteredNotes} 个音符` : `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
-    $('full-score-info').textContent = hasUnmetered() ? `完整数字谱 · 正文 ${score.bars.length} 小节 + 间奏 ${groups} 组 / ${pages.length} 页 · 试听正文，导出包含全部页` : state.document ? `完整编配 · 谱面 ${score.bars.length} 小节 / ${pages.length} 页 · 含反复试听 ${score.playbackBarMap.length} 小节` : `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
+    $('full-score-info').textContent = hasUnmetered() ? `完整数字谱 · 正文 ${score.bars.length} 小节 + 间奏 ${groups} 组 / ${pages.length} 页 · 试听正文，导出包含全部页` : state.document ? `完整编配 · 谱面 ${score.bars.length} 小节 / ${pages.length} 页 · 含反复播放 ${score.playbackBarMap.length} 小节` : `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
     $('playback-status').textContent = hasUnmetered() ? '准备好，试听正文从第一小节开始；间奏不参与试听。' : '准备好，从第一小节开始。';
     controls(); warnings(); progress({ beat: 0, totalBeats: state.compiled?.totalBeats || score.sourceTotalBeats });
     document.title = `${state.title} · 卡林巴数字谱 · 拍间`;
@@ -233,7 +358,9 @@
         candidate.compiled = null;
         result = KalimbaScore.buildScore(candidate.notes, { instrument: candidate.instrument, transpose: candidate.transpose, meter: candidate.meter, grid: .25, totalBeats: candidate.totalBeats, mode: candidate.mode });
       }
-      stop(); state = candidate; score = result; scoreRevision++; render(); message(''); return true;
+      scrubbing = false; resumeAfterScrub = false;
+      stop(); positionBeat = 0; currentBar = -1;
+      state = candidate; score = result; scoreRevision++; render(); message(''); return true;
     } catch (error) {
       if (state) controls();
       message(error.message || '无法转换这段旋律，请尝试其他音轨。');
@@ -450,6 +577,26 @@
   });
   $('score-name').addEventListener('change', (event) => apply({ title: shorten(event.target.value.trim(), 80) || '未命名曲谱' }));
   $('score-play').addEventListener('click', togglePlayback);
+  $('score-restart').addEventListener('click', () => startPlayback(0));
+  $('playback-progress').addEventListener('pointerdown', beginScrub);
+  $('playback-progress').addEventListener('input', previewSeek);
+  $('playback-progress').addEventListener('change', commitSeek);
+  $('playback-progress').addEventListener('pointerup', commitSeek);
+  $('playback-progress').addEventListener('pointercancel', commitSeek);
+  $('playback-progress').addEventListener('blur', commitSeek);
+  $('follow-pages').addEventListener('change', () => {
+    if ($('follow-pages').checked && player.isPlaying) followBar(currentBar, true);
+    else if (!$('follow-pages').checked) cancelFollowScroll();
+  });
+  $('score-preview').addEventListener('click', event => {
+    const measure = event.target.closest('[data-measure]');
+    if (measure) playMeasure(Number(measure.dataset.measure));
+  });
+  $('score-preview').addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const measure = event.target.closest('[data-measure]');
+    if (measure) { event.preventDefault(); playMeasure(Number(measure.dataset.measure)); }
+  });
   $('previous-page').addEventListener('click', () => showPage(pageIndex - 1));
   $('next-page').addEventListener('click', () => showPage(pageIndex + 1));
   $('page-select').addEventListener('change', (event) => showPage(Number(event.target.value)));

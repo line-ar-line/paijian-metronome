@@ -59,7 +59,7 @@ test('bundled authored score works with all score JSON requests blocked, preserv
     await page.goto(scoreUrl);
     await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
     assert.match(await page.locator('#score-summary').innerText(), /189 个音符 · 29 小节/);
-    assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复试听 37 小节/);
+    assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复播放 37 小节/);
     assert.equal(await page.locator('#score-name').inputValue(), '嘿咻狂想曲');
     assert.equal(await page.locator('#page-select option').count(), 5);
     for (const id of ['score-mode', 'score-meter', 'transpose', 'suggest-transpose']) assert.equal(await page.locator('#' + id).isDisabled(), true);
@@ -91,6 +91,7 @@ test('bundled authored score works with all score JSON requests blocked, preserv
     await page.locator('#follow-pages').check();
     await page.locator('#score-play').click();
     await page.waitForFunction(() => authoredPlayer.isPlaying && authoredPlayer._voices.size > 0);
+    await page.waitForFunction(() => Number(document.getElementById('playback-progress').value) > 0.1);
     const playback = await page.evaluate(() => authoredPlaybackInput);
     assert.equal(playback.notes.length, 245);
     assert.equal(playback.options.totalBeats, 148);
@@ -106,7 +107,7 @@ test('bundled authored score works with all score JSON requests blocked, preserv
         status: document.getElementById('playback-status').textContent,
         page: document.getElementById('page-select').value,
         bar13Visible: !!document.querySelector('#score-preview [data-measure="12"]'),
-        progress: document.getElementById('playback-progress').value,
+        progress: Number(document.getElementById('playback-progress').value),
       };
     });
     assert.match(repeated.status, /第 13 \/ 29 小节/);
@@ -115,6 +116,8 @@ test('bundled authored score works with all score JSON requests blocked, preserv
     assert.equal(repeated.progress, 80);
     await page.locator('#score-play').click();
     assert.equal(await page.evaluate(() => authoredPlayer.isPlaying), false);
+    assert.equal(await page.locator('#play-label').innerText(), '继续播放');
+    assert.ok(Number(await page.locator('#playback-progress').inputValue()) > 0, 'pausing an authored score retains its position');
 
     assert.equal(await page.locator('#favorite-score').getAttribute('aria-pressed'), 'false');
     await page.evaluate(() => ScoreUserLibrary.set('mutopia-528', true));
@@ -155,7 +158,7 @@ test('bundled authored score works with all score JSON requests blocked, preserv
     for (const id of ['score-mode', 'score-meter', 'transpose', 'suggest-transpose']) assert.equal(await page.locator('#' + id).isDisabled(), false);
     assert.equal(await page.locator('#score-preview .glissando, #score-preview .repeat-start, #score-preview .repeat-end').count(), 0);
     assert.match(await page.locator('#full-score-info').innerText(), /12 小节/);
-    assert.doesNotMatch(await page.locator('#full-score-info').innerText(), /含反复试听|完整编配/);
+    assert.doesNotMatch(await page.locator('#full-score-info').innerText(), /含反复播放|完整编配/);
 
     await page.goto(scoreUrl);
     await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
@@ -197,7 +200,7 @@ test('entry-only published scores keep the JSON fallback and report load failure
     });
     await page.goto(base + 'score.html?score=future-score');
     await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
-    assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复试听 37 小节/);
+    assert.match(await page.locator('#full-score-info').innerText(), /谱面 29 小节 \/ 5 页 · 含反复播放 37 小节/);
     assert.equal(requests.length, 1, 'a published entry without bundled data still loads its JSON');
     for (failure of ['network', 'http']) {
       await page.reload();

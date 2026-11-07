@@ -21,8 +21,10 @@
     if (notes.length > MAX_NOTES) throw new Error(`音符超过本地试听的 ${MAX_NOTES} 个资源上限，已拒绝整首播放。可重新导出完整旋律音轨，去掉不需要的伴奏。`);
     const bpm = options.bpm === undefined ? 80 : options.bpm;
     const volume = options.volume === undefined ? 0.6 : options.volume;
+    const requestedStart = options.startBeat === undefined ? 0 : options.startBeat;
     if (!Number.isFinite(bpm) || bpm <= 0) throw new Error('播放速度必须是有效的正数。');
     if (!Number.isFinite(volume)) throw new Error('音量必须是有效的数字。');
+    if (!Number.isFinite(requestedStart) || requestedStart < 0) throw new Error('播放起点必须是大于或等于 0 的有效拍数。');
     const entries = notes.map((input, index) => {
       if (!input || !Number.isInteger(input.midi) || input.midi < 0 || input.midi > 127) {
         throw new Error(`第 ${index + 1} 个音符的音高无效，请使用 0–127 之间的 MIDI 音高。`);
@@ -49,8 +51,18 @@
     if (options.totalBeats !== undefined && (!Number.isFinite(options.totalBeats) || options.totalBeats < 0 || options.totalBeats > MAX_BEATS)) {
       throw new Error(`乐谱总时长必须是 0–${MAX_BEATS} 之间的有效拍数，超出本地资源范围时会拒绝整首播放。请检查源文件的时间设置；可重新导出完整旋律音轨，去掉不需要的伴奏。`);
     }
+    // Validate the complete source before seeking. The shared audio/visual
+    // entries retain absolute beats and original indices, including separate
+    // occurrences of the same sourceId in an expanded repeat.
+    const totalBeats = Math.max(noteEnd, options.totalBeats || 0);
+    const startBeat = Math.min(requestedStart, totalBeats);
+    const remaining = startBeat === 0 ? entries : entries.filter(entry => entry.note.start + entry.note.duration > startBeat).map(entry => {
+      if (entry.note.start >= startBeat) return entry;
+      return { ...entry, note: { ...entry.note, start: startBeat, duration: entry.note.start + entry.note.duration - startBeat } };
+    });
     return {
-      entries,
+      entries: remaining,
+      startBeat,
       bpm: clamp(bpm, 30, 240),
       volume: clamp(volume, 0, 1),
       peakPolyphony,
@@ -58,7 +70,7 @@
       // later notes. Even summed partial peaks stay below unity at volume 1.
       voiceGain: Math.min(1, 0.85 / (Math.max(1, peakPolyphony) * NOTE_PEAK)),
       // A supplied length can extend trailing rests but may never cut off a note.
-      totalBeats: Math.max(noteEnd, options.totalBeats || 0)
+      totalBeats
     };
   }
 
@@ -97,12 +109,25 @@
     get isPlaying() { return this._playing; }
 
     async play(notes, options = {}) {
-      this._halt();
       const generation = ++this._generation;
+      this._halt();
+      if (generation !== this._generation) return false;
       try {
         this._score = normalizeScore(notes, options);
         this._volume = this._score.volume;
-        this._lastProgress = 0;
+        this._lastProgress = this._score.startBeat;
+        // Seeking to/past the end is a successful, already-completed request.
+        // No audio context, clock, or oscillator is needed, and an older pending
+        // resume must not be able to resurrect playback afterward.
+        if (this._score.startBeat === this._score.totalBeats) {
+          const totalBeats = this._score.totalBeats;
+          this.onActiveNotes({ notes: [], beat: totalBeats });
+          if (generation !== this._generation) return false;
+          this.onProgress({ beat: totalBeats, totalBeats });
+          if (generation !== this._generation) return false;
+          this.onStateChange({ state: 'stopped', reason: 'ended' });
+          return generation === this._generation;
+        }
         if (!this._context || this._context.state === 'closed') {
           const createContext = this._dependencies.createContext || (() => {
             const AudioContext = root.AudioContext || root.webkitAudioContext;
@@ -121,15 +146,17 @@
         this._master = this._context.createGain();
         this._master.gain.setValueAtTime(this._volume, this._context.currentTime);
         this._master.connect(this._context.destination);
-        this._startTime = this._context.currentTime + START_DELAY;
+        this._startTime = this._context.currentTime + START_DELAY - this._score.startBeat * 60 / this._score.bpm;
         this._endTime = this._startTime + this._score.totalBeats * 60 / this._score.bpm;
         this._lastTick = this._context.currentTime;
         this._nextIndex = 0;
         this._visualIndex = 0;
         this._lastVisualTime = -Infinity;
         this._playing = true;
-        this.onActiveNotes({ notes: [], beat: 0 });
-        this.onProgress({ beat: 0, totalBeats: this._score.totalBeats });
+        this.onActiveNotes({ notes: [], beat: this._score.startBeat });
+        if (generation !== this._generation || !this._playing) return false;
+        this.onProgress({ beat: this._score.startBeat, totalBeats: this._score.totalBeats });
+        if (generation !== this._generation || !this._playing) return false;
         this.onStateChange({ state: 'playing', reason: 'play' });
         if (generation !== this._generation || !this._playing) return false;
         this._schedule();
@@ -230,7 +257,7 @@
     }
 
     _reportProgress(audibleTime) {
-      const beat = clamp((audibleTime - this._startTime) * this._score.bpm / 60, 0, this._score.totalBeats);
+      const beat = clamp((audibleTime - this._startTime) * this._score.bpm / 60, this._score.startBeat, this._score.totalBeats);
       // Output timestamp jitter should never make the playhead go backwards.
       this._lastProgress = Math.max(this._lastProgress, beat);
       this.onProgress({ beat: this._lastProgress, totalBeats: this._score.totalBeats });
@@ -261,20 +288,23 @@
         if (!this._playing || generation !== this._generation) return;
       }
       if (changed) {
-        const beat = clamp((audibleTime - this._startTime) / secondsPerBeat, 0, this._score.totalBeats);
+        const beat = clamp((audibleTime - this._startTime) / secondsPerBeat, this._score.startBeat, this._score.totalBeats);
         this.onActiveNotes({ notes: active.map(entry => entry.note), beat });
       }
       if (this._playing && generation === this._generation) this._reportProgress(audibleTime);
     }
 
     _complete() {
+      const finishingGeneration = this._generation;
       this._flushVisuals();
-      if (!this._playing) return;
+      if (!this._playing || finishingGeneration !== this._generation) return;
       const totalBeats = this._score.totalBeats;
-      ++this._generation;
+      const generation = ++this._generation;
       this._halt();
+      if (generation !== this._generation) return;
       this._lastProgress = totalBeats;
       this.onProgress({ beat: totalBeats, totalBeats });
+      if (generation !== this._generation) return;
       this.onStateChange({ state: 'stopped', reason: 'ended' });
     }
 

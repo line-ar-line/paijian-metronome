@@ -157,8 +157,9 @@ test('polyphonic scores retain chords, independent durations, merged tracks and 
     assert.deepEqual(await activePitchesInDOM(), [60, 67, 72]);
     await page.waitForFunction(() => polyActivePitches.join(',') === '60,67,77');
     assert.deepEqual(await activePitchesInDOM(), [60, 67, 77]);
-    await page.waitForFunction(() => document.getElementById('playback-status').textContent.includes('试听结束'));
-    assert.equal(await page.locator('#playback-progress').getAttribute('value'), '5');
+    await page.waitForFunction(() => document.getElementById('playback-status').textContent.includes('播放结束'));
+    assert.equal(Number(await page.locator('#playback-progress').inputValue()), 5);
+    assert.equal(await page.locator('#play-label').innerText(), '播放');
     assert.equal(await page.locator('.note-group.is-active').count(), 0);
     assert.equal(await page.evaluate(() => polyPlayer._voices.size), 0);
     assert.deepEqual(ordered(await page.evaluate(() => polyPlucks.map(note => [note.midi, note.start, note.duration]))), ordered([...lead, ...accompaniment]), 'each retained note is plucked exactly once, including sustained cross-bar notes');

@@ -336,3 +336,225 @@ test('polyphonic normalization counts held-note overlap and permits clean bounda
   assert.equal(normalizeScore(notes).peakPolyphony, 2);
   assert.equal(normalizeScore([{ midi: 60, start: 0, duration: 1 }, { midi: 60, start: 1, duration: 1 }]).peakPolyphony, 1);
 });
+
+test('seeking preserves absolute timing, original note identity and trailing rests', async () => {
+  const f = setup();
+  const source = [
+    { midi: 67, start: 5, duration: 1, sourceId: 'later' },
+    { midi: 60, start: 0, duration: 1, sourceId: 'past' },
+    { midi: 48, start: 3, duration: 3, sourceId: 'held', measure: 2, tied: true },
+    { midi: 62, start: 2, duration: 2, sourceId: 'boundary' },
+    { midi: 64, start: 4, duration: 0.5, sourceId: 'target' },
+  ];
+  const original = structuredClone(source);
+  assert.equal(await f.player.play(source, { bpm: 120, startBeat: 4, totalBeats: 10 }), true);
+  assert.deepEqual(f.progress[0], { beat: 4, totalBeats: 10 });
+  assert.deepEqual(f.player._score.entries.map(entry => entry.index), [2, 4, 0]);
+  assert.deepEqual(f.player._score.entries[0].note, { ...source[2], start: 4, duration: 2, velocity: 1 });
+  advance(f, 0.1);
+  assert.deepEqual(f.active.at(-1).notes.map(note => note.sourceId), ['held', 'target']);
+  assert.ok(f.active.at(-1).beat >= 4);
+  advance(f, 1.6);
+  const fundamentals = f.context.oscillators.filter((_, index) => index % 3 === 0);
+  assert.deepEqual(fundamentals.map(voice => Math.round(voice.startTime * 1000)), [40, 40, 540]);
+  assert.deepEqual(fundamentals.map(voice => Math.round((voice.stops[0] - voice.startTime) * 1000)), [1002, 252, 502]);
+  assert.deepEqual(f.notes.map(event => event.index), [2, 4, 0]);
+  assert.equal(f.player.isPlaying, true, 'the full-song trailing rest is retained');
+  advance(f, 1.4);
+  assert.deepEqual(f.progress.at(-1), { beat: 10, totalBeats: 10 });
+  assert.equal(f.states.at(-1).reason, 'ended');
+  assert.ok(f.progress.every(event => event.beat >= 4 && event.totalBeats === 10));
+  assert.deepEqual(source, original, 'seeking must not mutate caller-owned notes');
+});
+
+test('seek normalization keeps whole-score validation and volume headroom', () => {
+  assert.equal(normalizeScore(melody).startBeat, 0);
+  assert.deepEqual(normalizeScore(melody).entries, normalizeScore(melody, { startBeat: 0 }).entries);
+  const source = [...Array.from({ length: 8 }, (_, index) => ({ midi: 48 + index, start: 0, duration: 1 })), { midi: 72, start: 4, duration: 1 }];
+  assert.equal(normalizeScore(source, { startBeat: 4 }).voiceGain, normalizeScore(source).voiceGain);
+  assert.throws(() => normalizeScore([{ midi: 128, start: 0, duration: 1 }, ...melody], { startBeat: 4 }), /音高/);
+});
+
+test('invalid seek targets report a Chinese error without starting audio', async () => {
+  for (const startBeat of [NaN, Infinity, -Infinity, -1, '2', null]) {
+    const f = setup();
+    assert.equal(await f.player.play(melody, { startBeat }), false);
+    assert.match(f.errors[0].message, /播放起点.*有效拍数/);
+    assert.equal(f.player._context, null);
+    assert.equal(f.states.at(-1).reason, 'error');
+  }
+});
+
+test('seeking to or past the end finishes successfully without creating audio or clocks', async () => {
+  for (const startBeat of [10, 100]) {
+    const f = setup();
+    f.player._dependencies.manualClock = false;
+    f.player._dependencies.createContext = () => { assert.fail('end seek must not create audio'); };
+    assert.equal(await f.player.play(melody, { startBeat, totalBeats: 10 }), true);
+    assert.equal(f.player.isPlaying, false);
+    assert.equal(f.player._score.startBeat, 10);
+    assert.equal(f.player._score.entries.length, 0);
+    assert.deepEqual(f.progress, [{ beat: 10, totalBeats: 10 }]);
+    assert.deepEqual(f.active, [{ notes: [], beat: 10 }]);
+    assert.deepEqual(f.states, [{ state: 'stopped', reason: 'ended' }]);
+    assert.equal(f.player._timer, null);
+    assert.equal(f.player._worker, null);
+    assert.equal(f.context.oscillators.length, 0);
+  }
+});
+
+test('seeking into leading, internal and trailing rests keeps their remaining silence', async () => {
+  const source = [{ midi: 60, start: 2, duration: 1 }, { midi: 64, start: 6, duration: 1 }];
+  for (const [startBeat, expectedIndices] of [[1, [0, 1]], [4, [1]], [8, []]]) {
+    const f = setup();
+    assert.equal(await f.player.play(source, { bpm: 120, startBeat, totalBeats: 10 }), true);
+    advance(f, 0.15);
+    assert.equal(f.context.oscillators.length, 0);
+    assert.equal(f.notes.length, 0);
+    assert.ok(f.progress.at(-1).beat >= startBeat);
+    advance(f, (10 - startBeat) * 0.5 - 0.1);
+    assert.deepEqual(f.notes.map(event => event.index), expectedIndices);
+    assert.deepEqual(f.progress.at(-1), { beat: 10, totalBeats: 10 });
+    assert.equal(f.states.at(-1).reason, 'ended');
+  }
+});
+
+test('seeking within a tiny remaining slice of a valid held note preserves its tail', async () => {
+  const f = setup();
+  const startBeat = 8 - 1 / 4096;
+  assert.equal(await f.player.play([{ midi: 60, start: 0, duration: 8, sourceId: 'tie' }], { bpm: 120, startBeat }), true);
+  assert.equal(f.player._score.entries[0].note.duration, 1 / 4096);
+  assert.equal(f.context.oscillators.length, 3);
+  assert.ok(Math.abs(f.context.oscillators[0].startTime - 0.04) < 1e-10);
+  assert.ok(Math.abs(f.context.oscillators[0].stops[0] - (0.042 + 1 / 8192)) < 1e-10);
+  advance(f, 0.1);
+  assert.equal(f.states.at(-1).reason, 'ended');
+  assert.equal(f.errors.length, 0);
+});
+
+test('seek progress never precedes the target during startup latency or immediate pause', async () => {
+  const f = setup();
+  f.context.baseLatency = 0.02;
+  f.context.outputLatency = 0.03;
+  await f.player.play(melody, { bpm: 120, startBeat: 2 });
+  advance(f, 0.02);
+  f.player.stop('pause');
+  assert.ok(f.progress.every(event => event.beat === 2 && event.totalBeats === 5));
+  assert.ok(f.active.every(event => event.beat === 2));
+  assert.equal(f.notes.length, 0);
+  assert.equal(f.states.at(-1).reason, 'pause');
+  await f.player.play(melody, { bpm: 120, startBeat: f.progress.at(-1).beat });
+  advance(f, 0.1);
+  assert.equal(f.notes.at(-1).index, 1);
+  assert.ok(f.progress.at(-1).beat > 2);
+  f.player.stop();
+});
+
+test('forward and backward seeks silence every previous voice and reset absolute progress', async () => {
+  const f = setup();
+  await f.player.play(melody, { bpm: 120 });
+  advance(f, 0.1);
+  for (const [startBeat, expectedIndex] of [[4.5, 2], [0.5, 0]]) {
+    const previousMaster = f.player._master;
+    const previousVoices = [...f.player._voices];
+    const callbackCount = f.notes.length;
+    await f.player.play(melody, { bpm: 120, startBeat });
+    assert.equal(previousMaster.gain.events.at(-1).value, 0);
+    assert.equal(previousMaster.disconnected, true);
+    assert.ok(previousVoices.every(voice => voice.oscillator.disconnected && voice.gain.disconnected && voice.oscillator.stops.at(-1) === undefined));
+    assert.deepEqual(f.active.at(-1), { notes: [], beat: startBeat });
+    assert.equal(f.progress.at(-1).beat, startBeat);
+    advance(f, 0.1);
+    assert.deepEqual(f.notes.slice(callbackCount).map(event => event.index), [expectedIndex]);
+  }
+  f.player.stop();
+});
+
+test('seeking into expanded repeats preserves distinct occurrences sharing a source ID', async () => {
+  const f = setup();
+  const source = [0, 4, 8].map(start => ({ midi: 60, start, duration: 2, sourceId: 'repeat-note' }));
+  await f.player.play(source, { bpm: 120, startBeat: 5 });
+  advance(f, 2.6);
+  assert.deepEqual(f.notes.map(event => event.index), [1, 2]);
+  assert.deepEqual(f.notes.map(event => event.note.sourceId), ['repeat-note', 'repeat-note']);
+  assert.deepEqual(f.notes.map(event => event.note.duration), [1, 2]);
+  assert.equal(f.context.oscillators.length, 6);
+  assert.equal(f.states.at(-1).reason, 'ended');
+});
+
+test('consecutive asynchronous seeks schedule only the latest request in either resume order', async () => {
+  for (const order of [[0, 1], [1, 0]]) {
+    const f = setup();
+    const resumes = [];
+    f.context.state = 'suspended';
+    f.context.resume = () => new Promise(resolve => resumes.push(resolve));
+    const pending = [
+      f.player.play(melody, { bpm: 120, startBeat: 2 }),
+      f.player.play(melody, { bpm: 120, startBeat: 4.5 }),
+    ];
+    f.player.setVolume(0);
+    f.context.state = 'running';
+    for (const index of order) {
+      resumes[index]();
+      assert.equal(await pending[index], index === 1);
+    }
+    assert.equal(f.context.oscillators.length, 3);
+    assert.equal(f.context.oscillators[0].frequency.events[0].value, midiFrequency(67));
+    assert.equal(f.player._master.gain.events[0].value, 0);
+    assert.deepEqual(f.progress, [{ beat: 4.5, totalBeats: 5 }]);
+    f.player.stop();
+  }
+});
+
+test('an outdated resume rejection cannot stop a newer seek', async () => {
+  const f = setup();
+  const resumes = [];
+  f.context.state = 'suspended';
+  f.context.resume = () => new Promise((resolve, reject) => resumes.push({ resolve, reject }));
+  const first = f.player.play(melody, { startBeat: 2 });
+  const second = f.player.play(melody, { startBeat: 4 });
+  f.context.state = 'running';
+  resumes[1].resolve();
+  assert.equal(await second, true);
+  resumes[0].reject(new Error('outdated resume'));
+  assert.equal(await first, false);
+  assert.equal(f.player.isPlaying, true);
+  assert.equal(f.errors.length, 0);
+  assert.equal(f.states.at(-1).state, 'playing');
+  f.player.stop();
+});
+
+test('seeking to the end invalidates an earlier pending audio resume', async () => {
+  const f = setup();
+  let finish;
+  f.context.state = 'suspended';
+  f.context.resume = () => new Promise(resolve => { finish = resolve; });
+  const pending = f.player.play(melody, { startBeat: 2 });
+  assert.equal(await f.player.play(melody, { startBeat: 10, totalBeats: 10 }), true);
+  f.context.state = 'running';
+  finish();
+  assert.equal(await pending, false);
+  assert.equal(f.context.oscillators.length, 0);
+  assert.equal(f.player.isPlaying, false);
+  assert.deepEqual(f.progress, [{ beat: 10, totalBeats: 10 }]);
+  assert.deepEqual(f.states, [{ state: 'stopped', reason: 'ended' }]);
+});
+
+test('a seek started by the completing progress callback is not stopped by old completion', async () => {
+  const f = setup();
+  let replacement;
+  const captureProgress = f.player.onProgress;
+  f.player.onProgress = event => {
+    captureProgress(event);
+    if (event.beat === 5 && !replacement) replacement = f.player.play(melody, { bpm: 120, startBeat: 2 });
+  };
+  await f.player.play(melody, { bpm: 120, startBeat: 4.5 });
+  advance(f, 0.3);
+  assert.equal(await replacement, true);
+  assert.equal(f.player.isPlaying, true);
+  assert.equal(f.player._score.startBeat, 2);
+  assert.ok(f.states.every(state => state.reason !== 'ended'));
+  advance(f, 0.1);
+  assert.equal(f.notes.at(-1).index, 1);
+  f.player.stop();
+});
