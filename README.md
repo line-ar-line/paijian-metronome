@@ -1,16 +1,45 @@
-# 拍间 · 卡林巴节拍器
+# 拍间 · 卡林巴练习工具
 
-一个可离线使用的轻量网页版节拍器，使用原生 HTML、CSS、JavaScript 和 Web Audio API。无需安装依赖，也不需要账户。
+一个可离线使用的卡林巴练习工具，提供节拍器和 MIDI 数字谱工坊，使用原生 HTML、CSS、JavaScript 和 Web Audio API。无需安装依赖，也不需要账户。
 
 **在线使用：[打开拍间节拍器](https://line-ar-line.github.io/paijian-metronome/)**
+
+**曲谱工坊：[MIDI 转卡林巴数字谱](https://line-ar-line.github.io/paijian-metronome/score.html)**
 
 用电脑或手机浏览器打开链接，点击“开始练习”即可。可以直接把这个地址分享给朋友，无需登录 GitHub。
 
 ![拍间节拍器桌面界面](preview-desktop.png)
 
+## MIDI 数字谱工坊
+
+导入 `.mid` / `.midi` 文件，选择主旋律音轨，即可生成适合卡林巴练习的数字谱。默认是 **17 音 C 调**，也可切换为 21 音 C 调。没有 MIDI 时，可以先选《小星星》《欢乐颂》或原创《指尖小练习》，也可下载 [小星星示例 MIDI](examples/twinkle.mid) 体验导入过程。
+
+生成结果示例：[小星星数字谱 PNG](examples/twinkle-score.png) · [SVG 矢量谱](examples/twinkle-score.svg)。
+
+![曲谱工坊界面](preview-score.png)
+
+1. 打开 `score.html` 或在线曲谱工坊，选择或拖入 MIDI 文件。
+2. 多轨曲子请选择主旋律音轨，鼓轨会自动排除；试听确认选对了旋律。
+3. 选择琴型、拍号和整体移调。点击“寻找更适合琴键的调”，可以寻找能覆盖更多音符的移调方案。此操作会整体改变旋律的实际音高。
+4. 试听时，谱上的音符会高亮；修改谱面设置会停止试听，再次播放从头开始。
+5. 导出 PNG 图片、SVG 矢量谱，或使用“打印 / PDF”，在浏览器打印对话框中选择保存 PDF。
+
+数字使用固定的 **1 = C4** 琴键对应关系，并保留高低八度圆点、升号、休止符、时值下划线、附点、小节线和延音线。17 音 C 调音域为 C4–E6 的自然音，21 音版为 F3–E6 的自然音。当前琴型没有的半音或超出音域的音会标为橙色，试听保留该音高，不会悄悄替换音符或折叠八度。
+
+### 转谱范围
+
+- 接受标准 MIDI 格式 0 / 1、PPQ 时间单位，文件最大 5 MB；最多 10,000 个输入音符、256 小节。格式 2 和 SMPTE 时间单位会给出明确提示。
+- 输出为**单旋律练习谱**。同一位置的和弦保留最高音，重叠延音会截短到下一个音符，并在页面说明。所选音轨是否真的是主旋律，需要试听确认。
+- 起止时间按十六分音符网格规整；断奏、三连音与自由节奏可能改变，会提示校对。MIDI 踏板延音不参与转换，也会提示。
+- 全曲采用一个拍号和均匀的练习速度，初始值来自 MIDI。原文件中途的变拍、变速会显示提示，当前版本不重现完整速度曲线。
+- 本地文件只在浏览器内解析，不上传、不保存到 GitHub。导出的谱图下载到当前设备。
+- 试听采用合成拨弦音；浏览器严重挂起或音频中断时会停止，保持页面在前台使用更稳妥。
+
+曲谱工坊的主要实现分别位于 `score/midi.js`（解析）、`score/score-model.js`（转谱）、`score/renderer.js`（SVG 排版）、`score/player.js`（试听）和 `score/workshop.js`（交互）。示例 MIDI 可通过 `node tools/export-examples.cjs` 从内置示例音符重新生成。
+
 ## 本地使用
 
-用 Chrome、Edge 或 Safari 打开本文件夹里的 `index.html`，然后点击“开始练习”。浏览器需要用户点击后才允许播放声音。
+用 Chrome、Edge 或 Safari 打开本文件夹里的 `index.html` 使用节拍器，或打开 `score.html` 使用曲谱工坊。浏览器需要用户点击后才允许播放声音。
 
 也可以在本文件夹执行 `python3 -m http.server 8765 --bind 127.0.0.1`，访问 `http://127.0.0.1:8765`。
 
@@ -53,10 +82,12 @@
 
 ## 验证
 
-音频引擎测试使用 Node 内置测试工具，无需安装包：
+音频、MIDI、转谱和谱面测试使用 Node 内置测试工具，无需安装包：
 
 ```sh
-node --test tests/engine.test.cjs
+node --test tests/engine.test.cjs tests/midi.test.cjs tests/score-model.test.cjs tests/score-renderer.test.cjs tests/score-player.test.cjs
 ```
 
 另外提供了 `tests/browser.test.cjs`。开发时安装 Playwright 并准备 Chrome 后，可运行 `node --test tests/browser.test.cjs`，验证实际音频输出、节拍间隔、暂停、快捷键、设置持久化、后台小节计数和窄屏布局。此项验证会更新两张 `preview-*.png` 截图；使用节拍器本身不需要 Playwright 或 Node。
+
+曲谱工坊的浏览器集成验证：`node --test tests/workshop.browser.cjs`，使用同样的 Playwright 和 Chrome 环境，覆盖 MIDI 上传、音轨选择、谱面渲染、试听、导出与移动端布局。
