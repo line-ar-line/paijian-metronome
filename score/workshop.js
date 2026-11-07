@@ -121,6 +121,15 @@
       link.href = state.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
       link.textContent = ' 查看原谱 ↗'; $('source-label').append(link);
     }
+    if (state.catalogEntry) {
+      const entry = state.catalogEntry;
+      const attribution = document.createElement('span');
+      attribution.textContent = ` · ${entry.license} · ${entry.attribution}`;
+      $('source-label').append(attribution);
+      const midi = document.createElement('a');
+      midi.href = entry.file; midi.download = `${entry.id}.mid`; midi.textContent = ' 下载原始 MIDI ↧';
+      $('source-label').append(midi);
+    }
     if (state.tracks) {
       $('example-select').value = '';
       const allTracks = document.createElement('option');
@@ -153,6 +162,14 @@
   }
   function render() {
     renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: `${state.subtitle} · ${state.mode === 'polyphonic' ? '保留多音' : '单音简化'}` };
+    if (state.catalogEntry) {
+      const entry = state.catalogEntry;
+      const transposition = state.transpose === 0 ? '保留原调' : `整体${state.transpose > 0 ? '升' : '降'} ${Math.abs(state.transpose)} 个半音`;
+      renderOptions.credits = [
+        entry.attribution,
+        `数字谱由拍间转换：起止规整为十六分音符、统一练习速度；${transposition}；${state.mode === 'polyphonic' ? '保留所选音轨的多音' : '最高音单音简化'}。`,
+      ];
+    }
     pages = ScoreRenderer.paginate(score, renderOptions);
     barToPage = new Array(score.bars.length);
     pages.forEach((page, index) => page.bars.forEach((bar) => { barToPage[bar.index] = index; }));
@@ -183,12 +200,32 @@
     if (!data) return;
     importGeneration++;
     $('upload-zone').removeAttribute('aria-busy');
-    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', mode: data.mode || state?.mode || 'polyphonic', tracks: null, trackId: null, exampleId: data.id, warnings: [] });
+    $('score-preview').removeAttribute('aria-busy');
+    apply({ title: data.title, subtitle: data.subtitle, notes: data.notes, source: data.source, sourceUrl: data.sourceUrl || null, totalBeats: data.notes.reduce((end, note) => Math.max(end, note.start + note.duration), 0), bpm: data.bpm, meter: data.meter, transpose: 0, instrument: state?.instrument || '17C', mode: data.mode || state?.mode || 'polyphonic', tracks: null, trackId: null, exampleId: data.id, catalogEntry: null, warnings: [] });
+  }
+  function importMidiData(data, name, catalogEntry = null) {
+    const midi = KalimbaMidi.parseMidi(data);
+    const tracks = midi.tracks.filter((track) => !track.isPercussion && track.channel !== 9 && track.notes.length);
+    if (!tracks.length) throw new Error('这个 MIDI 只有打击乐或没有完整的旋律音符。请换一个包含主旋律的 MIDI。');
+    const chosen = tracks.find((track) => /melody|lead|vocal|主旋律|旋律/i.test(track.name)) || tracks[0];
+    const mode = catalogEntry ? 'polyphonic' : state.mode;
+    const merge = mode === 'polyphonic' && tracks.length > 1;
+    const bpm = clamp(Math.round(midi.tempo), 30, 240);
+    const importWarnings = [...midi.warnings];
+    if (Math.round(midi.tempo) !== bpm) importWarnings.push(`原速度 ${Math.round(midi.tempo)} BPM 超出试听范围，已设为 ${bpm} BPM；谱面音符时值不变。`);
+    const title = shorten(catalogEntry?.title || name.replace(/\.midi?$/i, ''), 80) || midi.title || '导入曲谱';
+    const source = catalogEntry
+      ? `内置曲库 · ${catalogEntry.title} · ${catalogEntry.composer} · ${catalogEntry.scope || '来源发布的完整 MIDI 文件'}`
+      : `已导入完整文件：${name} · ${tracks.length} 条可选音轨`;
+    if (apply({ title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source, sourceUrl: catalogEntry?.sourceUrl || null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, mode, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, catalogEntry, warnings: importWarnings })) {
+      message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${merge ? '已合并全部非鼓声音轨，可以切换单条音轨练习。' : '可以试听核对，再导出全谱。'}`, 'success');
+    }
   }
   async function importFile(file) {
     if (!file) return;
     const generation = ++importGeneration;
     $('upload-zone').removeAttribute('aria-busy');
+    $('score-preview').removeAttribute('aria-busy');
     if (file.size > 20 * 1024 * 1024) { message('文件超过 20 MB，未生成部分乐谱。可以导出完整旋律音轨、减少无关伴奏后重新导入。'); return; }
     if (!/\.midi?$/i.test(file.name)) { message('请选择 .mid 或 .midi 文件。MP3、WAV 等录音不能直接作为 MIDI 转谱。'); return; }
     $('upload-zone').setAttribute('aria-busy', 'true');
@@ -196,20 +233,45 @@
     try {
       const data = await file.arrayBuffer();
       if (generation !== importGeneration) return;
-      const midi = KalimbaMidi.parseMidi(data);
-      const tracks = midi.tracks.filter((track) => !track.isPercussion && track.channel !== 9 && track.notes.length);
-      if (!tracks.length) throw new Error('这个 MIDI 只有打击乐或没有完整的旋律音符。请换一个包含主旋律的 MIDI。');
-      const chosen = tracks.find((track) => /melody|lead|vocal|主旋律|旋律/i.test(track.name)) || tracks[0];
-      const merge = state.mode === 'polyphonic' && tracks.length > 1;
-      const bpm = clamp(Math.round(midi.tempo), 30, 240);
-      const importWarnings = [...midi.warnings];
-      if (Math.round(midi.tempo) !== bpm) importWarnings.push(`原速度 ${Math.round(midi.tempo)} BPM 超出试听范围，已设为 ${bpm} BPM；谱面音符时值不变。`);
-      const title = shorten(file.name.replace(/\.midi?$/i, ''), 80) || midi.title || '导入曲谱';
-      if (apply({ title, subtitle: '源文件全时长 · 卡林巴数字谱', notes: merge ? tracks.flatMap(track => track.notes) : chosen.notes, source: `已导入完整文件：${file.name} · ${tracks.length} 条可选音轨`, sourceUrl: null, totalBeats: midi.totalBeats, bpm, meter: midi.timeSignature, transpose: 0, instrument: state.instrument, tracks, trackId: merge ? '__all__' : chosen.id, exampleId: null, warnings: importWarnings })) {
-        message(`已转完「${title}」的整个文件，共 ${score.bars.length} 小节、${pages.length} 页。${merge ? '已合并全部非鼓声音轨，可以切换单条音轨练习。' : '可以试听核对，再导出全谱。'}`, 'success');
-      }
+      importMidiData(data, file.name);
     } catch (error) { if (generation === importGeneration) message(error.message || '读取失败，请检查 MIDI 文件是否完整。'); }
     finally { if (generation === importGeneration) $('upload-zone').removeAttribute('aria-busy'); }
+  }
+  async function openCatalogPiece(id) {
+    const generation = ++importGeneration;
+    if (!/^mutopia-\d+$/.test(id)) { message('曲目链接无效，请从内置曲库重新选择。'); return; }
+    $('score-preview').setAttribute('aria-busy', 'true');
+    message('正在载入内置曲谱…', 'success');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      if (!globalThis.ScoreCatalog) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          const abort = () => { script.remove(); reject(new Error('曲库加载超时，请刷新页面重试。')); };
+          script.src = 'catalog/index.js';
+          script.onload = () => { controller.signal.removeEventListener('abort', abort); resolve(); };
+          script.onerror = () => { controller.signal.removeEventListener('abort', abort); script.remove(); reject(new Error('无法加载曲目索引，请检查网络后重试。')); };
+          controller.signal.addEventListener('abort', abort, { once: true });
+          document.head.append(script);
+        });
+      }
+      if (generation !== importGeneration) return;
+      const entry = globalThis.ScoreCatalog?.entries?.find(item => item.id === id);
+      if (!entry || entry.file !== `catalog/midi/${id}.mid`) throw new Error('曲库中没有这首曲子，请返回内置曲库重新选择。');
+      if (location.protocol === 'file:') throw new Error('本地直接打开网页时，请在曲库下载这首 MIDI 后用“导入完整 MIDI 文件”打开，或通过本地网页服务器访问。在线网站可直接载入。');
+      const response = await fetch(entry.file, { signal: controller.signal });
+      if (!response.ok) throw new Error('这首 MIDI 暂时无法载入，请刷新重试或从曲库下载原文件。');
+      const data = await response.arrayBuffer();
+      if (generation !== importGeneration) return;
+      if (data.byteLength !== entry.bytes) throw new Error('下载的 MIDI 文件大小不完整，未生成部分曲谱，请刷新重试。');
+      importMidiData(data, `${id}.mid`, entry);
+    } catch (error) {
+      if (generation === importGeneration) message(error.name === 'AbortError' ? '曲谱加载超时，请检查网络后重试。' : error.message || '曲谱载入失败，请返回曲库重试。');
+    } finally {
+      clearTimeout(timeout);
+      if (generation === importGeneration) $('score-preview').removeAttribute('aria-busy');
+    }
   }
   function filename(extension) {
     return `${shorten(state.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim(), 70) || '卡林巴曲谱'}-数字谱.${extension}`;
@@ -319,6 +381,8 @@
   $('export-png').addEventListener('click', () => exportAll('png'));
   $('print-score').addEventListener('click', printScore);
   window.addEventListener('pagehide', stop);
-  const initialExample = new URLSearchParams(location.search).get('example');
+  const query = new URLSearchParams(location.search);
+  const initialExample = query.get('example');
   example(ScoreExamples.some((item) => item.id === initialExample) ? initialExample : 'ode-duet');
+  if (query.has('piece')) openCatalogPiece(query.get('piece'));
 })();

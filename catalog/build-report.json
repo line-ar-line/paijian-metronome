@@ -1,0 +1,1459 @@
+{
+  "sourceRecords": 2124,
+  "candidates": 1823,
+  "checked": 1039,
+  "selected": 1000,
+  "licenses": {
+    "Public Domain": 908,
+    "CC BY 3.0": 23,
+    "CC BY 4.0": 69
+  },
+  "confirmedAlternateVersionsExcluded": [
+    {
+      "keep": 5,
+      "exclude": 2206,
+      "work": "Bach BWV 846, Prelude I",
+      "evidence": "Same composer/catalog/prelude; alternate Clavier/Klavier title spelling and engraving."
+    },
+    {
+      "keep": 44,
+      "exclude": 50,
+      "work": "Bach BWV 997, first-movement Prelude",
+      "evidence": "Same catalog and Prelude scope; both have 221 quarter-note beats and 56 rendered bars."
+    },
+    {
+      "keep": 63,
+      "exclude": 493,
+      "work": "Bach BWV 928",
+      "evidence": "Same catalog work; collection numbering differs between Praeludium 10 and Petite Prelude No.9."
+    },
+    {
+      "keep": 75,
+      "exclude": 102,
+      "work": "Menuet in G, BWV Anh.114",
+      "evidence": "Same catalog minuet, alternate short title and engraving."
+    },
+    {
+      "keep": 75,
+      "exclude": 258,
+      "work": "Menuet in G, BWV Anh.114",
+      "evidence": "Another source version of the already-reviewed same catalog minuet."
+    },
+    {
+      "keep": 75,
+      "exclude": 695,
+      "work": "Menuet in G, BWV Anh.114",
+      "evidence": "Another source version of the already-reviewed same catalog minuet."
+    },
+    {
+      "keep": 461,
+      "exclude": 1534,
+      "work": "Bach BWV 1068, Air",
+      "evidence": "Same suite movement, including the alternate Air on the G string title."
+    },
+    {
+      "keep": 468,
+      "exclude": 921,
+      "work": "Chopin Op.28 No.4",
+      "evidence": "Same numbered prelude; latter explicitly identifies an alternate Peters source."
+    },
+    {
+      "keep": 497,
+      "exclude": 941,
+      "work": "Beethoven Op.67, Symphony No.5 movement I",
+      "evidence": "Piano reduction and orchestral version of the same movement. Item497 official source ZIP includes only mvt01-allegroconbrio.ly."
+    },
+    {
+      "keep": 1030,
+      "exclude": 1621,
+      "work": "Schubert D.328, Erlkonig",
+      "evidence": "Same catalog song; latter explicitly says alternative typesetting."
+    },
+    {
+      "keep": 798,
+      "exclude": 1707,
+      "work": "Mendelssohn Op.47, Es ist bestimmt in Gottes Rat",
+      "evidence": "Official LilyPond sources share composer/date/opus/Feuchtersleben text and opening lyric; TTBB/G versus SATB/F arrangements under alternate titles."
+    },
+    {
+      "keep": 109,
+      "exclude": 1265,
+      "work": "Greensleeves",
+      "evidence": "Traditional tune under spelling variant; item1265 official notes explicitly describe a simple accordion version of the known song."
+    },
+    {
+      "keep": 195,
+      "exclude": 1298,
+      "work": "W.H.Doane, To God Be the Glory",
+      "evidence": "Same composer/hymn title and 96-beat scope; latter is labeled hymntune."
+    },
+    {
+      "keep": 256,
+      "exclude": 2167,
+      "work": "Gounod, Ave Maria: Meditation on Bach Prelude I",
+      "evidence": "Same composer and work title; trumpet transcription versus piano/violin arrangement."
+    }
+  ],
+  "rejected": [
+    {
+      "sourceId": 1783,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1786,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1538,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1630,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1632,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 93,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 334,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1842,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1758,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 674,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1695,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2145,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 780,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 703,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 954,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 984,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1624,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1775,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 768,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 100,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 99,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1935,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 474,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 602,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1080,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2114,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 421,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1497,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2206,
+      "reason": "Confirmed alternate version of selected item 5: Bach BWV 846, Prelude I. Same composer/catalog/prelude; alternate Clavier/Klavier title spelling and engraving."
+    },
+    {
+      "sourceId": 492,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 493,
+      "reason": "Confirmed alternate version of selected item 63: Bach BWV 928. Same catalog work; collection numbering differs between Praeludium 10 and Petite Prelude No.9."
+    },
+    {
+      "sourceId": 1826,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2203,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 50,
+      "reason": "Confirmed alternate version of selected item 44: Bach BWV 997, first-movement Prelude. Same catalog and Prelude scope; both have 221 quarter-note beats and 56 rendered bars."
+    },
+    {
+      "sourceId": 180,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 517,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1487,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 890,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 518,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2219,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2215,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2224,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1528,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1527,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1733,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 645,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2051,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 29,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 3,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1136,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1577,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1680,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 548,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2050,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2116,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 242,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1534,
+      "reason": "Confirmed alternate version of selected item 461: Bach BWV 1068, Air. Same suite movement, including the alternate Air on the G string title."
+    },
+    {
+      "sourceId": 766,
+      "reason": "The original Contrapunctus XIX / Fuga a 3 Soggetti is historically unfinished; excluded from the complete-piece catalog."
+    },
+    {
+      "sourceId": 751,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 752,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 764,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1620,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 258,
+      "reason": "Confirmed alternate version of selected item 75: Menuet in G, BWV Anh.114. Another source version of the already-reviewed same catalog minuet."
+    },
+    {
+      "sourceId": 695,
+      "reason": "Confirmed alternate version of selected item 75: Menuet in G, BWV Anh.114. Another source version of the already-reviewed same catalog minuet."
+    },
+    {
+      "sourceId": 102,
+      "reason": "Confirmed alternate version of selected item 75: Menuet in G, BWV Anh.114. Same catalog minuet, alternate short title and engraving."
+    },
+    {
+      "sourceId": 1619,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 317,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 318,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 319,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 320,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 321,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 919,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 276,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1655,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 57,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 941,
+      "reason": "Confirmed alternate version of selected item 497: Beethoven Op.67, Symphony No.5 movement I. Piano reduction and orchestral version of the same movement. Item497 official source ZIP includes only mvt01-allegroconbrio.ly."
+    },
+    {
+      "sourceId": 377,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1722,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 594,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1782,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1855,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1856,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1857,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1858,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1859,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1860,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1845,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1846,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1847,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1848,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2240,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1037,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2193,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1729,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1713,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2204,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 322,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 323,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1651,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 921,
+      "reason": "Confirmed alternate version of selected item 468: Chopin Op.28 No.4. Same numbered prelude; latter explicitly identifies an alternate Peters source."
+    },
+    {
+      "sourceId": 804,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1938,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 324,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 298,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 907,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 962,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 965,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 975,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 968,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 969,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 976,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2207,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 408,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 409,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 462,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 520,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1298,
+      "reason": "Confirmed alternate version of selected item 195: W.H.Doane, To God Be the Glory. Same composer/hymn title and 96-beat scope; latter is labeled hymntune."
+    },
+    {
+      "sourceId": 342,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1605,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1607,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1608,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1609,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1610,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1611,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1948,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1901,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1793,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2211,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 540,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1879,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1633,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 371,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1694,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 353,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 325,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1200,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 326,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 327,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 328,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 329,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 330,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 331,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 190,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2105,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1844,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 255,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 362,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 363,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 332,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1320,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1266,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2167,
+      "reason": "Confirmed alternate version of selected item 256: Gounod, Ave Maria: Meditation on Bach Prelude I. Same composer and work title; trumpet transcription versus piano/violin arrangement."
+    },
+    {
+      "sourceId": 247,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 281,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2157,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 119,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1732,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1394,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1699,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1395,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 652,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1396,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1397,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 654,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1698,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 459,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2037,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2213,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2216,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2217,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 383,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 384,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 385,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 386,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 387,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 388,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2208,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1162,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2089,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1186,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1887,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 581,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1949,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2241,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 737,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 738,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1520,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 765,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 809,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1652,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 935,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2235,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1170,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1644,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 612,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2121,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1947,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1707,
+      "reason": "Confirmed alternate version of selected item 798: Mendelssohn Op.47, Es ist bestimmt in Gottes Rat. Official LilyPond sources share composer/date/opus/Feuchtersleben text and opening lyric; TTBB/G versus SATB/F arrangements under alternate titles."
+    },
+    {
+      "sourceId": 80,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2139,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1712,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1717,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 430,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 447,
+      "reason": "Official metadata identifies a fragment or excerpt."
+    },
+    {
+      "sourceId": 241,
+      "reason": "Official metadata identifies a fragment or excerpt."
+    },
+    {
+      "sourceId": 346,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2135,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 711,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 686,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 261,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1952,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2238,
+      "reason": "Standalone variation V duplicates a section of the selected complete theme-and-12-variations item 2236."
+    },
+    {
+      "sourceId": 1026,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 344,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 614,
+      "reason": "Official KV331_1_1_tema.mid is only the theme within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 615,
+      "reason": "Standalone KV331 variation is only a section within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 616,
+      "reason": "Standalone KV331 variation is only a section within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 617,
+      "reason": "Standalone KV331 variation is only a section within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 618,
+      "reason": "Standalone KV331 variation is only a section within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 619,
+      "reason": "Standalone KV331 variation is only a section within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 620,
+      "reason": "Standalone KV331 variation is only a section within movement 1, not the complete movement."
+    },
+    {
+      "sourceId": 571,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 245,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 423,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 918,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 901,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 273,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 274,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 25,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 277,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 278,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 279,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 448,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 499,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2229,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 250,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2230,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 189,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 852,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 240,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 337,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 248,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 249,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 259,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 260,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 251,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 266,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 253,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 252,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1635,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 475,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2047,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1950,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1182,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1365,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1631,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1169,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1363,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1035,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1629,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1025,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1522,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1690,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1781,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 660,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 375,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1880,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1881,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1861,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1862,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1634,
+      "reason": "Official notes say the source second-oboe part is missing and substituted."
+    },
+    {
+      "sourceId": 1723,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1199,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1621,
+      "reason": "Confirmed alternate version of selected item 1030: Schubert D.328, Erlkonig. Same catalog song; latter explicitly says alternative typesetting."
+    },
+    {
+      "sourceId": 665,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 929,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2161,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2111,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1643,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 412,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 949,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 473,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 466,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2118,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2117,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 885,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2115,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1692,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2231,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1618,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1623,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1265,
+      "reason": "Confirmed alternate version of selected item 109: Greensleeves. Traditional tune under spelling variant; item1265 official notes explicitly describe a simple accordion version of the known song."
+    },
+    {
+      "sourceId": 333,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 1681,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 244,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 2048,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 350,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 301,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 336,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 351,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 310,
+      "reason": "No single official main MIDI; ZIP/part bundles are not selected."
+    },
+    {
+      "sourceId": 21,
+      "reason": "拍号分子须为 1–12，分母须为 2、4、8 或 16。"
+    },
+    {
+      "sourceId": 37,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 163,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 164,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 165,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 209,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 236,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 303,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 305,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 313,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 357,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 407,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 422,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 428,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 436,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 449,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 463,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 565,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 570,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 584,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 790,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 891,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 953,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 1135,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 1813,
+      "reason": "MIDI 源文件含有 1 个时值为零的音符，无法确定这些音符的完整时值，已拒绝整个文件。请在制谱软件中修复后重新导出完整旋律音轨。"
+    },
+    {
+      "sourceId": 1829,
+      "reason": "HTTP 404: https://www.mutopiaproject.org/ftp/FaureG/O39/aurore/aurore.mid"
+    },
+    {
+      "sourceId": 1830,
+      "reason": "HTTP 404: https://www.mutopiaproject.org/ftp/FaureG/O39/fleur_jetee/fleur_jetee.mid"
+    },
+    {
+      "sourceId": 1986,
+      "reason": "Duplicate musical event sequence, allowing for transposition."
+    },
+    {
+      "sourceId": 2036,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 2059,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 2064,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 2202,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 2210,
+      "reason": "Duplicate musical event sequence, allowing for transposition."
+    },
+    {
+      "sourceId": 2246,
+      "reason": "拍号分子须为 1–12，分母须为 2、4、8 或 16。"
+    },
+    {
+      "sourceId": 733,
+      "reason": "Source has unmatched note releases; completeness cannot be established."
+    },
+    {
+      "sourceId": 797,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 800,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 1706,
+      "reason": "Duplicate composer/title/opus identity."
+    },
+    {
+      "sourceId": 1957,
+      "reason": "拍号分子须为 1–12，分母须为 2、4、8 或 16。"
+    }
+  ]
+}

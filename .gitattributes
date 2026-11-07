@@ -1,0 +1,3 @@
+# Preserve original MIDI bytes and the upstream cache's byte-offset index.
+catalog/midi/*.mid binary
+catalog/sources/mutopia-musiccache.dat binary

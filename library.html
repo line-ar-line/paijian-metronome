@@ -4,18 +4,41 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f5ef">
-  <meta name="description" content="发现可下载的 MIDI 与开放乐谱库：Mutopia、PDMX、Lakh、MAESTRO 和 GiantMIDI。找到完整来源，转换为卡林巴数字谱。">
-  <title>找曲谱 · 拍间</title>
+  <meta name="description" content="搜索拍间内置曲库，查看曲目、作曲家、原编制与卡林巴音域覆盖，直接打开完整数字谱或下载来源 MIDI。">
+  <title>内置曲库 · 拍间</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="score/workshop.css">
-  <link rel="stylesheet" href="score/library.css">
+  <link rel="stylesheet" href="score/library.css?v=catalog-1">
+  <script src="catalog/index.js" defer></script>
+  <script src="score/library.js?v=catalog-1" defer></script>
 </head>
 <body class="library-page">
   <div class="page-shell">
     <header class="site-header"><a class="brand" href="./index.html" aria-label="拍间首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>拍间<span class="brand-en">TEMPO</span></span></a><nav class="site-nav" aria-label="工具导航"><a href="./index.html">节拍器</a><a href="./score.html">曲谱工坊</a><a href="./library.html" aria-current="page">找曲谱</a></nav></header>
     <main>
-      <section class="intro"><div><p class="eyebrow">MORE MUSIC, MORE POSSIBILITIES</p><h1>找到喜欢的曲子，弹到最后一拍。</h1><p class="intro-copy">从开放乐谱与 MIDI 曲库出发，下载源文件，再生成自己的卡林巴数字谱。</p></div></section>
-      <section class="library-search" aria-labelledby="search-title"><div><span class="library-pill">适合先用起来</span><h2 id="search-title">在 Mutopia 找一首曲子</h2><p>2,124 份乐谱，提供 MIDI、PDF 与可编辑源码。用英文曲名或作曲家搜索，更容易找到。</p></div><form action="https://www.mutopiaproject.org/cgibin/make-table.cgi" method="get" target="_blank" rel="noopener noreferrer"><label for="library-query" class="sr-only">曲名或作曲家</label><input id="library-query" class="text-input" type="search" name="searchingfor" placeholder="例如：Ode to Joy、Bach、Mozart" maxlength="120" required><button type="submit" class="play-button">搜索 Mutopia ↗</button></form><div class="search-examples"><span>先看完整来源：</span><a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=528" target="_blank" rel="noopener noreferrer">欢乐颂 · 16 小节赞美诗版本 ↗</a><a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931" target="_blank" rel="noopener noreferrer">致爱丽丝 · WoO 59 原谱 ↗</a></div><p class="library-license">Mutopia 每首作品分别标注公版、CC BY 或 CC BY-SA。曲库规模与可下载范围以来源页面为准。</p></section>
+      <section class="intro catalog-intro"><div><p class="eyebrow">A LITTLE LIBRARY, A LOT OF MUSIC</p><h1>找到喜欢的曲子，弹到最后一拍。</h1><p class="intro-copy">挑一份完整来源，打开数字谱，把旋律和伴奏一起看清楚。</p></div><div class="catalog-total"><strong id="catalog-total">—</strong><span>份内置来源文件</span></div></section>
+
+      <section class="catalog-panel" aria-labelledby="catalog-title">
+        <div class="catalog-panel-heading"><div><span class="library-pill">内置曲库</span><h2 id="catalog-title">下一首，想练什么？</h2></div><a href="#external-sources" class="catalog-more-link">去外部曲库找更多 ↗</a></div>
+        <form id="catalog-filters" class="catalog-filters" role="search" aria-label="搜索内置曲库">
+          <div class="catalog-search-field"><label for="catalog-query">曲名 / 作曲家</label><div class="catalog-search-input"><span aria-hidden="true">⌕</span><input id="catalog-query" class="text-input" type="search" placeholder="搜索曲名、作曲家或作品编号…" autocomplete="off" maxlength="160"><button type="submit" class="catalog-search-button">搜索</button></div></div>
+          <div class="catalog-filter-field"><label for="catalog-composer">作曲家</label><select id="catalog-composer"><option value="">全部作曲家</option></select></div>
+          <div class="catalog-filter-field"><label for="catalog-instrument">原编制</label><select id="catalog-instrument"><option value="">全部编制</option></select></div>
+          <div class="catalog-filter-field"><label for="catalog-texture">音符组合</label><select id="catalog-texture"><option value="">全部曲目</option><option value="single">单音旋律</option><option value="polyphonic">含多音 / 伴奏</option></select></div>
+        </form>
+        <details class="catalog-explanation"><summary>关于完整范围与卡林巴可弹性</summary><p>收录的是完整来源文件，具体范围按作品或乐章标题标注。它们保留原文件中的旋律与伴奏，并非已经改编好的 17 音卡林巴成品谱。</p><p>“C17 原调覆盖”表示源音符中落在标准 17 音 C 调琴键上的比例。覆盖率高也可能有密集和弦；打开数字谱后，可尝试整体移调、选择声部或自行改编。</p></details>
+      </section>
+
+      <section class="catalog-results" aria-labelledby="catalog-results-title" aria-busy="true">
+        <div class="catalog-results-heading"><div><h2 id="catalog-results-title">所有曲目</h2><p id="catalog-result-count" role="status" aria-live="polite">正在加载内置目录…</p></div><div class="catalog-result-actions"><button id="catalog-reset" class="catalog-reset" type="button" hidden>清除筛选</button><label class="sr-only" for="catalog-sort">排列方式</label><select id="catalog-sort" aria-label="排列方式"><option value="default">目录顺序</option><option value="title">按曲名</option><option value="composer">按作曲家</option><option value="coverage">音域覆盖优先</option></select></div></div>
+        <div id="catalog-grid" class="catalog-grid"></div>
+        <div id="catalog-empty" class="catalog-empty" hidden><span aria-hidden="true">♩</span><h3 id="catalog-empty-title">没有找到匹配的曲目</h3><p id="catalog-empty-copy">试试更短的曲名、英文作曲家姓名，或减少筛选条件。</p><button id="catalog-empty-reset" type="button" class="catalog-secondary-button">查看全部曲目</button></div>
+        <nav id="catalog-pagination" class="catalog-pagination" aria-label="曲库分页" hidden><button id="catalog-previous" class="catalog-page-button" type="button">← 上一页</button><div class="catalog-page-position"><label for="catalog-page-select" class="sr-only">跳转到曲库页码</label><select id="catalog-page-select" aria-label="跳转到曲库页码"></select><span id="catalog-page-total"></span></div><button id="catalog-next" class="catalog-page-button" type="button">下一页 →</button></nav>
+        <p id="catalog-provenance" class="catalog-provenance"></p>
+        <noscript><p class="catalog-noscript">内置目录需要 JavaScript。启用后可以搜索和打开曲目；下方的外部曲库链接仍可直接使用。</p></noscript>
+      </section>
+
+      <section id="external-sources" class="library-search" aria-labelledby="search-title"><div><span class="library-pill">继续发现</span><h2 id="search-title">在 Mutopia 找更多曲子</h2><p>提供 MIDI、PDF 与可编辑源码。用英文曲名或作曲家搜索，更容易找到。</p></div><form action="https://www.mutopiaproject.org/cgibin/make-table.cgi" method="get" target="_blank" rel="noopener noreferrer"><label for="library-query" class="sr-only">在 Mutopia 搜索曲名或作曲家</label><input id="library-query" class="text-input" type="search" name="searchingfor" placeholder="例如：Ode to Joy、Bach、Mozart" maxlength="120" required><button type="submit" class="play-button">搜索 Mutopia ↗</button></form><div class="search-examples"><span>先看完整来源：</span><a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=528" target="_blank" rel="noopener noreferrer">欢乐颂 · 16 小节赞美诗版本 ↗</a><a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931" target="_blank" rel="noopener noreferrer">致爱丽丝 · WoO 59 原谱 ↗</a></div><p class="library-license">Mutopia 每首作品分别标注公版、CC BY 或 CC BY-SA。曲库规模与可下载范围以来源页面为准。</p></section>
 
       <div class="library-section-heading"><h2>想要更大的 MIDI 收藏</h2><span>官方来源 · 2026-11-07 核验</span></div>
       <div class="library-grid">
@@ -26,7 +49,7 @@
       </div>
 
       <section class="complete-guide" aria-labelledby="complete-title"><div><span class="eyebrow">FROM THE FIRST NOTE TO THE LAST</span><h2 id="complete-title">完整的文件，完整地转谱。</h2><p>先核对作品版本、结尾与反复段，再导入曲谱工坊。程序保留整个 MIDI 的时间线；长曲分页显示，图片与 SVG 导出会包含全部页。</p><p>多音转谱可合并全部非鼓声音轨，或使用你选择的单条音轨。原文件如果只有主题、一个乐章或片段，程序无法补出它没有提供的音符。</p></div><a href="./score.html" class="play-button">已有 MIDI，开始完整转谱 →</a></section>
-      <p class="library-footnote">这些入口通往第三方官方曲库，本页没有镜像或下载整个数据集。文件数量不等于独立作品数；曲谱范围与许可按具体条目确认。<a href="https://github.com/line-ar-line/paijian-metronome/blob/main/MIDI_SOURCES.md" target="_blank" rel="noopener noreferrer">查看来源与详细核验记录 ↗</a></p>
+      <p class="library-footnote">上方内置目录提供已收录的来源文件；此处外部入口通往第三方官方曲库。文件数量不等于独立作品数，作品或乐章范围与许可按具体条目确认。<a href="https://github.com/line-ar-line/paijian-metronome/blob/main/MIDI_SOURCES.md" target="_blank" rel="noopener noreferrer">查看来源与详细核验记录 ↗</a></p>
     </main>
     <footer><span>多一点曲子，多一点可能。</span><a href="./score.html">回到曲谱工坊 ↗</a><span>拍间 · 卡林巴练习工具</span></footer>
   </div>

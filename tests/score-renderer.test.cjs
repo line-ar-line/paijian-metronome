@@ -241,3 +241,77 @@ test('inactive lanes receive aligned full-measure rests within the same system',
   assert.equal((svg.match(/class="voice-lane"/g) || []).length, 4);
   assert.equal(score.notes.length, 3);
 });
+
+function renderedCredits(svg) {
+  const credits = new Map();
+  for (const match of svg.matchAll(/<text[^>]*class="score-credit" data-credit-index="(\d+)"[^>]*>([^<]*)<\/text>/g)) {
+    const index = Number(match[1]);
+    credits.set(index, (credits.get(index) || '') + match[2]);
+  }
+  return credits;
+}
+
+test('credits preserve complete long attribution and URLs on every exported page', () => {
+  const credits = [
+    '作曲与编谱署名：' + '完整保留编谱者和贡献者姓名'.repeat(24),
+    'Mutopia source: https://www.mutopiaproject.org/' + 'long-original-source-path/'.repeat(14) + '?id=528',
+    'License: CC BY 4.0 https://creativecommons.org/licenses/by/4.0/',
+    '拍间数字谱：十六分音符节奏量化，整体移调 +2 半音，多音改编保留独立延音。',
+  ];
+  const score = buildScore([n(60)], { totalBeats: 1200 });
+  const pages = paginate(score, { credits });
+  const noCreditPages = paginate(score);
+  assert.ok(pages.length > noCreditPages.length);
+  assert.deepEqual(pages.flatMap(page => page.bars.map(bar => bar.index)), score.bars.map(bar => bar.index));
+  let endings = 0;
+  for (const page of pages) {
+    const svg = render(page); // The page retains its export attribution.
+    assert.ok(size(svg).height <= 1380);
+    assert.deepEqual([...renderedCredits(svg).values()], credits);
+    endings += (svg.match(/final-barline/g) || []).length;
+    const lines = [...svg.matchAll(/<text x="([\d.]+)" y="([\d.]+)" class="score-credit"[^>]*>([^<]*)<\/text>/g)];
+    for (let i = 1; i < lines.length; i++) assert.equal(Number(lines[i][2]) - Number(lines[i - 1][2]), 14);
+    assert.ok(Number(lines.at(-1)[2]) < size(svg).height - 20);
+    assert.ok(lines.every(line => Array.from(line[3]).length <= 91));
+  }
+  assert.equal(endings, 1);
+});
+
+test('empty credits keep previous page geometry and credits are XML-escaped', () => {
+  const score = buildScore([n(60)]);
+  assert.deepEqual(size(render(score)), size(render(score, { credits: [] })));
+  assert.deepEqual(size(render(score)), size(render(score, { credits: [''] })));
+  const svg = render(score, { credits: ['Creator <script> & "Name"', 'License: https://example.com/?x=1&y=2'] });
+  assert.equal(svg.includes('<script>'), false);
+  assert.match(svg, /Creator &lt;script&gt; &amp; &quot;Name&quot;/);
+  assert.match(svg, /x=1&amp;y=2/);
+  assert.throws(() => render(score, { credits: 'incorrect type' }), /字符串数组/);
+  assert.throws(() => paginate(score, { credits: [null] }), /字符串数组/);
+});
+
+test('credits wrap explicit newlines and preserve Unicode characters without slicing attribution', () => {
+  const first = '🎵'.repeat(180);
+  const second = '署名保留完整文字。'.repeat(40);
+  const score = buildScore([n(60)]);
+  const svg = render(score, { credits: [`${first}\n${second}`] });
+  assert.equal(renderedCredits(svg).get(0), first + second);
+  assert.equal(svg.includes('\uFFFD'), false);
+  const ys = [...svg.matchAll(/<text[^>]* y="([\d.]+)" class="score-credit"/g)].map(match => Number(match[1]));
+  assert.ok(ys.length > 4);
+  assert.ok(ys.at(-1) < size(svg).height - 20);
+});
+
+test('polyphonic page sizing includes full credits without losing source notes', () => {
+  const notes = [n(48, 0, 100), ...Array.from({ length: 100 }, (_, index) => n(72 + index % 2 * 2, index, 1))];
+  const score = buildScore(notes, { mode: 'polyphonic' });
+  const credits = ['Source credit '.repeat(40), 'https://example.com/' + 'long-url-segment/'.repeat(20), 'CC BY 4.0', '拍间量化、移调、多声部数字谱'];
+  const pages = paginate(score, { credits }, 1000);
+  const sources = new Set();
+  for (const page of pages) {
+    const svg = render(page);
+    assert.ok(size(svg).height <= 1000);
+    assert.deepEqual([...renderedCredits(svg).values()], credits);
+    for (const match of svg.matchAll(/data-source-id="(n\d+)"/g)) sources.add(match[1]);
+  }
+  assert.deepEqual(sources, new Set(score.notes.map(note => note.sourceId)));
+});

@@ -6,11 +6,23 @@
 
 **曲谱工坊：[MIDI 转卡林巴数字谱](https://line-ar-line.github.io/paijian-metronome/score.html)**
 
-**找曲谱：[开放 MIDI 与乐谱来源](https://line-ar-line.github.io/paijian-metronome/library.html)**，提供 Mutopia 搜索，以及 PDMX、Lakh、MAESTRO、GiantMIDI 官方入口。规模、授权与完整性说明见 [MIDI_SOURCES.md](MIDI_SOURCES.md)。
+**内置曲库：[浏览 1,000 份完整来源曲谱](https://line-ar-line.github.io/paijian-metronome/library.html)**，支持曲名及作曲家搜索、编制与多音筛选、原调音域覆盖率排序，点击即可打开数字谱，也可下载原始 MIDI。另保留 Mutopia、PDMX、Lakh、MAESTRO、GiantMIDI 的扩展入口。
 
 用电脑或手机浏览器打开链接，点击“开始练习”即可。可以直接把这个地址分享给朋友，无需登录 GitHub。
 
 ![拍间节拍器桌面界面](preview-desktop.png)
+
+## 1,000 份内置曲谱
+
+曲库内置 1,000 个不同 Mutopia 官方条目的原始主 MIDI 文件，合计 **9.67 MB**，覆盖 **209 位作曲者**；其中 **908 份 Public Domain、69 份 CC BY 4.0、23 份 CC BY 3.0**。曲目标题、作曲家、编谱者、原编制、来源页、许可证版本、完整字节校验值及音符统计均随项目保存。按来源条目及独立乐章收录，不截取文件，不以分声部练习文件或重复音乐内容补足数量。文件完整不等于整部多乐章作品；具体范围以原标题、作品编号和来源说明为准。
+
+优先收录 Public Domain，其余采用 CC BY 允许再分发的曲目。每条曲目的署名和精确许可见 [目录索引](catalog/index.json)；原始 MIDI 字节保持不变。生成的 SVG、PNG 和打印页也保留来源、许可与转换说明。详细筛选和验证记录见 [曲库说明](catalog/README.md) 与 [构建报告](catalog/build-report.json)。
+
+这些是可完整转谱的原始作品，包含钢琴、合唱、弦乐等编制，并非 1,000 份已经人工改编好的 17 音 C 调成品谱。目录的“C17 原调覆盖”表示源音符落在琴键音域内的比例，不代表复杂和弦或指法可以原样演奏；可在工坊移调、选择音轨或切换单音练习。
+
+目录每页显示 24 条，只加载元数据；打开某首曲子时才读取对应 MIDI。曲目链接格式为 `score.html?piece=mutopia-编号`，可直接分享。在线网站和本地 HTTP 服务支持自动载入；直接以 `file://` 打开文件时，目录仍可浏览，可下载 MIDI 再手动导入。
+
+用 `node tools/build-catalog.cjs` 可以重建曲库。构建器缓存来源下载，逐个检查 MIDI、完整多音转换和试听兼容性，并按来源 ID、字节、移调归一化的音乐事件和作品身份去重；不满足目标时停止，不发布部分结果。
 
 ## MIDI 数字谱工坊
 
@@ -106,3 +118,5 @@ node --test tests/engine.test.cjs tests/midi.test.cjs tests/score-model.test.cjs
 完整谱验证：`node --test tests/full-score.browser.cjs`，覆盖 300 小节 MIDI 的最后音符与尾部时间、全页遍历、全部 PNG/SVG ZIP 文件、完整打印、曲库搜索入口及移动端布局。
 
 多音验证：`node --test tests/polyphony.browser.cjs`，覆盖完整双声部示例、独立延音、多轨合并、和弦试听高亮、全页导出和手机布局。
+
+曲库验证：`node --test tests/catalog.test.cjs` 检查全部 1,000 份文件、官方元数据快照、许可证、完整转谱与去重；`node --test tests/catalog.browser.cjs` 检查目录搜索、筛选、分页、下载、深链接载入、导出署名、错误处理及手机布局。

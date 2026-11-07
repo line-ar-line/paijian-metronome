@@ -70,6 +70,26 @@
     return { title, titleLines, subtitleLines, titleExtra, headerExtra, headerHeight: 178 + headerExtra, pageNumber, pageCount };
   }
 
+  function scoreCredits(score, options) {
+    const credits = options.credits === undefined ? (score.credits === undefined ? [] : score.credits) : options.credits;
+    if (!Array.isArray(credits) || credits.some(credit => typeof credit !== 'string')) throw new Error('署名信息须为字符串数组。');
+    return credits;
+  }
+
+  function creditLayout(score, options, innerWidth) {
+    // At 10px, one CJK glyph fits in 10px; the extra inset also accommodates
+    // fallback fonts. Hard wrapping handles long URLs without dropping text.
+    const limit = Math.max(1, Math.floor(innerWidth / 10) - 2);
+    const lines = [];
+    scoreCredits(score, options).forEach((credit, creditIndex) => {
+      if (!credit) return;
+      for (const paragraph of credit.split(/\r\n|\r|\n/)) {
+        for (const line of wrap(paragraph, limit)) lines.push({ creditIndex, text: line });
+      }
+    });
+    return { lines, extraHeight: lines.length ? lines.length * 14 + 12 : 0 };
+  }
+
   function layout(score, options, measures = measureWidths(score)) {
     const margin = 52;
     // Preserve legible glyph spacing even for unusually long/dense measures.
@@ -94,8 +114,9 @@
       bodyHeight += geometry.height;
     }
     const header = pageHeader(score, options);
-    const height = header.headerHeight + bodyHeight + 72;
-    return { margin, width, innerWidth, rows, rowHeight, height, polyphonic, ...header };
+    const credits = creditLayout(score, options, innerWidth);
+    const height = header.headerHeight + bodyHeight + 72 + credits.extraHeight;
+    return { margin, width, innerWidth, rows, rowHeight, height, polyphonic, creditLines: credits.lines, creditExtraHeight: credits.extraHeight, ...header };
   }
 
   // Pages retain all aggregate score fields and all original bar/token objects.
@@ -106,10 +127,11 @@
     if (!score.bars.length) return [];
     const measures = measureWidths(score);
     const totalBars = totalBarCount(score, options);
+    const credits = scoreCredits(score, options);
     const pages = [];
     let current = [];
     function savePage() {
-      pages.push({ ...score, bars: current.map(entry => entry.bar), totalBarCount: totalBars, pageNumber: pages.length + 1 });
+      pages.push({ ...score, bars: current.map(entry => entry.bar), totalBarCount: totalBars, pageNumber: pages.length + 1, ...(credits.length || score.credits !== undefined ? { credits: credits.slice() } : {}) });
     }
     for (const measure of measures) {
       const candidate = current.concat(measure);
@@ -184,7 +206,7 @@
   }
 
   function render(score, options = {}) {
-    const { margin, width, innerWidth, rows, rowHeight, height, title, titleLines, subtitleLines, titleExtra, headerExtra, headerHeight, pageNumber, polyphonic } = layout(score, options);
+    const { margin, width, innerWidth, rows, rowHeight, height, title, titleLines, subtitleLines, titleExtra, headerExtra, headerHeight, pageNumber, polyphonic, creditLines, creditExtraHeight } = layout(score, options);
     const totalBars = totalBarCount(score, options);
     const titleId = `score-title${pageNumber ? `-${pageNumber}` : ''}`;
     const descriptionId = `score-description${pageNumber ? `-${pageNumber}` : ''}`;
@@ -194,7 +216,7 @@
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"${width > 1040 ? ` style="min-width:${width}px"` : ''} role="img" aria-labelledby="${titleId} ${descriptionId}">`,
       `<title id="${titleId}">${escape(title)} · 卡林巴数字谱</title>`,
       `<desc id="${descriptionId}">1 等于 C4；上方的点表示高八度，下方的点表示低八度。下划线表示八分或十六分音符，横线延长一拍，弧线连接同一个音。橙色音符表示当前琴型无法直接弹奏。</desc>`,
-      '<style>text{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;fill:#263d32}.note-number{font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:500}.note-group .note-focus{fill:transparent}.note-group.is-active .note-focus{fill:#e5edda}.note-group.is-active .note-number{fill:#305337}.note-group.unplayable .note-number,.note-group.unplayable .accidental{fill:#b16337}.note-group.unplayable .note-focus{fill:#fff1df}.note-group.unplayable.is-active .note-focus{fill:#f5dfbd}.note-dot{fill:#263d32}.note-line{stroke:#263d32;stroke-width:1.6;fill:none}.tie{stroke:#64785c;stroke-width:1.3;fill:none}.small{font-size:12px;fill:#7f8b76}.measure-number{font-size:11px;fill:#9ba58e}</style>',
+      '<style>text{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;fill:#263d32}.note-number{font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:500}.note-group .note-focus{fill:transparent}.note-group.is-active .note-focus{fill:#e5edda}.note-group.is-active .note-number{fill:#305337}.note-group.unplayable .note-number,.note-group.unplayable .accidental{fill:#b16337}.note-group.unplayable .note-focus{fill:#fff1df}.note-group.unplayable.is-active .note-focus{fill:#f5dfbd}.note-dot{fill:#263d32}.note-line{stroke:#263d32;stroke-width:1.6;fill:none}.tie{stroke:#64785c;stroke-width:1.3;fill:none}.small{font-size:12px;fill:#7f8b76}.measure-number{font-size:11px;fill:#9ba58e}.score-credit{font-size:10px;fill:#6f7b63;white-space:pre}</style>',
       `<rect width="${width}" height="${height}" fill="#fffefb"/>`,
       text(margin, 38, '拍间  /  KALIMBA SCORE', 'class="small" letter-spacing="2"'),
       ...titleLines.map((line, index) => text(width / 2, 85 + index * 35, line, 'class="score-heading" text-anchor="middle" font-size="28" font-weight="600"')),
@@ -261,9 +283,13 @@
       }
       for (const rowNotes of rowNotesByVoice.values()) drawTies(items, rowNotes, margin, width);
     }
-    items.push(`<path d="M${margin} ${height - 58}H${width - margin}" stroke="#e2e6da"/>`);
-    items.push(text(margin, height - 33, '数字对应 C 调琴键 · 上下圆点表示八度 · 0 为休止 · 连线内的音只拨一次', 'class="small"'));
-    items.push(text(width - margin, height - 33, score.stats?.unplayable ? '橙色音符需要移调或改编' : '拍间 · 把旋律放在指尖', 'text-anchor="end" class="small"'));
+    const baseHeight = height - creditExtraHeight;
+    items.push(`<path d="M${margin} ${baseHeight - 58}H${width - margin}" stroke="#e2e6da"/>`);
+    items.push(text(margin, baseHeight - 33, '数字对应 C 调琴键 · 上下圆点表示八度 · 0 为休止 · 连线内的音只拨一次', 'class="small"'));
+    items.push(text(width - margin, baseHeight - 33, score.stats?.unplayable ? '橙色音符需要移调或改编' : '拍间 · 把旋律放在指尖', 'text-anchor="end" class="small"'));
+    creditLines.forEach((line, index) => {
+      items.push(text(margin, baseHeight - 10 + index * 14, line.text, `class="score-credit" data-credit-index="${line.creditIndex}" xml:space="preserve"`));
+    });
     items.push('</svg>');
     return items.join('\n');
   }
