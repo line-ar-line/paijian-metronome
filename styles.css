@@ -10,3 +10,6 @@
 @media(prefers-reduced-motion:reduce){button{transition:none}button:active:not(:disabled){transform:none}}
 .site-nav{display:flex;gap:6px;padding:4px;border:1px solid #e2e6d8;border-radius:30px}.site-nav a{padding:9px 17px;border-radius:24px;font-size:12px;color:#7b8970}.site-nav a[aria-current]{background:#e6ecdd;color:#3b5949}@media(max-width:540px){.site-nav a{font-size:11px;padding:8px 11px}.site-header .brand-en{display:none}}
 @media(max-width:540px){.site-nav{gap:0;padding:3px}.site-nav a{font-size:10px;padding:8px 9px}}
+
+/* Five tool entries wrap below the brand on small screens. */
+@media(max-width:700px){.site-header{height:auto;min-height:77px;flex-wrap:wrap;gap:15px;padding-top:17px;padding-bottom:15px}.site-header .site-nav{width:100%;justify-content:space-between;gap:0}.site-header .site-nav a{flex:1;text-align:center;padding:10px 4px;font-size:11px;white-space:nowrap}.site-header .brand-en{display:inline-block}}

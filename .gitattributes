@@ -1,3 +1,5 @@
 # Preserve original MIDI bytes and the upstream cache's byte-offset index.
 catalog/midi/*.mid binary
 catalog/sources/mutopia-musiccache.dat binary
+# Keep the official SDK byte-identical, including whitespace in template strings.
+vendor/supabase.min.js -whitespace

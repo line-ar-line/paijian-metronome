@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5ef">
+  <meta name="description" content="记录每天的卡林巴练习，用邮箱登录，同步练琴日历，与琴友分享打卡和每周进步。">
+  <title>练琴打卡 · 拍间</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css?v=community-1">
+  <link rel="stylesheet" href="community/community.css?v=community-1">
+  <script src="community/config.js?v=community-1" defer></script>
+  <script src="vendor/supabase.min.js?v=2.119.0" defer></script>
+  <script src="community/client.js?v=community-1" defer></script>
+  <script src="community/community.js?v=community-1" defer></script>
+</head>
+<body class="community-page">
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="./index.html" aria-label="拍间首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>拍间<span class="brand-en">TEMPO</span></span></a>
+      <nav class="site-nav" aria-label="工具导航"><a href="./index.html">节拍器</a><a href="./score.html">曲谱工坊</a><a href="./library.html">找曲谱</a><a href="./composer.html">制谱</a><a href="./community.html" aria-current="page">练琴打卡</a></nav>
+    </header>
+    <main>
+      <section class="intro">
+        <div><p class="eyebrow">A LITTLE PRACTICE, EVERY DAY</p><h1>每一天，都有回响。</h1><p class="intro-copy">记下今天的小小进步，和同样热爱音乐的人一起坚持。</p></div>
+        <span class="date-tag"><i aria-hidden="true"></i><time id="today-label">今天</time></span>
+      </section>
+      <div id="service-notice" class="notice" role="status" hidden></div>
+      <div class="community-layout">
+        <div class="practice-column">
+          <section class="community-card checkin-card" aria-labelledby="checkin-title">
+            <div class="card-heading"><div><p class="eyebrow">YOUR DAILY NOTE</p><h2 id="checkin-title">今天，弹了什么？</h2></div><span class="line-note" aria-hidden="true">♩</span></div>
+            <p id="checkin-hint" class="card-description">登录后，留下一次练习的足迹。</p>
+            <div id="checkin-result" class="checkin-result" role="status" hidden></div>
+            <form id="checkin-form">
+              <fieldset id="checkin-fields" disabled>
+                <div class="checkin-inputs">
+                  <div><label for="practice-minutes">练习时长 <span>分钟</span></label><input id="practice-minutes" type="number" inputmode="numeric" min="1" max="720" step="1" value="15" required></div>
+                  <div><label for="practice-piece">练习曲目 <span>选填</span></label><input id="practice-piece" type="text" maxlength="100" placeholder="例如：嘘，或今天的指法练习"></div>
+                </div>
+                <label for="practice-note">给今天留句话 <span>选填</span></label>
+                <textarea id="practice-note" maxlength="280" rows="3" placeholder="终于把那一小节弹顺了。"></textarea>
+                <label class="share-option" for="share-public"><input id="share-public" type="checkbox"><span>分享到琴友动态和周榜<small>公开昵称、曲目、时长和心得；邮箱始终不公开。</small></span></label>
+                <button id="submit-checkin" class="primary-action" type="submit">完成今日打卡 <span aria-hidden="true">✓</span></button>
+              </fieldset>
+            </form>
+            <p id="checkin-message" class="inline-message" role="status" aria-live="polite" hidden></p>
+            <p class="fine-print">每天记录一次，按北京时间 00:00 开始新的一天。时长由你填写。</p>
+          </section>
+          <section class="community-card personal-card" aria-labelledby="calendar-title">
+            <div class="card-heading"><h2 id="calendar-title">坚持，会被记住。</h2><span id="calendar-month" class="small-caption"></span></div>
+            <dl class="practice-stats"><div><dt>连续打卡</dt><dd><span id="stat-streak">—</span><small>天</small></dd></div><div><dt>累计练琴</dt><dd><span id="stat-days">—</span><small>天</small></dd></div><div><dt>累计时长</dt><dd><span id="stat-minutes">—</span><small>分钟</small></dd></div></dl>
+            <div class="calendar-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div id="calendar-grid" class="calendar-grid" aria-label="本月练琴日历"></div>
+            <div class="calendar-legend"><span><i></i>已打卡</span><span>每天一点，慢慢积累。</span></div>
+            <details id="history-details"><summary>最近 90 天的记录与分享设置</summary><ul id="history-list" class="history-list"><li class="empty-copy">登录后查看自己的练习记录。</li></ul></details>
+          </section>
+        </div>
+        <aside class="community-sidebar">
+          <section class="community-card account-card" aria-labelledby="account-title">
+            <div class="card-heading"><h2 id="account-title">你的练琴角落</h2><span class="small-caption">MY SPACE</span></div>
+            <div id="login-panel">
+              <p class="card-description">一个邮箱，记住每一次坚持。<br>换台设备，记录也在。</p>
+              <form id="email-form"><label for="login-email">邮箱地址</label><input id="login-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required disabled><button id="send-code" class="primary-action" type="submit" disabled>发送登录验证码</button></form>
+              <form id="verify-form" hidden><label for="login-code">邮箱验证码</label><input id="login-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" placeholder="输入邮件中的数字验证码" required><button id="verify-code" class="primary-action" type="submit">验证并登录</button><button id="change-email" class="text-action" type="button">换一个邮箱</button></form>
+              <p class="fine-print">首次验证后自动创建账号，无需设置密码。</p>
+            </div>
+            <div id="account-panel" hidden>
+              <div class="account-identity"><span id="account-avatar" class="avatar" aria-hidden="true">琴</span><div><strong id="account-name">琴友</strong><span id="account-email"></span></div></div>
+              <form id="profile-form"><label for="nickname">公开昵称</label><div class="nickname-row"><input id="nickname" type="text" minlength="2" maxlength="24" required autocomplete="nickname"><button id="save-profile" class="secondary-action" type="submit">保存</button></div></form>
+              <button id="sign-out" class="text-action" type="button">退出登录</button>
+            </div>
+            <p id="auth-message" class="inline-message" role="status" aria-live="polite" hidden></p>
+          </section>
+          <section class="practice-invitation"><span class="invitation-mark" aria-hidden="true">♬</span><h2>先弹一会儿吧。</h2><p>不必每次都完美。<br>今天的十分钟，也算数。</p><a href="./index.html">打开节拍器 <span aria-hidden="true">↗</span></a><a href="./library.html">挑一首喜欢的曲子 <span aria-hidden="true">↗</span></a></section>
+        </aside>
+      </div>
+      <section class="community-card together-card" aria-labelledby="together-title">
+        <div class="card-heading"><div><p class="eyebrow">BETTER TOGETHER</p><h2 id="together-title">有人和你一起练琴。</h2></div><button id="refresh-community" class="secondary-action" type="button" disabled>刷新记录</button></div>
+        <p id="community-message" class="inline-message" role="status" aria-live="polite" hidden></p>
+        <div class="community-tabs" role="tablist" aria-label="琴友社区"><button id="tab-feed" type="button" role="tab" aria-selected="true" aria-controls="panel-feed">琴友动态</button><button id="tab-ranking" type="button" role="tab" aria-selected="false" aria-controls="panel-ranking" tabindex="-1">本周坚持榜</button></div>
+        <div id="panel-feed" role="tabpanel" aria-labelledby="tab-feed"><p class="small-caption">只展示琴友主动分享的记录 · 最近 30 次</p><ul id="feed-list" class="feed-list"><li class="empty-copy">登录后，看看大家最近在练什么。</li></ul></div>
+        <div id="panel-ranking" role="tabpanel" aria-labelledby="tab-ranking" hidden><p id="ranking-period" class="small-caption">每周一重新开始，一起积累练习的日子。</p><p class="fine-print">按本周公开打卡天数排列，同天数按填写的练习时长排列。仅展示前 20 位。</p><ol id="leaderboard-list" class="leaderboard-list"><li class="empty-copy">登录后查看本周坚持榜。</li></ol></div>
+      </section>
+      <noscript><p class="notice">登录和打卡需要启用 JavaScript。节拍器和曲谱入口仍可从导航访问。</p></noscript>
+    </main>
+    <footer><span>一点节奏，一点专注。</span><span>让练琴，成为喜欢的日常。</span></footer>
+  </div>
+</body>
+</html>
