@@ -6,12 +6,13 @@ const http = require('node:http');
 const { chromium } = require('playwright');
 
 const project = path.resolve(__dirname, '..');
-const config = { provider: 'cloudbase', envId: 'test-community-123456', region: 'ap-shanghai', enabled: true };
-const email = 'member@example.test';
-const profile = { sub: 'verified-member', email, email_verified: true, name: '已验证琴友', created_at: '2026-11-09T00:00:00Z', providers: [] };
+const config = { provider: 'cloudbase', envId: 'test-community-123456', region: 'ap-shanghai', enabled: true, registrationUrl: 'https://signup.example.test/register' };
+const username = 'Practice_User';
+const password = 'Practice123!';
+const profile = { sub: 'username-member', username, email: '', email_verified: false, name: '练琴用户', created_at: '2026-11-09T00:00:00Z', providers: [], loginType: 'USERNAME' };
 const credentials = { access_token: 'test-cloudbase-access', refresh_token: 'test-cloudbase-refresh', token_type: 'Bearer', expires_in: 3600, scope: 'user' };
 
-test('actual CloudBase SDK registers and signs in by verified email, restores sessions and calls PostgreSQL RPC; blocked storage stays in memory', { timeout: 60000 }, async () => {
+test('actual CloudBase SDK signs in after server registration, restores username sessions and calls PostgreSQL RPC; blocked storage stays in memory', { timeout: 60000 }, async () => {
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url, 'http://localhost').pathname;
     if (pathname === '/') {
@@ -49,23 +50,21 @@ test('actual CloudBase SDK registers and signs in by verified email, restores se
         const requestHeaders = await request.allHeaders();
         requests.push({ path: url.pathname, body, headers: requestHeaders });
         const json = value => route.fulfill({ status: 200, headers, contentType: 'application/json', body: JSON.stringify(value) });
-        if (url.pathname.endsWith('/auth/v1/verification')) {
-          assert.equal(body.email, email);
-          await json({ verification_id: 'test-challenge', is_user: isExisting });
-        } else if (url.pathname.endsWith('/auth/v1/verification/verify')) {
-          assert.equal(body.verification_id, 'test-challenge');
-          assert.equal(body.verification_code, '001234');
-          await json({ verification_token: 'test-verified-email', expires_in: 300 });
-        } else if (url.pathname.endsWith('/auth/v1/signup')) {
+        if (url.href === config.registrationUrl) {
+          assert.equal(request.method(), 'POST');
+          assert.deepEqual(body, { username, password });
+          assert.equal(requestHeaders.authorization, undefined);
           assert.equal(isExisting, false);
-          assert.equal(body.email, email);
-          assert.equal(body.verification_token, 'test-verified-email');
           isExisting = true;
-          await json(credentials);
+          await route.fulfill({ status: 201, headers, contentType: 'application/json', body: JSON.stringify({ ok: true, session: { user: { id: 'untrusted-user' } } }) });
         } else if (url.pathname.endsWith('/auth/v1/signin')) {
           assert.equal(isExisting, true);
-          assert.equal(body.username, email);
-          assert.equal(body.verification_token, 'test-verified-email');
+          assert.equal(body.username, username);
+          assert.equal(body.verification_token, undefined);
+          if (body.password !== password) {
+            await route.fulfill({ status: 400, headers, contentType: 'application/json', body: JSON.stringify({ error: 'invalid_password', error_code: 4006, error_description: 'Private server detail' }) });
+            return;
+          }
           await json(credentials);
         } else if (url.pathname.endsWith('/auth/v1/user/me')) {
           assert.equal(requestHeaders.authorization, 'Bearer ' + credentials.access_token);
@@ -90,38 +89,44 @@ test('actual CloudBase SDK registers and signs in by verified email, restores se
         }, config)) + '\nPage errors: ' + JSON.stringify(errors) + '\nBlocked: ' + JSON.stringify(blocked));
       }), null);
       assert.equal(requests.length, 0, 'initialization must never sign in anonymously');
-      await page.evaluate(email => api.sendCode(email), email);
-      assert.equal(await page.evaluate(() => api.init()), null, 'sending a code does not sign in');
-      const signedIn = await page.evaluate(email => api.verifyCode(email, '001234'), email).catch(error => {
+      const signedIn = await page.evaluate(({ username, password }) => api.signUp(username, password), { username, password }).catch(error => {
         error.message += '\nIntercepted paths: ' + JSON.stringify(requests.map(request => request.path)) + '\nUnexpected: ' + JSON.stringify(blocked) + '\nPage errors: ' + JSON.stringify(errors);
         throw error;
       });
       assert.equal(signedIn.user.id, profile.sub);
-      assert.equal(signedIn.user.email, email);
+      assert.equal(signedIn.user.username, username);
+      assert.equal(signedIn.user.email, '');
       assert.deepEqual(await page.evaluate(() => api.dashboard()), { profile: { nickname: '云端琴友' }, privateRecord: '私人记录' });
       if (blockedStorage) {
         assert.match(await page.evaluate(() => api.getConfiguration().storageWarning), /当前页面有效/);
       } else {
         assert.ok(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith('credentials_'))));
+        assert.equal(await page.evaluate(password => Object.values(localStorage).some(value => String(value).includes(password)), password), false, 'password must not be persisted');
       }
       await page.reload();
       const restored = await page.evaluate(() => ready);
       assert.equal(restored?.user?.id || null, blockedStorage ? null : profile.sub);
+      if (restored) assert.equal(restored.user.username, username);
       if (!blockedStorage) {
         assert.deepEqual(await page.evaluate(() => api.dashboard()), { profile: { nickname: '云端琴友' }, privateRecord: '私人记录' });
         await page.evaluate(() => api.signOut());
         assert.equal(await page.evaluate(() => api.init()), null);
         assert.equal(await page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith('credentials_'))), false);
       }
-      // The same address now follows the existing-user signIn branch.
-      await page.evaluate(email => api.sendCode(email), email);
-      assert.equal((await page.evaluate(email => api.verifyCode(email, '001234'), email)).user.id, profile.sub);
+      assert.equal(await page.evaluate(async username => {
+        try { await api.signIn(username, 'Wrong123!'); return ''; }
+        catch (error) { return error.code; }
+      }, username), 'invalid_credentials');
+      const second = await page.evaluate(({ username, password }) => api.signIn(username, password), { username, password });
+      assert.equal(second.user.id, profile.sub);
+      assert.equal(second.user.username, username);
       await page.evaluate(() => api.signOut());
       const requestsBefore = requests.filter(request => request.path.includes('/rpc/')).length;
       assert.equal(await page.evaluate(async () => { try { await api.dashboard(); return ''; } catch (error) { return error.code; } }), 'not_authenticated');
       assert.equal(requests.filter(request => request.path.includes('/rpc/')).length, requestsBefore);
-      assert.equal(requests.filter(request => request.path.endsWith('/auth/v1/signup')).length, 1);
-      assert.equal(requests.filter(request => request.path.endsWith('/auth/v1/signin')).length, 1);
+      assert.equal(requests.filter(request => request.path === '/register').length, 1);
+      assert.equal(requests.filter(request => request.path.endsWith('/auth/v1/signin')).length, 3);
+      assert.equal(requests.filter(request => /\/(?:signup|verification)(?:\/|$)/.test(request.path)).length, 0, 'no public signup or email API may run');
       assert.deepEqual(blocked, []);
       assert.deepEqual(errors, []);
       await context.close();

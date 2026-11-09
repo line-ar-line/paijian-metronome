@@ -1,6 +1,6 @@
 # 开通拍间练习社区：邮箱登录、每日打卡与动态
 
-> 当前网站已选择腾讯云 CloudBase 环境，请使用 [CloudBase 开通说明](CLOUDBASE_SETUP.md)。以下内容保留给自行选择 Supabase 的部署者；不要在 CloudBase 控制台执行 Supabase SQL。
+> 当前网站已选择腾讯云 CloudBase 环境，请使用 [CloudBase 开通说明](CLOUDBASE_SETUP.md)。以下内容为历史邮箱验证码实现的配置参考；当前用户名密码界面不能直接切换到旧 Supabase 适配器，需另行适配注册登录接口。不要在 CloudBase 控制台执行 Supabase SQL。
 
 网页继续由 GitHub Pages 发布；Supabase 负责验证邮箱和保存账户、打卡记录。首次输入邮箱、收到验证码并验证后会创建账户，以后用同一邮箱登录即可。节拍器和曲谱工具仍可直接使用。
 

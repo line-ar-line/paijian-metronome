@@ -76,7 +76,7 @@ declare
   v_project constant text := 'fast-junglefowl-d3fqxnq941dd1c4e';
   v_user_id bigint;
   v_matches bigint;
-  v_verified boolean;
+  v_active boolean;
 begin
   -- CloudBase's gateway may expose RPC endpoints regardless of EXECUTE grants.
   -- Authorize from trusted JWT claims and Auth's own columns inside every definer RPC.
@@ -86,11 +86,16 @@ begin
      or coalesce(auth.jwt() ->> 'is_anonymous', 'false') <> 'false' then
     raise exception using errcode = '42501', message = '请先登录后再使用练习社区。';
   end if;
-  select min(u.id), count(*), bool_and(u.email_verified is true and coalesce(u.email, '') <> '')
-    into v_user_id, v_matches, v_verified
+  -- Keep the historical helper name for compatible upgrades. This checks account
+  -- status, not email verification. Existing ACTIVE accounts in this environment
+  -- use status NULL (older external accounts) or 1. A newly created username
+  -- account uses 1; the control-plane BLOCKED operation writes 3. Other values fail closed.
+  select min(u.id), count(*), bool_and(coalesce(
+    (u.status is null or u.status = 1) and u.type in ('internal', 'external'), false))
+    into v_user_id, v_matches, v_active
     from auth.users u where u.sub = v_sub and u.project = v_project;
-  if v_matches <> 1 or v_verified is not true then
-    raise exception using errcode = '42501', message = '请先通过邮箱验证码完成登录。';
+  if v_matches <> 1 or v_active is not true then
+    raise exception using errcode = '42501', message = '账号状态无效，请重新登录或联系站点管理员。';
   end if;
   return v_user_id;
 end;

@@ -48,6 +48,10 @@ BEGIN
       RAISE EXCEPTION 'Unexpected private-schema access for role %', v_role;
     END IF;
     v_acl_checks := v_acl_checks + 1;
+    IF pg_catalog.has_function_privilege(v_role, 'community_private.require_verified_user()', 'EXECUTE') THEN
+      RAISE EXCEPTION 'Unexpected direct account-guard access for role %', v_role;
+    END IF;
+    v_acl_checks := v_acl_checks + 1;
   END LOOP;
 
   FOREACH v_signature IN ARRAY ARRAY[
@@ -77,7 +81,10 @@ BEGIN
       (jsonb_build_object('role', 'anon', 'sub', v_absent_sub, 'project_id', v_project, 'is_anonymous', true)),
       (jsonb_build_object('role', 'authenticated', 'project_id', v_project, 'is_anonymous', false)),
       (jsonb_build_object('role', 'authenticated', 'sub', '', 'project_id', v_project, 'is_anonymous', false)),
-      (jsonb_build_object('role', 'authenticated', 'sub', v_absent_sub, 'project_id', v_project, 'is_anonymous', false))
+      (jsonb_build_object('role', 'authenticated', 'sub', v_absent_sub, 'project_id', v_project, 'is_anonymous', false)),
+      (jsonb_build_object('role', 'authenticated', 'sub', v_absent_sub, 'project_id', v_project, 'is_anonymous', true)),
+      (jsonb_build_object('role', 'service_role', 'sub', v_absent_sub, 'project_id', v_project, 'is_anonymous', false)),
+      (jsonb_build_object('role', 'authenticated', 'sub', v_absent_sub, 'project_id', 'another-environment', 'is_anonymous', false))
     ) AS cases(claim)
   LOOP
     PERFORM pg_catalog.set_config('request.jwt.claims', v_claims::text, true);
@@ -110,13 +117,13 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  IF v_rpc_checks <> 16 OR v_acl_checks <> 13 OR v_rls_checks <> 2 THEN
+  IF v_rpc_checks <> 28 OR v_acl_checks <> 16 OR v_rls_checks <> 2 THEN
     RAISE EXCEPTION 'Incomplete authorization probe.';
   END IF;
   PERFORM pg_catalog.set_config('request.jwt.claims', coalesce(v_saved_claims, ''), true);
   PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_saved_sub, ''), true);
   PERFORM pg_catalog.set_config('request.jwt.claim.role', coalesce(v_saved_role, ''), true);
-  RAISE NOTICE 'PASS: 16 unauthorized RPC calls rejected with 42501; 13 ACL checks passed; both tables have RLS; all 4 definers have empty search_path.';
+  RAISE NOTICE 'PASS: 28 unauthorized RPC calls rejected with 42501; 16 ACL checks passed; both tables have RLS; all 4 definers have empty search_path.';
 EXCEPTION WHEN OTHERS THEN
   PERFORM pg_catalog.set_config('request.jwt.claims', coalesce(v_saved_claims, ''), true);
   PERFORM pg_catalog.set_config('request.jwt.claim.sub', coalesce(v_saved_sub, ''), true);

@@ -63,7 +63,12 @@ before(async () => {
     create role authenticated;
     create role service_role bypassrls;
     create schema auth;
-    create table auth.users (id bigint generated always as identity primary key, sub varchar(64) not null, project varchar(64) not null default 'fast-junglefowl-d3fqxnq941dd1c4e', email text not null, email_verified boolean not null default true);
+    create table auth.users (
+      id bigint generated always as identity primary key, sub varchar(64) not null,
+      project varchar(64) not null default 'fast-junglefowl-d3fqxnq941dd1c4e',
+      email text, email_verified boolean default false, username text,
+      status smallint default 1, type varchar(64) default 'external'
+    );
     create function auth.jwt() returns jsonb language sql stable as $$ select nullif(current_setting('request.jwt.claims', true), '')::jsonb $$;
     create function auth.uid() returns text language sql stable as $$ select auth.jwt()->>'sub' $$;
     create function auth.role() returns text language sql stable as $$ select auth.jwt()->>'role' $$;
@@ -335,17 +340,78 @@ test('every definer RPC rejects invalid claims even when the gateway bypasses EX
   assert.equal((await call('select public.community_dashboard() as result')).stats.total_days, 0);
 });
 
-test('server-side email verification uses Auth system columns and fails closed for unknown users', async () => {
-  await db.query('update auth.users set email_verified = false where sub = $1', [A]);
-  await rejectsCode(dashboard(A), '42501', '请先通过邮箱验证码完成登录。');
-  await rejectsCode(profile(A, '未验证昵称'), '42501');
-  await rejectsCode(checkIn(A), '42501');
-  await rejectsCode(visibility(A, today, true), '42501');
-  await rejectsCode(dashboard('missing-user'), '42501');
+test('username accounts work without an email or verification flag, and existing accounts remain valid', async () => {
+  await db.query("update auth.users set username = 'alice.practice', email = null, email_verified = false, status = null, type = 'external' where sub = $1", [A]);
+  assert.equal((await dashboard(A)).stats.total_days, 0);
+  assert.deepEqual(await profile(A, '用户名琴友'), { nickname: '用户名琴友' });
+  assert.equal((await checkIn(A, 25, '小星星', '', false)).created, true);
+  assert.equal((await visibility(A, today, true)).is_public, true);
+  assert.doesNotMatch(JSON.stringify(await dashboard(A)), /alice\.practice|"email"|email_verified|"username"/);
+  await db.query("update auth.users set username = null, email_verified = true, type = 'internal' where sub = $1", [B]);
+  assert.equal((await checkIn(B)).created, true, 'existing internal accounts remain valid');
+  await db.query("update auth.users set email = '', email_verified = null where sub = $1", [C]);
+  assert.equal((await checkIn(C)).created, true, 'empty email and null verification are not authorization requirements');
+  await rejectsCode(dashboard('missing-user'), '42501', '账号状态无效，请重新登录或联系站点管理员。');
+});
+
+test('disabled or unknown account states revoke all RPC access without changing previous records', async () => {
+  await profile(A, '保留琴友');
+  await checkIn(A, 30, '保留曲目', '保留记录', false);
+  const original = await dashboard(A);
+  for (const status of [-1, 0, 2, 3, 99]) {
+    await db.query('update auth.users set status = $1 where sub = $2', [status, A]);
+    await rejectsCode(dashboard(A), '42501', '账号状态无效，请重新登录或联系站点管理员。');
+    await rejectsCode(profile(A, '不应保存'), '42501');
+    await rejectsCode(checkIn(A, 720), '42501');
+    await rejectsCode(visibility(A, today, true), '42501');
+  }
+  await db.query('update auth.users set status = 1 where sub = $1', [A]);
+  assert.deepEqual(await dashboard(A), original);
+});
+
+test('database account type also rejects anonymous and unknown users despite authenticated JWT claims', async () => {
+  for (const type of [null, '', 'anonymous', 'ANONYMOUS', 'guest', 'externalUser', 'unknown']) {
+    await db.query('update auth.users set type = $1 where sub = $2', [type, A]);
+    await rejectsCode(dashboard(A), '42501');
+    await rejectsCode(profile(A, '不应保存'), '42501');
+    await rejectsCode(checkIn(A), '42501');
+    await rejectsCode(visibility(A, today, true), '42501');
+  }
+  assert.equal((await db.query('select count(*)::integer as n from public.community_profiles')).rows[0].n, 0);
+  for (const type of ['internal', 'external']) {
+    await db.query('update auth.users set type = $1 where sub = $2', [type, A]);
+    assert.equal((await dashboard(A)).stats.total_days, 0);
+  }
+});
+
+test('upgrading the previous email gate preserves existing users, nicknames and check-ins', async () => {
   await db.query('update auth.users set email_verified = true where sub = $1', [A]);
-  assert.equal((await checkIn(A)).created, true);
-  await db.query('update auth.users set email_verified = false where sub = $1', [A]);
-  await rejectsCode(dashboard(A), '42501', '请先通过邮箱验证码完成登录。');
+  await profile(A, '旧账号昵称');
+  await checkIn(A, 42, '旧账号曲目', '升级前的记录', true);
+  const original = await dashboard(A);
+  const usersBefore = (await db.query('select id, sub from auth.users order by id')).rows;
+  // Historical behavior: the old helper required a verified email. The migration
+  // replaces this function in place; its existing callers and foreign keys survive.
+  await db.exec(`create or replace function community_private.require_verified_user()
+    returns bigint language plpgsql security invoker set search_path = '' as $$
+    declare v_id bigint;
+    begin
+      if auth.role() is distinct from 'authenticated' then raise exception using errcode = '42501'; end if;
+      select u.id into v_id from auth.users u where u.sub = auth.uid()
+        and u.project = '${PROJECT}' and u.email_verified is true and coalesce(u.email, '') <> '';
+      if v_id is null then raise exception using errcode = '42501'; end if;
+      return v_id;
+    end; $$;`);
+  await db.query("update auth.users set email = null, email_verified = false, username = 'new.username', status = null where sub = $1", [B]);
+  await rejectsCode(dashboard(B), '42501');
+  await db.exec(schema);
+  assert.deepEqual(await dashboard(A), original);
+  assert.deepEqual((await db.query('select id, sub from auth.users order by id')).rows, usersBefore);
+  assert.equal((await checkIn(B, 17)).created, true);
+  await db.exec(schema);
+  assert.equal((await checkIn(B, 720)).created, false);
+  assert.equal((await dashboard(B)).stats.total_minutes, 17);
+  assert.deepEqual(await dashboard(A), original);
 });
 
 test('Auth lookup scopes duplicate subjects to the target project and rejects ambiguous accounts', async () => {
@@ -354,12 +420,23 @@ test('Auth lookup scopes duplicate subjects to the target project and rejects am
   const record = (await db.query('select user_id from public.community_checkins')).rows[0];
   assert.equal(Number(record.user_id), 1, 'the record belongs to this project’s internal Auth id');
   await db.query('insert into auth.users (sub, project, email, email_verified) values ($1, $2, $3, false)', [A, PROJECT, 'duplicate@private.example']);
-  await rejectsCode(dashboard(A), '42501', '请先通过邮箱验证码完成登录。');
+  await rejectsCode(dashboard(A), '42501', '账号状态无效，请重新登录或联系站点管理员。');
 });
 
 test('a valid authenticated JWT without optional project_id still resolves only this environment', async () => {
   await db.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: A, role: 'authenticated', is_anonymous: false })]);
   assert.equal((await call('select public.community_dashboard() as result')).stats.total_days, 0);
   await db.query('update auth.users set project = $1 where sub = $2', ['another-environment', A]);
-  await rejectsCode(call('select public.community_dashboard() as result'), '42501', '请先通过邮箱验证码完成登录。');
+  await rejectsCode(call('select public.community_dashboard() as result'), '42501', '账号状态无效，请重新登录或联系站点管理员。');
+});
+
+test('the deploy verification SQL rejects all unauthorized probes without modifying accounts or practice data', async () => {
+  const claims = JSON.stringify({ role: 'service_role', sub: 'original-local-claim' });
+  await db.query("select set_config('request.jwt.claims', $1, false)", [claims]);
+  const usersBefore = (await db.query('select id, sub, project from auth.users order by id')).rows;
+  await db.exec(fs.readFileSync(path.join(__dirname, '../cloudbase/verify.sql'), 'utf8'));
+  assert.deepEqual((await db.query('select id, sub, project from auth.users order by id')).rows, usersBefore);
+  assert.equal((await db.query('select count(*)::integer as n from public.community_profiles')).rows[0].n, 0);
+  assert.equal((await db.query('select count(*)::integer as n from public.community_checkins')).rows[0].n, 0);
+  assert.equal((await db.query("select current_setting('request.jwt.claims', true) as claims")).rows[0].claims, claims);
 });

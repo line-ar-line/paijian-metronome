@@ -50,12 +50,16 @@
 .account-card h2 { font-size: 15px; }
 .account-card .small-caption { font-size: 8px; letter-spacing: 1px; }
 .account-card .primary-action { margin-top: 14px; }
-#verify-form { padding-top: 20px; }
+.account-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 20px; border: 1px solid #dfe5d6; border-radius: 10px; background: #f0f3e9; }
+.account-tabs button { min-height: 44px; border: 0; border-radius: 7px; padding: 8px; background: transparent; color: #738367; font-size: 12px; }
+.account-tabs button[aria-selected=true] { color: #365139; background: #fffef9; box-shadow: 0 1px 3px #34462d12; font-weight: 550; }
+.account-field + .account-field { margin-top: 16px; }
+.field-hint { margin: 7px 0 0; font-size: 11px; line-height: 1.7; color: #7b8572; }
 .account-identity { display: flex; gap: 12px; align-items: center; margin: 24px 0; }
 .avatar { display: grid; place-items: center; width: 39px; height: 39px; background: #eaf0df; border: 1px solid #dce5ce; color: #61784f; border-radius: 50%; flex-shrink: 0; font-size: 15px; }
 .account-identity > div { min-width: 0; }
 .account-identity strong { display: block; overflow-wrap: anywhere; font-size: 14px; }
-.account-identity #account-email { display: block; margin-top: 5px; color: #7d8973; font-size: 11px; overflow-wrap: anywhere; }
+.account-identity #account-username { display: block; margin-top: 5px; color: #7d8973; font-size: 11px; overflow-wrap: anywhere; }
 .nickname-row { display: flex; gap: 7px; }
 .practice-invitation { padding: 28px; border: 1px solid #e0e6d5; border-radius: 18px; background: #eef2e6; }
 .invitation-mark { display: inline-block; color: #8b9e74; font-size: 34px; margin-bottom: 14px; }

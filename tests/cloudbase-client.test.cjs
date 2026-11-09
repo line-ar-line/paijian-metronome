@@ -5,9 +5,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createCommunityClient } = require('../community/cloudbase-client.js');
 
-const config = { provider: 'cloudbase', envId: 'test-community-123456', region: 'ap-shanghai', enabled: true };
-const member = { user: { id: 'member-1', email: 'member@example.test', is_anonymous: false }, access_token: 'test-token' };
-const profile = { sub: 'member-1', email: 'member@example.test', email_verified: true };
+const config = { provider: 'cloudbase', envId: 'test-community-123456', region: 'ap-shanghai', enabled: true, registrationUrl: 'https://signup.example.test/register' };
+const member = { user: { id: 'member-1', username: 'Practice_User', email: '', is_anonymous: false }, access_token: 'test-token' };
+const profile = { sub: 'member-1', username: 'Practice_User', email: '', email_verified: false, loginType: 'USERNAME' };
+const password = 'Practice123!';
 const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
 
 function fixture(options = {}) {
@@ -16,7 +17,8 @@ function fixture(options = {}) {
   const responses = {
     getSession: { data: { session: options.session || null }, error: null },
     getCurrentUser: options.profile === undefined ? profile : options.profile,
-    verify: { data: { session: member }, error: null },
+    signInWithPassword: { data: { session: member }, error: null },
+    registration: { status: 201, json: async () => ({ ok: true }) },
     signOut: { data: {}, error: null },
     rpc: { data: { ok: true }, error: null },
   };
@@ -24,15 +26,14 @@ function fixture(options = {}) {
     calls.push({ name, args });
     return typeof responses[name] === 'function' ? responses[name](...args) : Promise.resolve(responses[name]);
   };
-  responses.signInWithOtp = { data: { verifyOtp: record('verify') }, error: null };
   const auth = {
-    getSession: record('getSession'), getCurrentUser: record('getCurrentUser'), signInWithOtp: record('signInWithOtp'), signOut: record('signOut'),
+    getSession: record('getSession'), getCurrentUser: record('getCurrentUser'), signInWithPassword: record('signInWithPassword'), signOut: record('signOut'),
     onAuthStateChange(cb) { callback = cb; return { data: { subscription: { unsubscribe() {} } } }; }
   };
   const app = { auth: () => auth, rdb: () => ({ rpc: record('rpc') }) };
   const storage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) };
   const client = createCommunityClient(options.config || config, {
-    storage, cloudbase: { init(value) { calls.push({ name: 'init', args: [value] }); initOptions = value; return app; } }, ...options.dependencies
+    storage, fetch: record('registration'), cloudbase: { init(value) { calls.push({ name: 'init', args: [value] }); initOptions = value; return app; } }, ...options.dependencies
   });
   return { client, calls, responses, stored, get initOptions() { return initOptions; }, event(name, session, info) { callback(name, session, info); } };
 }
@@ -49,8 +50,8 @@ test('disabled or invalid environment never initializes an SDK or supplies fake 
 
 test('initialization uses only public environment settings and does not enable anonymous or URL login', async () => {
   const f = fixture({ session: member });
-  assert.equal(await f.client.init(), member);
-  assert.equal(await f.client.init(), member);
+  assert.deepEqual(await f.client.init(), member);
+  assert.deepEqual(await f.client.init(), member);
   assert.equal(f.calls.filter(call => call.name === 'init').length, 1);
   assert.equal(f.initOptions.env, config.envId);
   assert.equal(f.initOptions.region, config.region);
@@ -71,15 +72,17 @@ test('unauthenticated getSession means logged out while network failures remain 
   broken.responses.getSession = { error: { code: 'unreachable' } };
   await assert.rejects(broken.client.init(), error => error.code === 'network');
   broken.responses.getSession = { data: { session: member } };
-  assert.equal(await broken.client.init(), member);
+  assert.deepEqual(await broken.client.init(), member);
 });
 
-test('anonymous, unverified or mismatched cached profiles cannot become community members', async () => {
+test('anonymous, missing and mismatched auth profiles cannot become community members', async () => {
   for (const options of [
     { session: { ...member, user: { ...member.user, is_anonymous: true } } },
-    { session: member, profile: { ...profile, email_verified: false } },
+    { session: member, profile: null },
+    { session: member, profile: { ...profile, loginType: 'ANONYMOUS' } },
+    { session: member, profile: { ...profile, isAnonymous: true } },
     { session: member, profile: { ...profile, sub: 'different-user' } },
-    { session: member, profile: { ...profile, email: 'different@example.test' } },
+    { session: member, profile: { ...profile, username: 'Other_User' } },
   ]) {
     const f = fixture(options);
     assert.equal(await f.client.init(), null);
@@ -88,42 +91,96 @@ test('anonymous, unverified or mismatched cached profiles cannot become communit
   }
 });
 
-test('OTP verifies through the returned challenge callback to support first-time registration', async () => {
-  const f = fixture();
-  await f.client.sendCode(' Member@Example.Test ');
-  assert.deepEqual(f.calls.find(call => call.name === 'signInWithOtp').args, [{ email: 'member@example.test', options: { shouldCreateUser: true } }]);
-  assert.equal(await f.client.verifyCode('member@example.test', '001 234'), member);
-  assert.deepEqual(f.calls.find(call => call.name === 'verify').args, [{ token: '001234' }]);
-  assert.equal(await f.client.init(), member);
-  await assert.rejects(f.client.verifyCode('member@example.test', '001234'), error => error.code === 'verification_required');
+test('username is normalized from the official profile while existing email identities retain their user ID', async () => {
+  const sdkMember = { ...member, user: { id: member.user.id, user_metadata: { username: profile.username } } };
+  const f = fixture({ session: sdkMember });
+  const restored = await f.client.init();
+  assert.equal(restored.user.username, profile.username);
+  assert.equal(restored.user.id, member.user.id);
+  assert.equal(sdkMember.user.username, undefined, 'do not mutate the SDK session');
+  const old = fixture({ session: { user: { id: 'old-account', email: 'old@example.test' } }, profile: { sub: 'old-account', email: 'old@example.test', email_verified: true } });
+  assert.equal((await old.client.init()).user.id, 'old-account');
 });
 
-test('verification requires the matching email and current challenge, and malformed values never send', async () => {
+test('password sign-in preserves username case and password, rejects unverified identity, and never calls email APIs', async () => {
   const f = fixture();
-  await assert.rejects(f.client.sendCode('not-an-email'), error => error.code === 'invalid_email');
-  await assert.rejects(f.client.verifyCode('member@example.test', 123456), error => error.code === 'invalid_otp');
-  await assert.rejects(f.client.verifyCode('member@example.test', '123456'), error => error.code === 'verification_required');
+  assert.deepEqual(await f.client.signIn(' Practice_User ', password), member);
+  assert.deepEqual(f.calls.find(call => call.name === 'signInWithPassword').args, [{ username: 'Practice_User', password }]);
+  assert.deepEqual(await f.client.init(), member);
+  assert.equal(f.client.sendCode, undefined);
+  assert.equal(f.client.verifyCode, undefined);
+  f.responses.getCurrentUser = { ...profile, sub: 'different-user' };
+  await assert.rejects(f.client.signIn('Practice_User', password), error => error.code === 'invalid_session');
+  assert.equal([...f.stored.values()].some(value => String(value).includes(password)), false);
+});
+
+test('registration creates an account over HTTPS then independently signs in with the official SDK', async () => {
+  const f = fixture();
+  f.responses.registration = { status: 201, json: async () => ({ ok: true, session: { user: { id: 'untrusted-user' } }, access_token: 'untrusted-token' }) };
+  const result = await f.client.signUp(' Practice_User ', password);
+  assert.deepEqual(result, member);
+  const request = f.calls.find(call => call.name === 'registration').args;
+  assert.equal(request[0], config.registrationUrl);
+  assert.deepEqual(JSON.parse(request[1].body), { username: 'Practice_User', password });
+  for (const [key, value] of Object.entries({ method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' })) assert.equal(request[1][key], value);
+  assert.equal(request[1].headers['Content-Type'], 'application/json');
+  assert.ok(f.calls.findIndex(call => call.name === 'registration') < f.calls.findIndex(call => call.name === 'signInWithPassword'));
+  assert.equal([...f.stored.values()].some(value => String(value).includes(password)), false);
+});
+
+test('malformed registration and empty login values never reach any service; login does not enforce new password rules', async () => {
+  const f = fixture();
+  for (const username of ['', 'ab', '1hello', 'abc-', '_hello', 'a'.repeat(33), 'name@example.test', '中英文']) await assert.rejects(f.client.signUp(username, password), error => error.code === 'invalid_username');
+  for (const value of ['', 'Ab1!', 'alllowercase', '!Abc12345', 'Abc1234 ', 'Abc1234.', 'Abc1234汉', 'abcd123\\', 'Abc1234'.repeat(5)]) await assert.rejects(f.client.signUp('Practice_User', value), error => error.code === 'invalid_password');
+  await assert.rejects(f.client.signIn('', password), error => error.code === 'invalid_username');
+  await assert.rejects(f.client.signIn('Practice_User', ''), error => error.code === 'invalid_password');
   assert.equal(f.calls.length, 0);
-  await f.client.sendCode('member@example.test');
-  await assert.rejects(f.client.verifyCode('someone@example.test', '123456'), error => error.code === 'verification_required');
-  f.responses.verify = { error: { code: 'invalid_argument', message: 'verification failed with private details' } };
-  await assert.rejects(f.client.verifyCode('member@example.test', '123456'), error => error.code === 'invalid_otp' && !error.message.includes('private'));
-  f.responses.verify = { data: { session: member } };
-  assert.equal(await f.client.verifyCode('member@example.test', '001234'), member, 'an incorrect attempt must not discard the current challenge');
+  await f.client.signIn('Practice_User', 'old password');
+  assert.equal(f.calls.find(call => call.name === 'signInWithPassword').args[0].password, 'old password');
 });
 
-test('a slow older send cannot replace a newer email challenge', async () => {
+test('registration refuses missing, insecure or credential-bearing endpoints', async () => {
+  for (const registrationUrl of [undefined, '/register', 'http://signup.example.test/register', 'https://user:secret@signup.example.test/register', 'https://signup.example.test/register#fragment']) {
+    const f = fixture({ config: { ...config, registrationUrl } });
+    await assert.rejects(f.client.signUp('Practice_User', password), error => error.code === 'registration_unavailable');
+    assert.equal(f.calls.length, 0);
+  }
+});
+
+test('failed or malformed registration never signs in; server messages stay private', async () => {
+  for (const [code, expected] of [['username_taken', 'username_taken'], ['invalid_username', 'invalid_username'], ['weak_password', 'invalid_password'], ['rate_limited', 'rate_limited'], ['registration_unavailable', 'registration_unavailable']]) {
+    const f = fixture();
+    f.responses.registration = { status: 400, json: async () => ({ error: { code, message: 'private server details' } }) };
+    await assert.rejects(f.client.signUp('Practice_User', password), error => error.code === expected && !error.message.includes('private'));
+    assert.equal(f.calls.filter(call => call.name === 'signInWithPassword').length, 0);
+  }
+  for (const response of [{ status: 201, json: async () => ({ session: member }) }, { status: 500, json: async () => ({ ok: true }) }, { status: 201, json: async () => { throw Error('not json'); } }]) {
+    const f = fixture(); f.responses.registration = response;
+    await assert.rejects(f.client.signUp('Practice_User', password), error => error.code === 'registration_unavailable');
+    assert.equal(f.calls.filter(call => call.name === 'signInWithPassword').length, 0);
+  }
+});
+
+test('successful account creation followed by failed sign-in tells the user to log in without registering twice', async () => {
   const f = fixture();
-  let firstResolve;
-  const used = [];
-  f.responses.signInWithOtp = ({ email }) => email === 'old@example.test' ? new Promise(resolve => { firstResolve = resolve; }) : Promise.resolve({ data: { verifyOtp: async () => { used.push('new'); return { data: { session: member } }; } } });
-  const first = f.client.sendCode('old@example.test');
-  await Promise.resolve();
-  await f.client.sendCode('member@example.test');
-  firstResolve({ data: { verifyOtp: () => { used.push('old'); } } });
-  await first;
-  await f.client.verifyCode('member@example.test', '123456');
-  assert.deepEqual(used, ['new']);
+  f.responses.signInWithPassword = { error: { code: 'unreachable' } };
+  await assert.rejects(f.client.signUp('Practice_User', password), error => error.code === 'account_created' && /账号已创建/.test(error.message));
+  assert.equal(f.calls.filter(call => call.name === 'registration').length, 1);
+  assert.equal(f.calls.filter(call => call.name === 'signInWithPassword').length, 1);
+});
+
+test('invalid credentials and service errors produce safe actionable messages', async () => {
+  for (const [sdkError, expected] of [
+    [{ code: 'invalid_username_or_password' }, 'invalid_credentials'],
+    [{ code: 'not_found', category: 'USER_NOT_FOUND' }, 'invalid_credentials'],
+    [{ code: 'invalid_password', category: 'INVALID_CREDENTIALS' }, 'invalid_credentials'],
+    [{ category: 'PROVIDER_NOT_ENABLED' }, 'auth_unavailable'],
+    [{ code: 'user_blocked' }, 'account_unavailable'],
+    [{ code: 'resource_exhausted' }, 'rate_limited'],
+  ]) {
+    const f = fixture(); f.responses.signInWithPassword = { error: { ...sdkError, message: 'private auth details' } };
+    await assert.rejects(f.client.signIn('Practice_User', password), error => error.code === expected && !error.message.includes('private'));
+  }
 });
 
 test('auth events notify after credential callbacks and obsolete session restoration cannot overwrite them', async () => {
@@ -138,9 +195,9 @@ test('auth events notify after credential callbacks and obsolete session restora
   f.event('SIGNED_IN', member);
   inCallback = false;
   resolveRestore({ data: { session: null } });
-  assert.equal(await restoring, member);
+  assert.deepEqual(await restoring, member);
   await nextTask();
-  assert.equal(sessions.at(-1), member);
+  assert.deepEqual(sessions.at(-1), member);
   unsubscribe();
   const count = sessions.length;
   f.event('SIGNED_OUT', null);
@@ -195,24 +252,26 @@ test('storage failures use memory with both CloudBase storage interfaces and exp
   assert.match(f.client.getConfiguration().storageWarning, /当前页面有效/);
 });
 
-test('signout clears session and OTP challenge and does not use Supabase-specific scope', async () => {
+test('signout clears the session and does not use Supabase-specific scope', async () => {
   const f = fixture();
-  await f.client.sendCode('member@example.test');
-  await f.client.verifyCode('member@example.test', '123456');
-  await f.client.sendCode('member@example.test');
+  await f.client.signIn('Practice_User', password);
   await f.client.signOut();
   assert.deepEqual(f.calls.find(call => call.name === 'signOut').args, []);
   assert.equal(await f.client.init(), null);
-  await assert.rejects(f.client.verifyCode('member@example.test', '123456'), error => error.code === 'verification_required');
   await assert.rejects(f.client.dashboard(), error => error.code === 'not_authenticated');
 });
 
-test('network operations have a bounded timeout and server messages are not exposed', async () => {
+test('network operations have a bounded timeout and registration aborts its request', async () => {
   const f = fixture({ dependencies: { timeoutMs: 15 } });
-  f.responses.signInWithOtp = () => new Promise(() => {});
-  await assert.rejects(f.client.sendCode('member@example.test'), error => error.code === 'timeout');
-  f.responses.signInWithOtp = { error: { code: 'unexpected', message: 'private email and token' } };
-  await assert.rejects(f.client.sendCode('member@example.test'), error => error.code === 'request_failed' && !error.message.includes('private'));
+  f.responses.signInWithPassword = () => new Promise(() => {});
+  await assert.rejects(f.client.signIn('Practice_User', password), error => error.code === 'timeout');
+  f.responses.signInWithPassword = { error: { code: 'unexpected', message: 'private password and token' } };
+  await assert.rejects(f.client.signIn('Practice_User', password), error => error.code === 'request_failed' && !error.message.includes('private'));
+  let requestSignal;
+  f.responses.registration = (_url, options) => { requestSignal = options.signal; return new Promise(() => {}); };
+  await assert.rejects(f.client.signUp('Practice_User', password), error => error.code === 'timeout');
+  assert.equal(requestSignal.aborted, true);
+  assert.equal(f.calls.filter(call => call.name === 'signInWithPassword').length, 2);
 });
 
 test('vendored SDK includes pinned version, Apache license and the original CDN bundle checksum', () => {

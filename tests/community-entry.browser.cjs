@@ -57,15 +57,15 @@ test('GitHub offers an explicit trial link without auth initialization; hosted a
     assert.equal(await page.locator('#community-entry-link').getAttribute('href'), communityUrl);
     assert.equal(await page.locator('#community-trial-label').isVisible(), false);
     assert.deepEqual(await page.evaluate(() => sdkCalls), { init: 0, session: 0, subscribe: 0, rpc: 0 });
-    assert.equal(await page.locator('#login-email').isDisabled(), true);
-    assert.equal(await page.locator('#send-code').isDisabled(), true);
+    assert.equal(await page.locator('#login-username').isDisabled(), true);
+    assert.equal(await page.locator('#sign-in').isDisabled(), true);
     assert.equal(await page.locator('#submit-checkin').isDisabled(), true);
-    await page.evaluate(() => document.getElementById('email-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    await page.evaluate(() => document.getElementById('login-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     assert.deepEqual(await page.evaluate(() => sdkCalls), { init: 0, session: 0, subscribe: 0, rpc: 0 });
 
     await page.locator('#community-entry-link').click();
     await page.waitForURL(communityUrl);
-    await page.waitForFunction(() => !document.getElementById('login-email').disabled);
+    await page.waitForFunction(() => !document.getElementById('login-fields').disabled);
     assert.equal(await page.locator('#community-entry').isVisible(), false);
     assert.equal(await page.locator('#community-trial-label').isVisible(), true);
     assert.equal(await page.evaluate(() => sdkCalls.init), 1);
@@ -78,7 +78,7 @@ test('GitHub offers an explicit trial link without auth initialization; hosted a
 
     const local = 'http://127.0.0.1:31337/paijian-metronome/community.html';
     await page.goto(local);
-    await page.waitForFunction(() => !document.getElementById('login-email').disabled);
+    await page.waitForFunction(() => !document.getElementById('login-fields').disabled);
     assert.equal(page.url(), local);
     assert.equal(await page.locator('#community-entry').isVisible(), false);
     assert.equal(await page.locator('#community-trial-label').isVisible(), false);

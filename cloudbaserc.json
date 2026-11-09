@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "fast-junglefowl-d3fqxnq941dd1c4e",
+  "region": "ap-shanghai",
+  "functionRoot": "cloudbase/functions",
+  "functions": [
+    {
+      "name": "paijian-register",
+      "type": "HTTP",
+      "runtime": "Nodejs20.19",
+      "timeout": 30,
+      "memorySize": 256,
+      "installDependency": false,
+      "description": "Create ordinary Paijian accounts with a username and password; persistent registration limits apply."
+    }
+  ]
+}

@@ -18,6 +18,22 @@ async function staticServer() {
   const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
   const server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+    // This fixture intentionally exercises the retained legacy adapter without
+    // loading the current username/password community UI.
+    if (pathname === prefix + 'community.html') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end(`<!doctype html><html><body>
+        <script src="community/config.js"></script>
+        <script src="vendor/supabase.min.js"></script>
+        <script src="community/client.js"></script>
+        <script>
+          window.observedSessions = [];
+          PaijianCommunity.subscribe(session => observedSessions.push(session?.user?.id || null));
+          window.legacyReady = PaijianCommunity.init();
+        </script>
+      </body></html>`);
+      return;
+    }
     const filename = path.resolve(project, pathname.slice(prefix.length));
     if (!pathname.startsWith(prefix) || !filename.startsWith(project + path.sep)) { response.writeHead(404); response.end(); return; }
     try {
@@ -61,7 +77,7 @@ function dashboardResponse() {
   };
 }
 
-test('real Supabase SDK authenticates 6–10 digit email OTPs, restores sessions, authorizes RPCs and clears private state on signout', { timeout: 60000 }, async () => {
+test('legacy Supabase adapter independently verifies 6–10 digit OTPs, restores sessions, authorizes RPCs and clears sessions on signout', { timeout: 60000 }, async () => {
   const productionConfig = fs.readFileSync(path.join(project, 'community/config.js'), 'utf8');
   const { server, base } = await staticServer();
   let browser;
@@ -76,8 +92,8 @@ test('real Supabase SDK authenticates 6–10 digit email OTPs, restores sessions
     let session = authResponse();
     page.on('pageerror', error => errors.push(error.message));
 
-    // Only the configuration script and HTTP responses are replaced. The
-    // vendored official SDK, client.js and community UI run unmodified.
+    // The minimal fixture loads the unmodified vendored SDK and legacy adapter.
+    // Only configuration and service HTTP responses are supplied by the test.
     await page.route('**/*', async route => {
       const request = route.request();
       const url = new URL(request.url());
@@ -139,28 +155,24 @@ test('real Supabase SDK authenticates 6–10 digit email OTPs, restores sessions
     for (const code of ['001234', '00123456', '0012345678']) {
       expectedCode = code;
       session = authResponse();
-      await page.waitForFunction(() => !document.getElementById('login-email').disabled).catch(async error => {
-        error.message += '\nInitial page state: ' + JSON.stringify(await page.evaluate(() => ({ message: document.getElementById('auth-message').textContent, notice: document.getElementById('service-notice').textContent, configured: window.PaijianCommunity?.getConfiguration() }))) + '\nPage errors: ' + JSON.stringify(errors);
-        throw error;
-      });
+      assert.equal(await page.evaluate(() => legacyReady), null);
       assert.equal(await page.evaluate(() => PaijianCommunity.configured), true);
-      await page.locator('#login-email').fill('SDK.Person@example.test');
-      await page.locator('#send-code').click();
-      await page.locator('#login-code').waitFor({ state: 'visible' });
-      assert.equal(await page.locator('#account-panel').isVisible(), false, 'sending OTP must not establish a session');
+      await page.evaluate(() => PaijianCommunity.sendCode('SDK.Person@example.test'));
+      assert.equal(await page.evaluate(() => PaijianCommunity.init()), null, 'sending OTP must not establish a session');
       if (code.length === 6) {
-        await page.locator('#login-code').fill('000000');
-        await page.locator('#verify-code').click();
-        await page.waitForFunction(() => document.getElementById('auth-message').textContent.includes('不正确或已过期'));
-        assert.equal(await page.locator('#account-panel').isVisible(), false);
+        const error = await page.evaluate(async email => {
+          try { await PaijianCommunity.verifyCode(email, '000000'); return ''; }
+          catch (error) { return error.message; }
+        }, email);
+        assert.match(error, /不正确或已过期/);
+        assert.equal(await page.evaluate(() => PaijianCommunity.init()), null);
         assert.equal(requests.filter(request => request.pathname.startsWith('/rest/')).length, 0);
       }
-      await page.locator('#login-code').fill(code);
-      await page.locator('#verify-code').click();
-      await page.waitForFunction(() => document.getElementById('account-name').textContent === '真实 SDK 测试琴友' && !document.getElementById('refresh-community').disabled);
-      assert.equal(await page.locator('#account-email').innerText(), email);
-      assert.equal(await page.locator('#stat-minutes').innerText(), '27');
-      assert.match(await page.locator('#history-list').textContent(), /仅自己可见的测试曲/);
+      const signedIn = await page.evaluate(({ email, code }) => PaijianCommunity.verifyCode(email, code), { email, code });
+      assert.equal(signedIn.user.id, memberId);
+      assert.equal(signedIn.user.email, email);
+      await page.waitForFunction(id => observedSessions.at(-1) === id, memberId);
+      assert.deepEqual(await page.evaluate(() => PaijianCommunity.dashboard()), dashboardResponse());
       assert.equal(await page.evaluate(async () => (await PaijianCommunity.init()).user.id), memberId);
       const storage = await page.evaluate(() => {
         const key = Object.keys(localStorage).find(key => key.endsWith('-auth-token'));
@@ -174,26 +186,23 @@ test('real Supabase SDK authenticates 6–10 digit email OTPs, restores sessions
       const verifications = requests.filter(request => request.pathname === '/auth/v1/verify').length;
       const dashboardCount = requests.filter(request => request.pathname === '/rest/v1/rpc/community_dashboard').length;
       await page.reload();
-      await page.waitForFunction(() => document.getElementById('account-name').textContent === '真实 SDK 测试琴友' && !document.getElementById('refresh-community').disabled);
-      assert.equal(await page.locator('#account-panel').isVisible(), true);
-      assert.equal(await page.locator('#login-panel').isVisible(), false);
-      assert.equal(await page.locator('#stat-minutes').innerText(), '27');
+      assert.equal((await page.evaluate(() => legacyReady)).user.id, memberId);
       assert.equal(requests.filter(request => request.pathname === '/auth/v1/verify').length, verifications, 'reload must reuse the saved session without another OTP');
-      assert.ok(requests.filter(request => request.pathname === '/rest/v1/rpc/community_dashboard').length > dashboardCount);
+      assert.deepEqual(await page.evaluate(() => PaijianCommunity.dashboard()), dashboardResponse());
+      assert.equal(requests.filter(request => request.pathname === '/rest/v1/rpc/community_dashboard').length, dashboardCount + 1);
 
-      await page.locator('#sign-out').click();
-      await page.waitForFunction(() => !document.getElementById('login-panel').hidden && !document.getElementById('login-email').disabled);
-      assert.equal(await page.locator('#account-panel').isVisible(), false);
-      assert.equal(await page.locator('#account-email').textContent(), '');
-      assert.equal(await page.locator('#stat-minutes').innerText(), '—');
-      assert.ok(!(await page.locator('body').textContent()).includes(privatePiece));
-      assert.ok(!(await page.locator('body').textContent()).includes(nickname));
+      await page.evaluate(() => PaijianCommunity.signOut());
+      await page.waitForFunction(() => observedSessions.length > 0 && observedSessions.at(-1) === null);
       assert.equal(await page.evaluate(() => localStorage.getItem('sb-community-auth-test-auth-token')), null);
       assert.equal(await page.evaluate(() => PaijianCommunity.init()), null);
       const rpcCountAfterLogout = requests.filter(request => request.pathname.startsWith('/rest/')).length;
+      const loggedOutCode = await page.evaluate(async () => {
+        try { await PaijianCommunity.dashboard(); return ''; }
+        catch (error) { return error.code; }
+      });
+      assert.equal(loggedOutCode, 'not_authenticated');
       await page.reload();
-      await page.waitForFunction(() => !document.getElementById('login-email').disabled);
-      assert.equal(await page.locator('#account-panel').isVisible(), false);
+      assert.equal(await page.evaluate(() => legacyReady), null);
       assert.equal(requests.filter(request => request.pathname.startsWith('/rest/')).length, rpcCountAfterLogout, 'logging out must prevent later private RPCs');
     }
     assert.equal(requests.filter(request => request.pathname === '/auth/v1/otp').length, 3);

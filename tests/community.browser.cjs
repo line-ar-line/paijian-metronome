@@ -28,7 +28,7 @@ async function fixture(run) {
     const errors = [];
     const externalRequests = [];
     page.on('pageerror', error => errors.push(error.message));
-    // Browser regressions never contact a real authentication or email service.
+    // Browser regressions never contact a real authentication service.
     await page.route('https://**', route => { externalRequests.push(route.request().url()); return route.abort(); });
     const base = `http://127.0.0.1:${server.address().port}${prefix}`;
     await run(page, base);
@@ -41,13 +41,13 @@ async function fixture(run) {
 }
 
 // Replace only the application API boundary. Its contract matches client.js;
-// real Supabase SDK/RPC and database permissions have separate integration tests.
+// real CloudBase SDK/RPC and database permissions have separate integration tests.
 function installMock(options) {
   const clone = value => JSON.parse(JSON.stringify(value));
   const today = '2026-11-09';
   const accounts = {
-    a: { user: { id: 'user-a', email: 'kalimba.a@example.test' } },
-    b: { user: { id: 'user-b', email: 'kalimba.b@example.test' } },
+    a: { user: { id: 'user-a', username: 'Kalimba_A' } },
+    b: { user: { id: 'user-b', username: 'Kalimba_B' } },
   };
   const subscribers = new Set();
   const stored = {};
@@ -68,7 +68,10 @@ function installMock(options) {
     calls: [],
     holdUsers: options.holdUsers || [],
     held: [],
-    sendError: '',
+    authError: '',
+    authErrorCode: '',
+    heldAuth: [],
+    holdAuth: false,
     checkinError: '',
     privacyError: '',
     duplicateNext: false,
@@ -95,13 +98,19 @@ function installMock(options) {
     getConfiguration: () => ({ configured: true, error: '', storageWarning: initialized && options.storageWarning ? '浏览器无法保存登录状态。' : '' }),
     async init() { initialized = true; return session; },
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); },
-    async sendCode(email) {
-      state.calls.push(['sendCode', email]);
-      if (state.sendError) throw new Error(state.sendError);
+    async signIn(username, password) {
+      state.calls.push(['signIn', username, password]);
+      if (state.authError) throw new Error(state.authError);
+      if (username !== accounts.a.user.username || password !== 'Practice123!') throw new Error('用户名或密码不正确，请重试。');
+      if (state.holdAuth) return new Promise(resolve => state.heldAuth.push(() => resolve(accounts.a)));
+      session = accounts.a;
+      for (const callback of subscribers) callback(session);
+      return session;
     },
-    async verifyCode(email, token) {
-      state.calls.push(['verifyCode', email, token]);
-      if (token !== '12345678') throw new Error('验证码不正确或已过期，请重新获取后再试。');
+    async signUp(username, password) {
+      state.calls.push(['signUp', username, password]);
+      if (state.authError) throw Object.assign(new Error(state.authError), { code: state.authErrorCode });
+      accounts.a.user.username = username;
       session = accounts.a;
       for (const callback of subscribers) callback(session);
       return session;
@@ -169,45 +178,36 @@ test('unconfigured community is honest and disables authentication and writes', 
   await page.goto(base + 'community.html');
   assert.equal(await page.locator('#service-notice').isVisible(), true);
   assert.match(await page.locator('#service-notice').innerText(), /准备|开通/);
-  for (const id of ['login-email', 'send-code', 'submit-checkin', 'refresh-community']) assert.equal(await page.locator('#' + id).isDisabled(), true);
+  for (const id of ['login-username', 'login-password', 'sign-in', 'tab-signup', 'signup-username', 'sign-up', 'submit-checkin', 'refresh-community']) assert.equal(await page.locator('#' + id).isDisabled(), true);
   assert.equal(await page.locator('#account-panel').isVisible(), false);
   assert.equal(await page.locator('#stat-days').innerText(), '—');
   assert.equal(await page.locator('#calendar-grid .is-checked').count(), 0);
   assert.equal(await page.locator('#feed-list .feed-item').count(), 0);
   assert.equal(await page.locator('#leaderboard-list .rank-item').count(), 0);
-  await page.evaluate(() => document.getElementById('email-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-  assert.equal(await page.locator('#verify-form').isVisible(), false);
+  await page.evaluate(() => document.getElementById('login-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  assert.equal(await page.locator('#signup-form').isVisible(), false);
 }));
 
-test('email errors, eight-digit verification, private check-in, sharing and logout behave truthfully', { timeout: 30000 }, async () => fixture(async (page, base) => {
+test('password login errors, private check-in, sharing and logout behave truthfully', { timeout: 30000 }, async () => fixture(async (page, base) => {
   await mock(page);
   await page.goto(base + 'community.html');
-  await page.waitForFunction(() => !document.getElementById('login-email').disabled);
-  await page.evaluate(() => { communityMock.sendError = '操作太频繁，请稍后再试。'; });
-  await page.locator('#login-email').fill('Kalimba.A@example.test');
-  await page.locator('#send-code').click();
-  await page.waitForFunction(() => document.getElementById('auth-message').classList.contains('is-error'));
-  assert.match(await page.locator('#auth-message').innerText(), /操作太频繁/);
-  assert.equal(await page.locator('#verify-form').isVisible(), false);
-  assert.equal(await page.locator('#account-panel').isVisible(), false);
-  await page.evaluate(() => { communityMock.sendError = ''; });
-  await page.locator('#send-code').click();
-  await page.locator('#login-code').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#send-code').isDisabled(), true, 'successful send starts a resend cooldown');
-  assert.equal(await page.locator('#account-panel').isVisible(), false, 'sending a code alone never signs in');
-  await page.locator('#login-code').fill('000000');
-  await page.locator('#verify-code').click();
+  await page.waitForFunction(() => !document.getElementById('login-username').disabled && !document.getElementById('login-username').closest('fieldset').disabled);
+  await page.locator('#login-username').fill('Kalimba_A');
+  await page.locator('#login-password').fill('WrongPassword123!');
+  await page.locator('#sign-in').click();
   await page.waitForFunction(() => document.getElementById('auth-message').textContent.includes('不正确'));
   assert.equal(await page.locator('#account-panel').isVisible(), false);
   assert.equal(await page.locator('#checkin-fields').evaluate(fieldset => fieldset.disabled), true);
-  await page.locator('#login-code').fill('12345678');
-  await page.locator('#verify-code').click();
+  assert.equal(await page.locator('#login-password').inputValue(), '', 'password is cleared after an attempted sign-in');
+  await page.locator('#login-password').fill('Practice123!');
+  await page.locator('#sign-in').click();
   await afterRefresh(page, () => document.getElementById('stat-days').textContent === '0');
   assert.equal(await page.locator('#account-panel').isVisible(), true);
   assert.equal(await page.locator('#login-panel').isVisible(), false);
-  assert.equal(await page.locator('#account-email').innerText(), 'kalimba.a@example.test');
+  assert.equal(await page.locator('#account-username').innerText(), '用户名：Kalimba_A');
+  assert.equal(await page.locator('#login-password').inputValue(), '');
   assert.equal(await page.locator('#share-public').isChecked(), false, 'sharing requires an explicit choice');
-  assert.deepEqual(await page.evaluate(() => communityMock.calls.filter(call => call[0] === 'verifyCode')), [['verifyCode', 'kalimba.a@example.test', '000000'], ['verifyCode', 'kalimba.a@example.test', '12345678']]);
+  assert.deepEqual(await page.evaluate(() => communityMock.calls.filter(call => call[0] === 'signIn')), [['signIn', 'Kalimba_A', 'WrongPassword123!'], ['signIn', 'Kalimba_A', 'Practice123!']]);
 
   await page.locator('#nickname').fill('每天弹一点');
   await page.locator('#save-profile').click();
@@ -246,7 +246,7 @@ test('email errors, eight-digit verification, private check-in, sharing and logo
   await afterRefresh(page, () => document.querySelectorAll('#feed-list .feed-item').length === 1);
   assert.equal(await sharing.getAttribute('data-public'), 'true');
   assert.match(await page.locator('#feed-list').innerText(), /小星星/);
-  assert.doesNotMatch(await page.locator('#feed-list').innerText(), /example\.test/);
+  assert.doesNotMatch(await page.locator('#feed-list').innerText(), /Kalimba_A|Kalimba_B/);
   await page.locator('#tab-ranking').click();
   assert.equal(await page.locator('#panel-ranking').isVisible(), true);
   assert.equal(await page.locator('#leaderboard-list .rank-item').count(), 1);
@@ -266,6 +266,88 @@ test('email errors, eight-digit verification, private check-in, sharing and logo
   assert.equal(await page.locator('#checkin-fields').evaluate(fieldset => fieldset.disabled), true);
   assert.equal(await page.locator('#practice-piece').inputValue(), '');
   assert.equal(await page.locator('#practice-note').inputValue(), '');
+}));
+
+test('registration validates confirmation and password rules, preserves username case and clears passwords', { timeout: 30000 }, async () => fixture(async (page, base) => {
+  await mock(page);
+  await page.goto(base + 'community.html');
+  await page.waitForFunction(() => !document.getElementById('login-fields').disabled);
+  await page.locator('#login-password').fill('Practice123!');
+  await page.locator('#tab-login').focus();
+  await page.locator('#tab-login').press('ArrowRight');
+  assert.equal(await page.locator('#signup-form').isVisible(), true);
+  assert.equal(await page.locator('#login-password').inputValue(), '');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'tab-signup');
+  await page.locator('#signup-username').fill('Practice_New');
+  await page.locator('#signup-password').fill('Practice123!');
+  await page.locator('#signup-password-confirm').fill('Different123!');
+  await page.locator('#sign-up').click();
+  assert.match(await page.locator('#auth-message').innerText(), /不一致/);
+  assert.equal(await page.evaluate(() => communityMock.calls.filter(call => call[0] === 'signUp').length), 0);
+  for (const password of ['alllowercase', 'Not Allowed123!', '!Practice123', 'Practice123\\']) {
+    await page.locator('#signup-password').fill(password);
+    await page.locator('#signup-password-confirm').fill(password);
+    await page.locator('#sign-up').click();
+    assert.match(await page.locator('#auth-message').innerText(), /密码须/);
+    assert.equal(await page.evaluate(() => communityMock.calls.filter(call => call[0] === 'signUp').length), 0);
+  }
+  await page.evaluate(() => { communityMock.authError = '这个用户名已被使用，请换一个。'; });
+  await page.locator('#signup-password').fill('Practice123!');
+  await page.locator('#signup-password-confirm').fill('Practice123!');
+  await page.locator('#sign-up').click();
+  await page.waitForFunction(() => document.getElementById('auth-message').textContent.includes('已被使用'));
+  assert.equal(await page.locator('#account-panel').isVisible(), false);
+  assert.equal(await page.locator('#signup-password').inputValue(), '');
+  assert.equal(await page.locator('#signup-password-confirm').inputValue(), '');
+  await page.evaluate(() => { communityMock.authError = ''; });
+  await page.locator('#signup-password').fill('Practice123!');
+  await page.locator('#signup-password-confirm').fill('Practice123!');
+  await page.locator('#sign-up').click();
+  await afterRefresh(page, () => document.getElementById('stat-days').textContent === '0');
+  assert.equal(await page.locator('#account-username').innerText(), '用户名：Practice_New');
+  assert.equal(await page.locator('#signup-password').inputValue(), '');
+  assert.equal(await page.locator('#signup-password-confirm').inputValue(), '');
+  assert.ok(await page.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].every(value => !value.includes('Practice123!'))));
+  await page.locator('#sign-out').click();
+  await page.locator('#login-form').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#tab-login').getAttribute('aria-selected'), 'true');
+  assert.equal(await page.locator('#login-username').inputValue(), '');
+}));
+
+test('an account created without a session returns to login and keeps only the username', { timeout: 30000 }, async () => fixture(async (page, base) => {
+  await mock(page);
+  await page.goto(base + 'community.html');
+  await page.locator('#tab-signup').click();
+  await page.locator('#signup-username').fill('Practice_New');
+  await page.locator('#signup-password').fill('Practice123!');
+  await page.locator('#signup-password-confirm').fill('Practice123!');
+  await page.evaluate(() => { communityMock.authError = '账号已创建，请用该用户名登录。'; communityMock.authErrorCode = 'account_created'; });
+  await page.locator('#sign-up').click();
+  await page.locator('#login-form').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#auth-message').innerText(), /账号已创建/);
+  assert.equal(await page.locator('#login-username').inputValue(), 'Practice_New');
+  assert.equal(await page.locator('#login-password').inputValue(), '');
+  assert.equal(await page.locator('#signup-password').inputValue(), '');
+  assert.equal(await page.locator('#account-panel').isVisible(), false);
+  assert.equal(await page.locator('#checkin-fields').evaluate(fieldset => fieldset.disabled), true);
+}));
+
+test('a delayed password login cannot replace an account selected in another tab', { timeout: 30000 }, async () => fixture(async (page, base) => {
+  await mock(page);
+  await page.goto(base + 'community.html');
+  await page.locator('#login-username').fill('Kalimba_A');
+  await page.locator('#login-password').fill('Practice123!');
+  await page.evaluate(() => { communityMock.holdAuth = true; });
+  await page.locator('#sign-in').click();
+  await page.waitForFunction(() => communityMock.heldAuth.length === 1);
+  assert.equal(await page.locator('#tab-signup').isDisabled(), true);
+  await page.evaluate(() => communityMock.switchAccount('b'));
+  await afterRefresh(page, () => document.getElementById('account-username').textContent === '用户名：Kalimba_B');
+  await page.evaluate(() => communityMock.heldAuth.splice(0).forEach(resolve => resolve()));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await page.locator('#account-username').innerText(), '用户名：Kalimba_B');
+  assert.equal(await page.locator('#account-name').innerText(), '第二位琴友');
+  assert.equal(await page.locator('#login-password').inputValue(), '');
 }));
 
 test('an existing same-day check-in wins a multi-device race; public text is inert and fits mobile', { timeout: 30000 }, async () => fixture(async (page, base) => {
@@ -323,7 +405,7 @@ test('late dashboards cannot reveal the previous account after account switching
   await page.evaluate(() => communityMock.releaseAll());
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   assert.equal(await page.locator('#account-name').innerText(), '第二位琴友');
-  assert.equal(await page.locator('#account-email').innerText(), 'kalimba.b@example.test');
+  assert.equal(await page.locator('#account-username').innerText(), '用户名：Kalimba_B');
   assert.equal(await page.locator('#stat-minutes').innerText(), '340');
   assert.equal(await page.locator('#stat-days').innerText(), '22');
   await page.evaluate(() => { communityMock.holdUsers = ['user-b']; });
@@ -334,7 +416,7 @@ test('late dashboards cannot reveal the previous account after account switching
   await page.evaluate(() => communityMock.releaseAll());
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   assert.equal(await page.locator('#stat-days').innerText(), '—');
-  assert.equal(await page.locator('#account-email').innerText(), '');
+  assert.equal(await page.locator('#account-username').innerText(), '');
   assert.equal(await page.locator('#account-panel').isVisible(), false);
   assert.equal(await page.locator('#history-list button').count(), 0);
   assert.equal(await page.locator('#checkin-fields').evaluate(fieldset => fieldset.disabled), true);
@@ -343,7 +425,7 @@ test('late dashboards cannot reveal the previous account after account switching
 test('storage limitations discovered during initialization are visible to the user', { timeout: 30000 }, async () => fixture(async (page, base) => {
   await mock(page, { storageWarning: true });
   await page.goto(base + 'community.html');
-  await page.waitForFunction(() => !document.getElementById('login-email').disabled);
+  await page.waitForFunction(() => !document.getElementById('login-fields').disabled);
   assert.equal(await page.locator('#service-notice').isVisible(), true);
-  assert.match(await page.locator('#service-notice').innerText(), /无法保存登录状态|当前页面|重新验证/);
+  assert.match(await page.locator('#service-notice').innerText(), /无法保存登录状态|当前页面|重新登录/);
 }));

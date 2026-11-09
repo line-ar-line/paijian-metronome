@@ -15,21 +15,26 @@
     if (['secretId', 'secretKey', 'sessionToken', 'privateKey'].some(key => config[key] || config.auth?.[key])) return invalid('网页配置不能包含腾讯云服务端密钥，请仅填写公开的环境信息。');
     if (!config.envId || !config.region) return invalid('社区尚未连接服务，请先配置 CloudBase 环境和地域。');
     if (!/^[a-z0-9][a-z0-9-]{2,127}$/.test(config.envId) || !/^[a-z]{2}-[a-z][a-z0-9-]*$/.test(config.region)) return invalid('社区环境配置无效，请检查环境 ID 和地域。');
-    if (config.enabled !== true) return invalid('社区服务正在准备，完成邮箱登录与数据库配置后即可开放。');
+    if (config.enabled !== true) return invalid('社区服务正在准备，完成账号登录与数据库配置后即可开放。');
     return { configured: true, error: '', envId: config.envId, region: config.region };
   }
   function readableError(error, action) {
     if (error?.name === 'CommunityError') return error;
     const code = String(error?.code || error?.error || '').toLowerCase();
     const category = String(error?.category || '').toLowerCase();
-    if (['unauthenticated', 'not_authenticated', 'session_expired', 'invalid_grant', '42501', 'pgrst301'].includes(code)) return userError('登录已失效，请重新使用邮箱验证码登录。', 'not_authenticated');
-    if (['resource_exhausted', 'rate_limited'].includes(code)) return userError('操作太频繁，请稍等片刻后再试。', 'rate_limited');
-    if (category.includes('provider_not_enabled') || code === 'auth_unavailable') return userError('邮箱登录暂未开放，请联系站点管理员检查邮件登录配置。', 'auth_unavailable');
-    if (['invalid_otp', 'invalid_two_factor'].includes(code) || (code === 'invalid_argument' && action === '验证邮箱')) return userError('验证码不正确或已过期，请重新获取后再试。', 'invalid_otp');
+    if (action === '登录' && (['invalid_credentials', 'user_not_found'].includes(category) || ['invalid_username_or_password', 'invalid_credentials', 'wrong_password', 'invalid_password', 'user_not_found', 'unauthenticated', 'not_found', 'invalid_grant'].includes(code))) return userError('用户名或密码不正确，请检查后重试。', 'invalid_credentials');
+    if (['unauthenticated', 'not_authenticated', 'session_expired', 'invalid_grant', '42501', 'pgrst301'].includes(code)) return userError('登录已失效，请重新登录。', 'not_authenticated');
+    if (['resource_exhausted', 'rate_limited'].includes(code) || category === 'rate_limited') return userError('操作太频繁，请稍等片刻后再试。', 'rate_limited');
+    if (category === 'provider_not_enabled' || ['provider_not_enabled', 'login_method_disabled', 'login_type_disabled', 'auth_unavailable'].includes(code)) return userError('账号登录暂未开放，请稍后再试。', 'auth_unavailable');
+    if (['already_exists', 'username_taken'].includes(code)) return userError('这个用户名已被使用，请换一个。', 'username_taken');
+    if (['weak_password', 'invalid_password_strength'].includes(code)) return userError('密码需为 8–32 位，以字母或数字开头，大写、小写、数字和允许的符号中至少包含三类。', 'invalid_password');
+    if (code === 'invalid_username') return userError('用户名需为 3–32 位，以字母开头、字母或数字结尾，中间可用字母、数字、_ 和 -。', 'invalid_username');
+    if (code === 'registration_unavailable') return userError('注册服务暂时不可用，请稍后再试。', 'registration_unavailable');
+    if (['captcha_required', 'captcha_invalid'].includes(code) || category.startsWith('captcha_')) return userError('登录验证未完成，请稍后重试。', 'verification_required');
+    if (['user_blocked', 'invalid_status', 'user_pending'].includes(code) || category === 'user_status_abnormal') return userError('当前账号暂时无法登录，请联系站点管理员。', 'account_unavailable');
     if (['invalid_argument', 'invalid_input', 'invalid_profile', 'invalid_checkin', '22023', '22p02'].includes(code)) return userError('填写内容不符合要求，请检查后重试。', 'invalid_input');
     if (code === 'not_found' || code === 'p0002') return userError('没有找到这一天的打卡记录，请刷新后重试。', 'not_found');
     if (['permission_denied', 'forbidden'].includes(code)) return userError('当前账号没有权限完成这项操作，请重新登录后重试。', 'forbidden');
-    if (code === 'email_unverified') return userError('请先通过邮箱验证码验证账号。', 'email_unverified');
     if (['42883', 'pgrst202', 'backend_unavailable'].includes(code)) return userError('社区服务尚未准备好，请稍后再试。', 'backend_unavailable');
     if (code === 'deadline_exceeded' || error?.name === 'AbortError' || /timeout|timed?\s*out/i.test(error?.message || '')) return userError('连接社区超时，请检查网络后重试。', 'timeout');
     if (['unreachable', 'network_error', 'unavailable'].includes(code) || error?.name === 'TypeError') return userError('暂时无法连接社区，请检查网络后重试。', 'network');
@@ -43,7 +48,7 @@
     const clearTimer = dependencies.clearTimeout || root.clearTimeout.bind(root);
     const subscribers = new Set();
     let app, auth, session = null, initialization = null;
-    let revision = 0, sendVersion = 0, pendingCode = null;
+    let revision = 0;
     let notificationQueued = false, storageWarning = '';
     let pendingAuth = Promise.resolve();
 
@@ -108,14 +113,17 @@
       });
     }
     async function verifiedSession(value) {
-      if (!value?.user?.id || !value.user.email || value.user.is_anonymous === true) return null;
-      // SDK 3.11's email_confirmed_at is populated from created_at; check the
-      // original user profile's verification flag instead of that timestamp.
+      if (!value?.user?.id || value.user.is_anonymous === true) return null;
       const info = await deadline(auth.getCurrentUser(false));
-      if (!info || !(info.email_verified === true || info.emailVerified === true)) return null;
+      if (!info || info.is_anonymous === true || info.isAnonymous === true || String(info.loginType || '').toLowerCase() === 'anonymous') return null;
       const id = info.sub || info.uid;
-      if (id !== value.user.id || String(info.email).toLowerCase() !== value.user.email.toLowerCase()) return null;
-      return value;
+      if (id !== value.user.id) return null;
+      const username = typeof info.username === 'string' ? info.username : '';
+      const claimedUsername = value.user.username || value.user.user_metadata?.username;
+      if (claimedUsername && claimedUsername !== username) return null;
+      // Preserve the original identity and credentials, including existing
+      // email accounts; SDK 3.11 nests username inside user_metadata.
+      return { ...value, user: { ...value.user, username } };
     }
     function installMemoryPlatform(sdk, storage) {
       if (!storageWarning || typeof sdk.useAdapters !== 'function') return;
@@ -194,14 +202,59 @@
       })().catch(error => { initialization = null; throw readableError(error, '恢复登录'); });
       return initialization;
     }
-    function emailAddress(value) {
-      const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
-      if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw userError('请输入有效的邮箱地址。', 'invalid_email');
-      return email;
+    function credentials(username, password) {
+      username = typeof username === 'string' ? username.trim() : '';
+      if (!username || username.length > 254 || /[\s\p{Cc}]/u.test(username)) throw userError('请输入有效的用户名。', 'invalid_username');
+      if (typeof password !== 'string' || !password || password.length > 256) throw userError('请输入密码。', 'invalid_password');
+      return { username, password };
+    }
+    async function signIn(username, password) {
+      const input = credentials(username, password);
+      const data = await perform('登录', () => { getApp(); return auth.signInWithPassword(input); });
+      const accepted = await verifiedSession(data?.session);
+      if (!accepted) throw userError('未能确认登录状态，请重新登录。', 'invalid_session');
+      revision += 1;
+      session = accepted;
+      initialization = Promise.resolve(session);
+      notify();
+      return session;
+    }
+    async function signUp(username, password) {
+      const input = credentials(username, password);
+      if (!/^[A-Za-z][A-Za-z0-9_-]{1,30}[A-Za-z0-9]$/.test(input.username)) throw readableError({ code: 'invalid_username' }, '注册');
+      if (!/^[A-Za-z0-9][A-Za-z0-9()!@#$%^&*|?><_-]{7,31}$/.test(password) || [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(pattern => pattern.test(password)).length < 3) throw readableError({ code: 'weak_password' }, '注册');
+      if (!settings.configured) throw userError(settings.error, 'not_configured');
+      let endpoint;
+      try {
+        endpoint = new URL(config.registrationUrl);
+        if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.hash) throw new Error('invalid');
+      } catch (_) { throw userError('注册服务暂时不可用，请稍后再试。', 'registration_unavailable'); }
+      const fetch = dependencies.fetch || root.fetch?.bind(root);
+      if (typeof fetch !== 'function') throw userError('浏览器无法连接注册服务，请更新浏览器后再试。', 'registration_unavailable');
+      const controller = new root.AbortController();
+      const timer = setTimer(() => controller.abort(), timeoutMs);
+      try {
+        await perform('注册', async () => {
+          const response = await fetch(endpoint.href, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+            mode: 'cors', credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal: controller.signal
+          });
+          let body;
+          try { body = await response.json(); }
+          catch (_) { throw userError('注册服务返回了无效响应，请稍后重试。', 'registration_unavailable'); }
+          if (body?.error) throw { code: body.error.code };
+          if (![200, 201].includes(response.status) || body?.ok !== true) throw userError('注册服务暂时不可用，请稍后再试。', 'registration_unavailable');
+          // Registration only creates the account. Never adopt a user or token
+          // returned by this endpoint; authenticate with the official SDK.
+          return { data: null };
+        });
+      } finally { clearTimer(timer); }
+      try { return await signIn(input.username, input.password); }
+      catch (_) { throw userError('账号已创建，请用该用户名登录。', 'account_created'); }
     }
     async function rpc(name, args, label) {
       await init();
-      if (!session?.user?.id) throw userError('请先使用邮箱验证码登录。', 'not_authenticated');
+      if (!session?.user?.id) throw userError('请先登录账号。', 'not_authenticated');
       return perform(label, () => getApp().rdb().rpc(name, args));
     }
 
@@ -214,34 +267,12 @@
         subscribers.add(callback); notify();
         return () => subscribers.delete(callback);
       },
-      async sendCode(value) {
-        const email = emailAddress(value);
-        const current = ++sendVersion;
-        pendingCode = null;
-        const data = await perform('发送验证码', () => { getApp(); return auth.signInWithOtp({ email, options: { shouldCreateUser: true } }); });
-        if (typeof data?.verifyOtp !== 'function') throw userError('未能获取邮箱验证信息，请重新发送验证码。', 'invalid_response');
-        if (current === sendVersion) pendingCode = { email, verify: data.verifyOtp };
-      },
-      async verifyCode(value, code) {
-        const email = emailAddress(value);
-        const token = typeof code === 'string' ? code.replace(/\s/g, '') : '';
-        if (!/^\d{6,10}$/.test(token)) throw userError('请输入邮件中的数字验证码。', 'invalid_otp');
-        const challenge = pendingCode;
-        if (!challenge || challenge.email !== email) throw userError('请先向这个邮箱发送验证码；刷新页面后需要重新获取。', 'verification_required');
-        const data = await perform('验证邮箱', () => challenge.verify({ token }));
-        const accepted = await verifiedSession(data?.session);
-        if (!accepted) throw userError('尚未取得已验证邮箱的登录状态，请重新获取验证码后再试。', 'email_unverified');
-        revision += 1;
-        session = accepted;
-        if (pendingCode === challenge) pendingCode = null;
-        initialization = Promise.resolve(session);
-        notify();
-        return session;
-      },
+      signIn,
+      signUp,
       async signOut() {
         await perform('退出登录', () => { getApp(); return auth.signOut(); });
-        revision += 1; sendVersion += 1;
-        session = null; pendingCode = null; initialization = null;
+        revision += 1;
+        session = null; initialization = null;
         notify();
       },
       dashboard() { return rpc('community_dashboard', undefined, '加载社区'); },

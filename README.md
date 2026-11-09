@@ -61,24 +61,26 @@
 
 曲谱工坊的主要实现分别位于 `score/midi.js`（解析）、`score/score-model.js`（转谱）、`score/renderer.js`（分页与 SVG 排版）、`score/export.js`（全谱归档）、`score/player.js`（试听）和 `score/workshop.js`（交互）。示例 MIDI 可通过 `node tools/export-examples.cjs` 从内置示例音符重新生成。
 
-## 练琴打卡与邮箱登录
+## 练琴打卡与账号登录
 
-入口：[练琴打卡](https://line-ar-line.github.io/paijian-metronome/community.html) → **打开打卡试用版**。试用页运行于已配置的 CloudBase 上海环境，支持真实邮箱验证码和云端记录。数据库及邮箱服务已配置，真实邮件送达、首次注册和双账户交互仍需用自己的邮箱验收。部署与维护见 [CloudBase 配置说明](docs/CLOUDBASE_SETUP.md)。
+入口：[练琴打卡](https://line-ar-line.github.io/paijian-metronome/community.html) → **打开打卡试用版**。社区已部署用户名与密码注册、登录，记录存放在 CloudBase 上海环境。已用两个临时账号在实际网页验证注册、密码登录、打卡、私密隔离、分享及撤回、周榜与刷新恢复；测试账号及记录已清理。部署与维护见 [CloudBase 配置说明](docs/CLOUDBASE_SETUP.md)。
 
-- 邮箱验证码登录，首次验证自动注册；账号由 CloudBase Auth 验证，刷新页面可恢复登录状态。
+- “注册账号”和“登录”分别操作，注册时确认密码。用户名 3–32 位，字母开头、字母或数字结尾，中间允许字母、数字、`_` 和 `-`；密码 8–32 位，以字母或数字开头，至少包含大写字母、小写字母、数字、允许符号中的三类，具体字符见页面提示。登录由 CloudBase Auth 验证，刷新页面可恢复有效会话。
 - 每个账号每天打卡一次，填写练习分钟数、曲目和心得；日期统一由服务器按北京时间计算。重复请求返回同一条记录，不重复计数、不覆盖已保存内容。
 - 查看连续打卡、累计天数、累计分钟数、本月日历和近 90 天记录。
-- 默认仅自己可见。可选择分享到琴友动态和本周坚持榜，也可在自己的历史记录中取消分享。分享的记录显示昵称、曲目、分钟数和心得，不读取或公开账号邮箱。
+- 默认仅自己可见。可选择分享到琴友动态和本周坚持榜，也可在自己的历史记录中取消分享。分享的记录显示昵称、曲目、分钟数和心得；登录用户名仅本人显示，不公开历史账号的邮箱。
 - 动态显示最新 30 次公开练习；周榜按本周公开打卡天数、练习分钟数排列前 20 位，周一按北京时间重新计榜。时长由用户填写，不代表自动测量的有效练琴时长。
 - 数据库拒绝未登录读写、代替其他用户写入、由浏览器指定打卡日期，以及绕过函数直接读写业务表。个人统计包括私密记录，动态和周榜只计算公开记录。
 
 当前 CloudBase 体验套餐不允许添加 `line-ar-line.github.io` 安全域名，实际 API 返回 `OperationDenied.FreePackageDenied`。因此 GitHub 只提供试用入口，登录和打卡在环境自带的 CloudBase 域名完成；此域名按官方规则仅用于开发测试，可能出现访问确认页和频率限制。正式对外开放需要支持自定义安全域名的套餐或更换部署方案，不能把当前试用入口视为永久免费的生产服务。
 
-后端使用 [CloudBase PostgreSQL 脚本](cloudbase/schema.sql)，通过已验证用户的数据库 RPC 保存和读取记录。网页只包含公开环境 ID，不包含管理员密钥。原 [Supabase 配置说明](docs/COMMUNITY_SETUP.md) 和实现保留为备选方案。
+后端使用 [CloudBase PostgreSQL 脚本](cloudbase/schema.sql)，通过有效账号的数据库 RPC 保存和读取记录。CloudBase 的公开 SDK 不直接提供纯用户名密码注册，因此本项目的 [HTTP 注册云函数](cloudbase/functions/register) 使用服务端 Manager SDK 创建普通外部用户，再由网页通过官方 SDK 登录。注册入口有持久化次数限制：每 IP 每分钟 5 次、每小时 20 次，全站每个北京时间日 100 次尝试；创建失败也计入额度。服务端检查现有账号，并将用户名预占 10 分钟，防止同名并发注册；重名检查不区分大小写。
+
+密码不写入打卡表、页面日志或前端存储，网页不包含管理员密钥。已有邮箱账号、打卡数据和仍有效的会话会保留，不自动生成新用户名或密码。**当前没有自助找回密码功能，请记好用户名和密码。** 原 [Supabase 配置说明](docs/COMMUNITY_SETUP.md) 和适配器保留供历史实现参考。
 
 登录仅用于练琴打卡与社区；现有曲谱收藏和制谱草稿仍保存在当前浏览器，尚未同步到账户。
 
-验证：`node --test tests/cloudbase-client.test.cjs tests/cloudbase-auth.browser.cjs tests/community.browser.cjs`。前两项核对适配器与官方 SDK 的真实请求格式，浏览器测试使用模拟接口、不发送邮件。PostgreSQL 业务与权限测试见 `tests/cloudbase-db.test.cjs`；PGlite 临时依赖安装及真实账户验收步骤见 [CloudBase 配置说明](docs/CLOUDBASE_SETUP.md)。
+验证：`node --test tests/cloudbase-client.test.cjs tests/community-registration.test.cjs tests/cloudbase-auth.browser.cjs tests/community.browser.cjs tests/community-entry.browser.cjs`。这些测试核对适配器、HTTP 注册服务、官方 SDK 请求格式、注册登录界面及 GitHub 入口，使用模拟服务，不创建真实账号。PostgreSQL 业务与权限测试见 `tests/cloudbase-db.test.cjs`，注册限流与计数表权限测试见 `tests/cloudbase-registration.test.cjs`；PGlite 临时依赖安装及真实账户验收步骤见 [CloudBase 配置说明](docs/CLOUDBASE_SETUP.md)。旧 Supabase 适配器测试 `tests/community-auth.browser.cjs` 使用独立最小页面，不依赖当前账号界面。
 
 ## 本地使用
 

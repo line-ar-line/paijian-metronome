@@ -13,8 +13,7 @@
   let loading = false;
   let requestVersion = 0;
   let accountVersion = 0;
-  let sentEmail = '';
-  let resendAt = 0;
+  let authMode = 'login';
   let lastRefresh = 0;
 
   function message(id, text, error = false) {
@@ -41,16 +40,13 @@
   }
 
   function syncControls() {
-    if (api?.getConfiguration().storageWarning) message('service-notice', '当前浏览器无法保存登录状态，刷新或关闭页面后需要重新验证邮箱。');
-    const seconds = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000));
-    $('login-email').disabled = !ready || authBusy;
-    $('login-email').readOnly = Boolean(sentEmail);
-    $('send-code').disabled = !ready || authBusy || seconds > 0;
-    $('send-code').textContent = authBusy && !sentEmail ? '正在发送…' : seconds ? `${seconds} 秒后可重发` : sentEmail ? '重新发送验证码' : '发送登录验证码';
-    $('verify-code').disabled = !ready || authBusy;
-    $('login-code').disabled = authBusy;
-    $('change-email').disabled = authBusy;
-    $('verify-code').textContent = authBusy && sentEmail ? '请稍候…' : '验证并登录';
+    if (api?.getConfiguration().storageWarning) message('service-notice', '当前浏览器无法保存登录状态，刷新或关闭页面后需要重新登录。');
+    $('login-fields').disabled = !ready || authBusy || Boolean(session) || authMode !== 'login';
+    $('signup-fields').disabled = !ready || authBusy || Boolean(session) || authMode !== 'signup';
+    $('tab-login').disabled = !ready || authBusy;
+    $('tab-signup').disabled = !ready || authBusy;
+    $('sign-in').textContent = authBusy && authMode === 'login' ? '正在登录…' : '登录';
+    $('sign-up').textContent = authBusy && authMode === 'signup' ? '正在注册…' : '注册并登录';
     $('checkin-fields').disabled = !session || !data || loading || mutationBusy || Boolean(todayEntry());
     $('submit-checkin').textContent = mutationBusy ? '正在保存…' : todayEntry() ? '今天已打卡 ✓' : '完成今日打卡 ✓';
     $('refresh-community').disabled = !session || loading || mutationBusy;
@@ -140,7 +136,7 @@
     const nickname = data?.profile?.nickname || '琴友';
     $('account-name').textContent = nickname;
     $('account-avatar').textContent = Array.from(nickname)[0];
-    $('account-email').textContent = session?.user?.email || '';
+    $('account-username').textContent = session?.user?.username ? `用户名：${session.user.username}` : '';
     if (document.activeElement !== $('nickname')) $('nickname').value = data?.profile?.nickname || '';
     $('stat-streak').textContent = data?.stats?.current_streak ?? '—';
     $('stat-days').textContent = data?.stats?.total_days ?? '—';
@@ -194,6 +190,7 @@
     ++requestVersion;
     session = next;
     data = null;
+    authBusy = false;
     loading = false;
     mutationBusy = false;
     $('checkin-form').reset();
@@ -202,68 +199,102 @@
     message('community-message', '');
     message('checkin-message', '');
     message('auth-message', '');
-    if (next) {
-      $('login-code').value = '';
-      sentEmail = '';
-      $('verify-form').hidden = true;
-    }
+    clearPasswords();
     render();
     if (next) await refresh();
   }
 
-  $('email-form').addEventListener('submit', async event => {
-    event.preventDefault();
-    if (!ready || authBusy || Date.now() < resendAt) return;
-    const email = $('login-email').value.trim().toLowerCase();
-    authBusy = true;
-    message('auth-message', '正在发送验证码…');
-    syncControls();
-    try {
-      await api.sendCode(email);
-      sentEmail = email;
-      resendAt = Date.now() + 60000;
-      $('verify-form').hidden = false;
-      message('auth-message', '验证码已发送，请查看邮箱（也检查垃圾邮件）。');
-      $('login-code').focus();
-    } catch (error) {
-      message('auth-message', error.message || '发送失败，请稍后重试。', true);
-    } finally { authBusy = false; syncControls(); }
-  });
+  function clearPasswords() {
+    for (const id of ['login-password', 'signup-password', 'signup-password-confirm']) $(id).value = '';
+  }
 
-  $('change-email').addEventListener('click', () => {
-    sentEmail = '';
-    $('verify-form').hidden = true;
-    $('login-code').value = '';
+  const authTabs = [$('tab-login'), $('tab-signup')];
+  function selectAuthMode(mode) {
+    if (!ready || authBusy || session) return;
+    authMode = mode;
+    clearPasswords();
     message('auth-message', '');
+    authTabs.forEach((tab, index) => {
+      const active = (index === 0 ? 'login' : 'signup') === mode;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      $(tab.getAttribute('aria-controls')).hidden = !active;
+    });
     syncControls();
-    $('login-email').focus();
+  }
+  authTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectAuthMode(index === 0 ? 'login' : 'signup'));
+    tab.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || authBusy) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index;
+      selectAuthMode(next === 0 ? 'login' : 'signup');
+      authTabs[next].focus();
+    });
   });
 
-  $('verify-form').addEventListener('submit', async event => {
+  async function authenticate(event, mode) {
     event.preventDefault();
-    if (!ready || authBusy || !sentEmail) return;
+    if (!ready || authBusy || session || authMode !== mode) return;
+    const form = $(mode + '-form');
+    $(mode + '-username').value = $(mode + '-username').value.trim();
+    if (!form.reportValidity()) return;
+    const username = $(mode + '-username').value.trim();
+    const password = $(mode + '-password').value;
+    if (mode === 'signup' && password !== $('signup-password-confirm').value) {
+      clearPasswords();
+      message('auth-message', '两次输入的密码不一致，请重新确认。', true);
+      $('signup-password').focus();
+      return;
+    }
+    if (mode === 'signup' && (!/^[A-Za-z0-9][A-Za-z0-9()!@#$%^&*|?><_-]{7,31}$/.test(password)
+      || [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(pattern => pattern.test(password)).length < 3)) {
+      clearPasswords();
+      message('auth-message', '密码须为 8–32 位，以字母或数字开头，并包含大写字母、小写字母、数字、允许的符号中的至少 3 种。', true);
+      $('signup-password').focus();
+      return;
+    }
+    const owner = accountVersion;
     authBusy = true;
-    message('auth-message', '正在验证…');
+    clearPasswords();
+    message('auth-message', mode === 'signup' ? '正在创建账号…' : '正在登录…');
     syncControls();
     try {
-      const next = await api.verifyCode(sentEmail, $('login-code').value.trim());
-      if (!next?.user?.id) throw new Error('验证未完成，请重新输入验证码。');
+      const next = await (mode === 'signup' ? api.signUp(username, password) : api.signIn(username, password));
+      if (owner !== accountVersion) return;
+      if (!next?.user?.id) throw new Error('尚未取得登录状态，请重新登录。');
       await acceptSession(next);
-    } catch (error) { message('auth-message', error.message || '验证码无效或已过期，请重试。', true); }
-    finally { authBusy = false; syncControls(); }
-  });
+    } catch (error) {
+      if (owner === accountVersion) {
+        if (mode === 'signup' && error.code === 'account_created') {
+          authBusy = false;
+          $('login-username').value = username;
+          selectAuthMode('login');
+          message('auth-message', '账号已创建，请用该用户名和密码登录。');
+          $('login-password').focus();
+        } else {
+          message('auth-message', error.message || (mode === 'signup' ? '注册未完成，请稍后重试。' : '登录失败，请检查用户名和密码。'), true);
+        }
+      }
+    } finally {
+      if (owner === accountVersion) { authBusy = false; syncControls(); }
+    }
+  }
+  $('login-form').addEventListener('submit', event => authenticate(event, 'login'));
+  $('signup-form').addEventListener('submit', event => authenticate(event, 'signup'));
 
   $('sign-out').addEventListener('click', async () => {
     if (authBusy || mutationBusy) return;
+    const owner = accountVersion;
     authBusy = true;
     syncControls();
     try {
       await api.signOut();
+      if (owner !== accountVersion && session) return;
       await acceptSession(null);
-      $('email-form').reset();
-      $('verify-form').reset();
-      sentEmail = '';
-      $('verify-form').hidden = true;
+      $('login-form').reset();
+      $('signup-form').reset();
+      selectAuthMode('login');
       message('auth-message', '已退出登录。');
     } catch (error) { message('auth-message', error.message || '退出失败，请重试。', true); }
     finally { authBusy = false; syncControls(); }
@@ -355,7 +386,6 @@
   document.addEventListener('visibilitychange', refreshIfNeeded);
   window.addEventListener('focus', refreshIfNeeded);
   window.addEventListener('online', refreshIfNeeded);
-  setInterval(() => { syncControls(); }, 1000);
   setInterval(refreshIfNeeded, 60000);
 
   async function start() {
@@ -369,7 +399,7 @@
       message('service-notice', '练琴打卡正在准备中。账号服务开通后，就能登录、保存记录并与琴友一起打卡。');
       return;
     }
-    if (config.storageWarning) message('service-notice', '当前浏览器无法保存登录状态，关闭页面后需要重新验证邮箱。');
+    if (config.storageWarning) message('service-notice', '当前浏览器无法保存登录状态，关闭页面后需要重新登录。');
     api.subscribe(next => { acceptSession(next); });
     try {
       const next = await api.init();

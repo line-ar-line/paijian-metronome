@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f5ef">
-  <meta name="description" content="记录每天的卡林巴练习，用邮箱登录，同步练琴日历，与琴友分享打卡和每周进步。">
+  <meta name="description" content="记录每天的卡林巴练习，用用户名和密码登录，同步练琴日历，与琴友分享打卡和每周进步。">
   <title>练琴打卡 · 拍间</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css?v=community-1">
-  <link rel="stylesheet" href="community/community.css?v=community-1">
-  <script src="community/config.js?v=cloudbase-1" defer></script>
+  <link rel="stylesheet" href="community/community.css?v=account-2">
+  <script src="community/config.js?v=account-2" defer></script>
   <script src="community/entry.js?v=cloudbase-trial-1" defer></script>
   <script src="vendor/cloudbase.min.js?v=3.11.0" defer></script>
-  <script src="community/cloudbase-client.js?v=cloudbase-1" defer></script>
+  <script src="community/cloudbase-client.js?v=account-2" defer></script>
   <script src="vendor/supabase.min.js?v=2.119.0" defer></script>
   <script src="community/client.js?v=cloudbase-1" defer></script>
-  <script src="community/community.js?v=cloudbase-trial-1" defer></script>
+  <script src="community/community.js?v=account-2" defer></script>
 </head>
 <body class="community-page">
   <div class="page-shell">
@@ -30,7 +30,7 @@
       </section>
       <section id="community-entry" class="community-card" aria-labelledby="community-entry-title" hidden>
         <h2 id="community-entry-title">一起试试练琴打卡。</h2>
-        <p class="card-description">邮箱登录、练习记录和琴友动态已开放试用。请前往试用站登录，节拍器和曲谱仍在这里使用。</p>
+        <p class="card-description">注册账号，记录练习，和琴友分享每天的进步。请前往试用站使用用户名和密码登录，节拍器和曲谱仍在这里使用。</p>
         <a id="community-entry-link" class="primary-action" href="https://fast-junglefowl-d3fqxnq941dd1c4e-1528285429.tcloudbaseapp.com/paijian/community.html">打开打卡试用版 <span aria-hidden="true">↗</span></a>
         <p class="fine-print">当前为免费试用，功能和访问方式可能随测试调整。</p>
       </section>
@@ -49,7 +49,7 @@
                 </div>
                 <label for="practice-note">给今天留句话 <span>选填</span></label>
                 <textarea id="practice-note" maxlength="280" rows="3" placeholder="终于把那一小节弹顺了。"></textarea>
-                <label class="share-option" for="share-public"><input id="share-public" type="checkbox"><span>分享到琴友动态和周榜<small>公开昵称、曲目、时长和心得；邮箱始终不公开。</small></span></label>
+                <label class="share-option" for="share-public"><input id="share-public" type="checkbox"><span>分享到琴友动态和周榜<small>公开昵称、曲目、时长和心得；登录用户名仅自己可见。</small></span></label>
                 <button id="submit-checkin" class="primary-action" type="submit">完成今日打卡 <span aria-hidden="true">✓</span></button>
               </fieldset>
             </form>
@@ -69,13 +69,30 @@
           <section class="community-card account-card" aria-labelledby="account-title">
             <div class="card-heading"><h2 id="account-title">你的练琴角落</h2><span class="small-caption">MY SPACE</span></div>
             <div id="login-panel">
-              <p class="card-description">一个邮箱，记住每一次坚持。<br>换台设备，记录也在。</p>
-              <form id="email-form"><label for="login-email">邮箱地址</label><input id="login-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required disabled><button id="send-code" class="primary-action" type="submit" disabled>发送登录验证码</button></form>
-              <form id="verify-form" hidden><label for="login-code">邮箱验证码</label><input id="login-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" placeholder="输入邮件中的数字验证码" required><button id="verify-code" class="primary-action" type="submit">验证并登录</button><button id="change-email" class="text-action" type="button">换一个邮箱</button></form>
-              <p class="fine-print">首次验证后自动创建账号，无需设置密码。</p>
+              <p class="card-description">用一个账号，记住每一次坚持。<br>换台设备，记录也在。</p>
+              <div class="account-tabs" role="tablist" aria-label="账号操作">
+                <button id="tab-login" type="button" role="tab" aria-selected="true" aria-controls="login-form" disabled>登录</button>
+                <button id="tab-signup" type="button" role="tab" aria-selected="false" aria-controls="signup-form" tabindex="-1" disabled>注册账号</button>
+              </div>
+              <form id="login-form" role="tabpanel" aria-labelledby="tab-login">
+                <fieldset id="login-fields" disabled>
+                  <div class="account-field"><label for="login-username">用户名</label><input id="login-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="128" placeholder="输入你的用户名" required></div>
+                  <div class="account-field"><label for="login-password">密码</label><input id="login-password" type="password" autocomplete="current-password" maxlength="256" placeholder="输入你的密码" required></div>
+                  <button id="sign-in" class="primary-action" type="submit">登录</button>
+                </fieldset>
+              </form>
+              <form id="signup-form" role="tabpanel" aria-labelledby="tab-signup" hidden>
+                <fieldset id="signup-fields" disabled>
+                  <div class="account-field"><label for="signup-username">用户名</label><input id="signup-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" pattern="[A-Za-z][A-Za-z0-9_\-]{1,30}[A-Za-z0-9]" aria-describedby="username-hint" placeholder="例如：Kalimba_01" required><p id="username-hint" class="field-hint">3–32 位，字母开头、字母或数字结尾，中间可用字母、数字、_ 和 -。登录时保留大小写；与公开昵称分别设置。</p></div>
+                  <div class="account-field"><label for="signup-password">密码</label><input id="signup-password" type="password" autocomplete="new-password" minlength="8" maxlength="32" aria-describedby="password-hint" placeholder="设置登录密码" required><p id="password-hint" class="field-hint">8–32 位，以字母或数字开头；大写字母、小写字母、数字、符号至少包含 3 种，不含空格。<br>可用符号：<code>()!@#$%^&amp;*|?&gt;&lt;_-</code></p></div>
+                  <div class="account-field"><label for="signup-password-confirm">确认密码</label><input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" placeholder="再输入一次密码" required></div>
+                  <button id="sign-up" class="primary-action" type="submit">注册并登录</button>
+                </fieldset>
+                <p class="fine-print">请记好用户名和密码。登录后可以设置展示给琴友的昵称。</p>
+              </form>
             </div>
             <div id="account-panel" hidden>
-              <div class="account-identity"><span id="account-avatar" class="avatar" aria-hidden="true">琴</span><div><strong id="account-name">琴友</strong><span id="account-email"></span></div></div>
+              <div class="account-identity"><span id="account-avatar" class="avatar" aria-hidden="true">琴</span><div><strong id="account-name">琴友</strong><span id="account-username" title="登录用户名，仅自己可见"></span></div></div>
               <form id="profile-form"><label for="nickname">公开昵称</label><div class="nickname-row"><input id="nickname" type="text" minlength="2" maxlength="24" required autocomplete="nickname"><button id="save-profile" class="secondary-action" type="submit">保存</button></div></form>
               <button id="sign-out" class="text-action" type="button">退出登录</button>
             </div>
