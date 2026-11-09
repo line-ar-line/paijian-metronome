@@ -2,7 +2,12 @@
   'use strict';
   const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
-  if (root.document) root.PaijianCommunity = api.createCommunityClient(root.PAIJIAN_COMMUNITY_CONFIG);
+  if (root.document) {
+    const config = root.PAIJIAN_COMMUNITY_CONFIG;
+    root.PaijianCommunity = config?.provider === 'cloudbase'
+      ? root.CloudBaseCommunity?.createCommunityClient(config)
+      : api.createCommunityClient(config);
+  }
 })(typeof globalThis !== 'undefined' ? globalThis : window, function (root) {
   'use strict';
 

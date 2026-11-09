@@ -1,7 +1,10 @@
-// Fill these two public values after creating the Supabase project and applying
-// the community database migration. Never place a service_role or sb_secret_
-// key here. The browser client accepts only publishable / legacy anon keys.
+// Public CloudBase environment configuration. No SecretId, SecretKey, API key,
+// database password or user token belongs in this file.
+// PostgreSQL and email login are deployed. The trial community runs on the
+// allowed CloudBase hosting origin; entry.js keeps GitHub as a link-only entry.
 window.PAIJIAN_COMMUNITY_CONFIG = {
-  supabaseUrl: '',
-  supabasePublishableKey: ''
+  provider: 'cloudbase',
+  envId: 'fast-junglefowl-d3fqxnq941dd1c4e',
+  region: 'ap-shanghai',
+  enabled: true
 };

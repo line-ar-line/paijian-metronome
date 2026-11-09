@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  if (window.PaijianCommunityEntry?.externalEntry) return;
+
   const $ = id => document.getElementById(id);
   const api = window.PaijianCommunity;
   let session = null;

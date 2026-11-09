@@ -3,3 +3,4 @@ catalog/midi/*.mid binary
 catalog/sources/mutopia-musiccache.dat binary
 # Keep the official SDK byte-identical, including whitespace in template strings.
 vendor/supabase.min.js -whitespace
+vendor/cloudbase.min.js -whitespace

@@ -9,10 +9,13 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css?v=community-1">
   <link rel="stylesheet" href="community/community.css?v=community-1">
-  <script src="community/config.js?v=community-1" defer></script>
+  <script src="community/config.js?v=cloudbase-1" defer></script>
+  <script src="community/entry.js?v=cloudbase-trial-1" defer></script>
+  <script src="vendor/cloudbase.min.js?v=3.11.0" defer></script>
+  <script src="community/cloudbase-client.js?v=cloudbase-1" defer></script>
   <script src="vendor/supabase.min.js?v=2.119.0" defer></script>
-  <script src="community/client.js?v=community-1" defer></script>
-  <script src="community/community.js?v=community-1" defer></script>
+  <script src="community/client.js?v=cloudbase-1" defer></script>
+  <script src="community/community.js?v=cloudbase-trial-1" defer></script>
 </head>
 <body class="community-page">
   <div class="page-shell">
@@ -22,8 +25,14 @@
     </header>
     <main>
       <section class="intro">
-        <div><p class="eyebrow">A LITTLE PRACTICE, EVERY DAY</p><h1>每一天，都有回响。</h1><p class="intro-copy">记下今天的小小进步，和同样热爱音乐的人一起坚持。</p></div>
+        <div><p class="eyebrow">A LITTLE PRACTICE, EVERY DAY</p><h1>每一天，都有回响。</h1><p class="intro-copy">记下今天的小小进步，和同样热爱音乐的人一起坚持。</p><p id="community-trial-label" class="small-caption" hidden>练琴打卡 · 免费试用版</p></div>
         <span class="date-tag"><i aria-hidden="true"></i><time id="today-label">今天</time></span>
+      </section>
+      <section id="community-entry" class="community-card" aria-labelledby="community-entry-title" hidden>
+        <h2 id="community-entry-title">一起试试练琴打卡。</h2>
+        <p class="card-description">邮箱登录、练习记录和琴友动态已开放试用。请前往试用站登录，节拍器和曲谱仍在这里使用。</p>
+        <a id="community-entry-link" class="primary-action" href="https://fast-junglefowl-d3fqxnq941dd1c4e-1528285429.tcloudbaseapp.com/paijian/community.html">打开打卡试用版 <span aria-hidden="true">↗</span></a>
+        <p class="fine-print">当前为免费试用，功能和访问方式可能随测试调整。</p>
       </section>
       <div id="service-notice" class="notice" role="status" hidden></div>
       <div class="community-layout">
@@ -82,7 +91,7 @@
         <div id="panel-feed" role="tabpanel" aria-labelledby="tab-feed"><p class="small-caption">只展示琴友主动分享的记录 · 最近 30 次</p><ul id="feed-list" class="feed-list"><li class="empty-copy">登录后，看看大家最近在练什么。</li></ul></div>
         <div id="panel-ranking" role="tabpanel" aria-labelledby="tab-ranking" hidden><p id="ranking-period" class="small-caption">每周一重新开始，一起积累练习的日子。</p><p class="fine-print">按本周公开打卡天数排列，同天数按填写的练习时长排列。仅展示前 20 位。</p><ol id="leaderboard-list" class="leaderboard-list"><li class="empty-copy">登录后查看本周坚持榜。</li></ol></div>
       </section>
-      <noscript><p class="notice">登录和打卡需要启用 JavaScript。节拍器和曲谱入口仍可从导航访问。</p></noscript>
+      <noscript><p class="notice">登录和打卡需要启用 JavaScript。<a href="https://fast-junglefowl-d3fqxnq941dd1c4e-1528285429.tcloudbaseapp.com/paijian/community.html">打开打卡试用版</a>，或从导航访问节拍器和曲谱。</p></noscript>
     </main>
     <footer><span>一点节奏，一点专注。</span><span>让练琴，成为喜欢的日常。</span></footer>
   </div>

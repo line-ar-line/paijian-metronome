@@ -63,20 +63,22 @@
 
 ## 练琴打卡与邮箱登录
 
-入口：[练琴打卡](https://line-ar-line.github.io/paijian-metronome/community.html)。网页和数据库脚本已提供，**当前仓库中的账号配置留空，站点尚不能真实发送验证码或保存云端打卡**。开通步骤见 [账号与数据库配置说明](docs/COMMUNITY_SETUP.md)。
+入口：[练琴打卡](https://line-ar-line.github.io/paijian-metronome/community.html) → **打开打卡试用版**。试用页运行于已配置的 CloudBase 上海环境，支持真实邮箱验证码和云端记录。数据库及邮箱服务已配置，真实邮件送达、首次注册和双账户交互仍需用自己的邮箱验收。部署与维护见 [CloudBase 配置说明](docs/CLOUDBASE_SETUP.md)。
 
-- 邮箱验证码登录，首次验证自动注册；账号由 Supabase Auth 验证，刷新页面可恢复登录状态。
+- 邮箱验证码登录，首次验证自动注册；账号由 CloudBase Auth 验证，刷新页面可恢复登录状态。
 - 每个账号每天打卡一次，填写练习分钟数、曲目和心得；日期统一由服务器按北京时间计算。重复请求返回同一条记录，不重复计数、不覆盖已保存内容。
 - 查看连续打卡、累计天数、累计分钟数、本月日历和近 90 天记录。
 - 默认仅自己可见。可选择分享到琴友动态和本周坚持榜，也可在自己的历史记录中取消分享。分享的记录显示昵称、曲目、分钟数和心得，不读取或公开账号邮箱。
 - 动态显示最新 30 次公开练习；周榜按本周公开打卡天数、练习分钟数排列前 20 位，周一按北京时间重新计榜。时长由用户填写，不代表自动测量的有效练琴时长。
-- 数据库拒绝未登录读写、代替其他用户写入、由浏览器指定打卡日期，以及绕过函数直接写表。个人统计包括私密记录，动态和周榜只计算公开记录。
+- 数据库拒绝未登录读写、代替其他用户写入、由浏览器指定打卡日期，以及绕过函数直接读写业务表。个人统计包括私密记录，动态和周榜只计算公开记录。
 
-GitHub Pages 只托管网页；云端记录保存在你配置的 Supabase 项目。请先执行 [数据库脚本](supabase/schema.sql)，配置验证码邮件模板和能向普通用户发送邮件的 SMTP，然后在 `community/config.js` 填写 Project URL 与 publishable / anon 公开密钥。无需在网页里保存数据库密码或服务端密钥；未配置时显示未开通状态，不会生成虚假的用户、打卡或排行榜。
+当前 CloudBase 体验套餐不允许添加 `line-ar-line.github.io` 安全域名，实际 API 返回 `OperationDenied.FreePackageDenied`。因此 GitHub 只提供试用入口，登录和打卡在环境自带的 CloudBase 域名完成；此域名按官方规则仅用于开发测试，可能出现访问确认页和频率限制。正式对外开放需要支持自定义安全域名的套餐或更换部署方案，不能把当前试用入口视为永久免费的生产服务。
+
+后端使用 [CloudBase PostgreSQL 脚本](cloudbase/schema.sql)，通过已验证用户的数据库 RPC 保存和读取记录。网页只包含公开环境 ID，不包含管理员密钥。原 [Supabase 配置说明](docs/COMMUNITY_SETUP.md) 和实现保留为备选方案。
 
 登录仅用于练琴打卡与社区；现有曲谱收藏和制谱草稿仍保存在当前浏览器，尚未同步到账户。
 
-验证：`node --test tests/community-client.test.cjs`；浏览器场景 `node --test tests/community.browser.cjs tests/community-auth.browser.cjs` 分别验证页面行为和官方 SDK 的实际请求，两者均使用模拟接口，不会发邮件。数据库权限和函数验证见 `tests/community-db.test.cjs`，PGlite 临时依赖安装方式见 [数据库说明](supabase/README.md)。真正的首次注册、跨设备登录和向朋友发信，需要按配置说明最后一节使用自己的两个邮箱验收。
+验证：`node --test tests/cloudbase-client.test.cjs tests/cloudbase-auth.browser.cjs tests/community.browser.cjs`。前两项核对适配器与官方 SDK 的真实请求格式，浏览器测试使用模拟接口、不发送邮件。PostgreSQL 业务与权限测试见 `tests/cloudbase-db.test.cjs`；PGlite 临时依赖安装及真实账户验收步骤见 [CloudBase 配置说明](docs/CLOUDBASE_SETUP.md)。
 
 ## 本地使用
 
