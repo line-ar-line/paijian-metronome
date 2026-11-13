@@ -329,6 +329,7 @@
     try {
       const result = await api.checkIn({ minutes, piece: $('practice-piece').value.trim(), note: $('practice-note').value.trim(), isPublic: $('share-public').checked });
       if (owner !== accountVersion) return;
+      if (result?.created !== false) window.dispatchEvent(new CustomEvent('paijian:checkin-saved'));
       const synced = await refresh();
       if (owner !== accountVersion) return;
       if (!synced) message('checkin-result', '打卡已保存，但列表刷新失败。点击“刷新记录”查看。');

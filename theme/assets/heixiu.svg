@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">嘿咻小拍点 · 手绘同人图标</title>
+  <path d="M12 29C8 16 14 6 22 5l6 8c4-1 8-1 12 0l6-7c8 3 11 12 7 23 8 15-2 29-21 29S4 44 12 29Z" fill="#283C31"/>
+  <ellipse cx="24" cy="33" rx="5" ry="6" fill="#DCE8CB"/>
+  <ellipse cx="42" cy="33" rx="5" ry="6" fill="#DCE8CB"/>
+  <circle cx="25" cy="34" r="2" fill="#283C31"/>
+  <circle cx="41" cy="34" r="2" fill="#283C31"/>
+  <path d="m29 44 4 3 4-3" stroke="#B0C69B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

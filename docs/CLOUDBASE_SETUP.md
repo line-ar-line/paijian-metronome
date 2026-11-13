@@ -199,7 +199,7 @@ window.PAIJIAN_COMMUNITY_CONFIG = {
 
 以上配置已启用。迁移到其他环境时，先确认新版 SQL、注册限流、函数执行权限、注册 URL、默认域名和密码登录全部配置完成，再启用页面。`registrationUrl` 是公开入口地址；网页使用用户登录后由 SDK 管理的会话调用 `app.rdb().rpc(...)`，无需在前端配置 `service_role` 管理密钥。
 
-在项目根目录使用 `tools/build-community-hosting.cjs` 创建一个新的发布目录。脚本只打包社区 HTML、样式、`community/` 客户端文件以及两个本地 SDK；入口脚本处理域名入口及返回 GitHub 工具页的导航。然后上传到 `/paijian/` 子目录：
+在项目根目录使用 `tools/build-community-hosting.cjs` 创建一个新的发布目录。脚本只打包社区 HTML、样式、`community/` 客户端文件、两个本地 SDK，以及森林主题、SVG 差分素材和动作预览页；入口脚本处理域名入口及返回 GitHub 工具页的导航，托管版动作预览页也返回 GitHub 节拍器。然后上传到 `/paijian/` 子目录：
 
 ```sh
 paijian_publish_root="$(mktemp -d)"

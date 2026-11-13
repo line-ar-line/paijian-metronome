@@ -20,7 +20,11 @@ const files = [
   'community.html', 'styles.css',
   'community/config.js', 'community/entry.js', 'community/client.js',
   'community/cloudbase-client.js', 'community/community.js', 'community/community.css',
-  'vendor/cloudbase.min.js', 'vendor/supabase.min.js'
+  'vendor/cloudbase.min.js', 'vendor/supabase.min.js',
+  'theme/forest.css', 'theme/companion.js', 'theme/frames-preview.html',
+  ...fs.readdirSync(path.join(root, 'theme/assets'))
+    .filter(name => name.endsWith('.svg'))
+    .map(name => 'theme/assets/' + name)
 ];
 for (const file of files) {
   if (!fs.statSync(path.join(root, file)).isFile()) throw new Error('Missing public asset: ' + file);
@@ -31,6 +35,10 @@ for (const file of files) {
   const target = path.join(output, file);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(path.join(root, file), target);
+  if (file === 'theme/frames-preview.html') {
+    const html = fs.readFileSync(target, 'utf8').replaceAll('href="../index.html"', 'href="https://line-ar-line.github.io/paijian-metronome/"');
+    fs.writeFileSync(target, html);
+  }
   bytes += fs.statSync(target).size;
 }
 console.log(JSON.stringify({ output, files: files.length, bytes }, null, 2));

@@ -1,0 +1,202 @@
+@charset "UTF-8";
+
+/* A quiet forest around the practice tools. Score SVGs keep their own palette. */
+:root {
+  --paper: #f7f7ef;
+  --card: #fffef9;
+  --ink: #263d34;
+  --muted: #6e7d6b;
+  --line: #dfe6d6;
+  --green: #365d48;
+  --green-light: #eaf1e2;
+  --orange: #b57750;
+}
+
+.forest-theme {
+  background-color: var(--paper);
+  background-image: radial-gradient(ellipse at 88% 0, #dbe9d765, transparent 42%),
+    radial-gradient(#7185650c .7px, transparent .7px);
+  background-size: auto, 7px 7px;
+}
+.forest-theme .site-header { border-bottom-color: #d8e2ce; }
+.forest-theme .brand { letter-spacing: 1px; }
+.forest-theme .brand-mark { background: #345641; box-shadow: 0 3px 0 #243c2e0d; }
+.forest-theme .site-nav { background: #ffffff73; border-color: #dce5d3; }
+.forest-theme .site-nav a { color: #63765f; }
+.forest-theme .site-nav a[aria-current] { background: #365d48; color: #fffef7; }
+.forest-theme .site-nav a:focus-visible { outline-offset: 1px; }
+
+.forest-preferences {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 21px;
+}
+.forest-room-label { display: flex; align-items: center; gap: 8px; color: #718365; font-size: 10px; letter-spacing: 1.2px; }
+.forest-room-label svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.forest-preference-actions { display: flex; gap: 8px; }
+.forest-preference {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 36px; padding: 7px 12px; border: 1px solid #d9e2cf;
+  border-radius: 20px; background: #fffef78c; color: #697b60; font-size: 11px;
+}
+.forest-preference[aria-pressed="true"] { color: #345c43; background: #e8efde; border-color: #becfad; }
+.forest-preference svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.forest-setting-note { margin: 7px 0 0; text-align: right; color: #77846f; font-size: 10px; }
+.forest-setting-note:empty { display: none; }
+
+.forest-theme .intro {
+  display: grid; grid-template-columns: minmax(0, 1fr) 270px;
+  position: relative; isolation: isolate; min-height: 235px; gap: 22px;
+  padding: 27px 0 29px; align-items: center;
+}
+.forest-theme .intro::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  right: -22px; top: 0; width: min(650px, 78%); height: 240px;
+  background: url("assets/forest-canopy.svg") right top / contain no-repeat;
+  opacity: .65;
+}
+.forest-theme .intro h1 { font-size: clamp(26px, 2.7vw, 35px); font-weight: 600; letter-spacing: 1px; text-wrap: balance; }
+.forest-title-part { display: inline-block; }
+.forest-theme .eyebrow { color: #7d916e; font-size: 9px; letter-spacing: 2px; }
+.forest-theme .intro-copy { line-height: 1.9; max-width: 590px; color: #72816d; }
+.forest-intro-meta { margin-top: 15px; }
+.forest-theme .intro .instrument-tag,
+.forest-theme .intro .catalog-total,
+.forest-theme .intro .date-tag {
+  display: inline-flex; align-items: center; gap: 8px; margin: 15px 0 0;
+  padding: 6px 11px; border: 1px solid #dce5cf; border-radius: 20px;
+  background: #fffef98c; color: #68805a; font-size: 10px; white-space: nowrap;
+}
+.forest-theme .intro .catalog-total strong { font-size: 13px; font-weight: 650; }
+.forest-theme .intro .catalog-total span { font-size: 10px; margin: 0; }
+.forest-theme .intro .mini-kalimba { font-size: 16px; }
+
+.forest-scene { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; min-height: 195px; }
+.forest-scene::before {
+  content: ""; position: absolute; z-index: -1; top: 10px; width: 187px; height: 172px;
+  border-radius: 48% 52% 44% 56%; background: #e2edce8c; transform: rotate(-9deg);
+  box-shadow: 31px 16px 0 -9px #f4e6d879;
+}
+.forest-scene-label { position: absolute; top: 3px; right: 5px; font-size: 10px; color: #5f7a4d; letter-spacing: 1px; transform: rotate(6deg); }
+.companion-portrait {
+  width: 180px; height: 180px; min-height: 180px; display: block; padding: 0;
+  border: 0; background: transparent; border-radius: 40px;
+}
+.companion-portrait:active:not(:disabled) { transform: none; }
+.companion-frame { display: block; width: 100%; height: 100%; object-fit: contain; }
+.forest-companion-caption { min-height: 19px; margin: -1px 0 0; font-size: 11px; color: #59714d; text-align: center; }
+.forest-companion-hint { margin: 5px 0 0; font-size: 9px; color: #8b987d; }
+.forest-note { position: absolute; color: #91a878; font-family: Georgia, serif; font-size: 20px; pointer-events: none; }
+.forest-note-one { left: 27px; top: 52px; transform: rotate(-12deg); }
+.forest-note-two { right: 25px; bottom: 64px; font-size: 26px; transform: rotate(15deg); }
+
+.forest-theme .metronome-card,
+.forest-theme .settings-card,
+.forest-theme .control-card,
+.forest-theme .catalog-panel,
+.forest-theme .composer-card,
+.forest-theme .community-card {
+  background-color: #fffef9; border-color: #dfe6d6;
+  box-shadow: 0 5px 24px #2e492806;
+}
+.forest-theme .metronome-card { border-radius: 24px; }
+.forest-theme .settings-card { background: #f8faf1; }
+.forest-theme .tempo-name { color: #637f4e; background: #eaf1df; }
+.forest-theme .play-button,
+.forest-theme .primary-action { background: #365d48; box-shadow: 0 3px 0 #28453212; }
+.forest-theme .practice-bar { background: #eaf0df; border-color: #dce5cf; }
+.forest-theme .beat-dot::before {
+  content: ""; position: absolute; top: -16px; left: calc(50% - 13px); width: 26px; height: 22px;
+  background: url("assets/heixiu.svg") center / contain no-repeat; pointer-events: none;
+}
+.forest-theme .beat-section { padding-top: 9px; }
+.forest-theme .beat-dot.current { background: #365d48; box-shadow: 0 0 0 5px #365d4810; }
+.forest-theme .beat-dot.current[data-accent="2"] { background: var(--orange); }
+.forest-theme .catalog-grid { gap: 16px; }
+.forest-theme .catalog-piece { border-color: #dfe6d6; background: #fffef9; box-shadow: 0 3px 16px #2e492804; }
+.forest-theme .catalog-piece h3 { line-height: 1.6; }
+.forest-theme .catalog-empty > span { display: block; height: 116px; margin: 0 auto 10px; }
+.forest-empty-companion { display: block; width: 116px; height: 116px; margin: 0 auto; }
+.forest-theme .upload-zone { background: #f1f6e9; border-color: #bfceaf; }
+.forest-theme .reading-guide { background: #ecf1e2; border-color: #dce5ce; border-radius: 16px; padding: 18px 22px; }
+.forest-theme .score-preview,
+.forest-theme .score-sheet { background-color: #fff; }
+.forest-theme .practice-invitation { background-color: #eaf1df; border-color: #d8e3cb; }
+.forest-theme .calendar-day.is-checked { background: #54764b; border-radius: 10px 4px 10px 4px; }
+.forest-theme .line-note { color: #8da76d; }
+.forest-theme .library-pill { background-color: #eaf1df; color: #59744b; }
+
+.forest-credit { display: flex; justify-content: center; gap: 12px; margin: -10px 0 24px; color: #8b987e; font-size: 9px; line-height: 1.8; }
+.forest-credit a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Focus mode keeps every practice control and the score in place. */
+.forest-theme[data-forest-focus="true"] { background-image: none; }
+.forest-theme[data-forest-focus="true"] .intro { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-top: 22px; padding-bottom: 24px; }
+.forest-theme[data-forest-focus="true"] .forest-scene,
+.forest-theme[data-forest-focus="true"] .intro::before,
+.forest-theme[data-forest-focus="true"] .beat-dot::before,
+.forest-theme[data-forest-focus="true"] .forest-empty-companion,
+.forest-theme[data-forest-focus="true"] .catalog-empty > span,
+.forest-theme[data-forest-focus="true"] .forest-credit { display: none; }
+.forest-theme[data-forest-focus="true"] .intro h1 { font-size: 26px; }
+.forest-theme[data-forest-focus="true"] .intro .eyebrow { display: none; }
+.forest-theme[data-forest-focus="true"] .beat-section { padding-top: 0; }
+
+@media (hover: hover) and (pointer: fine) {
+  .forest-preference:hover { background: #eaf1e1; border-color: #bdccaf; }
+  .forest-theme .site-nav a:not([aria-current]):hover { background: #eaf0e0; }
+  .companion-portrait:hover { background: #ffffff32; }
+  .forest-theme .play-button:hover,
+  .forest-theme .primary-action:hover { background: #2c503d; }
+}
+@media (max-width: 900px) {
+  .forest-theme .intro { grid-template-columns: minmax(0, 1fr) 200px; gap: 10px; }
+  .forest-scene-label { right: -1px; }
+  .forest-note-one { left: 0; }
+  .forest-note-two { right: 0; }
+  .forest-theme .intro h1 { font-size: 29px; }
+}
+@media (max-width: 700px) {
+  .forest-preferences { padding-top: 16px; gap: 7px; }
+  .forest-room-label { font-size: 9px; letter-spacing: .3px; gap: 5px; }
+  .forest-preference-actions { gap: 5px; }
+  .forest-preference { min-height: 36px; font-size: 10px; padding: 7px 9px; gap: 5px; }
+  .forest-preference svg { width: 12px; height: 12px; }
+  .forest-theme .intro { grid-template-columns: minmax(0, 1fr) 122px; padding: 25px 0; min-height: 191px; gap: 7px; }
+  .forest-theme .intro::before { right: -10px; width: 65%; height: 180px; top: -4px; opacity: .55; }
+  .forest-theme .intro h1 { font-size: 26px; letter-spacing: .3px; }
+  .forest-theme .intro-copy { font-size: 11px; line-height: 1.8; letter-spacing: 0; margin-top: 9px; }
+  .forest-theme .intro .eyebrow { font-size: 7px; line-height: 1.7; letter-spacing: 1px; }
+  .forest-theme .intro .instrument-tag,
+  .forest-theme .intro .catalog-total,
+  .forest-theme .intro .date-tag { font-size: 9px; padding: 5px 8px; margin-top: 11px; max-width: 100%; }
+  .forest-scene { min-height: 153px; }
+  .forest-scene::before { width: 116px; height: 116px; top: 8px; box-shadow: 13px 11px 0 -5px #f4e6d879; }
+  .companion-portrait { width: 125px; height: 125px; min-height: 125px; border-radius: 24px; }
+  .forest-scene-label { top: -4px; right: 2px; font-size: 8px; }
+  .forest-companion-caption { font-size: 9px; line-height: 1.6; margin-top: 0; }
+  .forest-companion-hint { display: none; }
+  .forest-note-one { left: 1px; top: 32px; font-size: 14px; }
+  .forest-note-two { right: -3px; bottom: 42px; font-size: 17px; }
+  .forest-credit { margin-top: -8px; }
+}
+@media (max-width: 380px) {
+  .forest-room-label { font-size: 8px; }
+  .forest-room-label svg { display: none; }
+  .forest-theme .intro { grid-template-columns: minmax(0, 1fr) 105px; }
+  .forest-theme .intro h1 { font-size: 24px; }
+  .companion-portrait { width: 110px; height: 110px; min-height: 110px; }
+  .forest-scene::before { width: 100px; height: 105px; top: 12px; }
+  .forest-companion-caption { max-width: 107px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .forest-theme .forest-preference { transition: none; }
+}
+@media print {
+  .forest-preferences, .forest-setting-note, .forest-scene, .forest-credit { display: none !important; }
+  .forest-theme, .forest-theme .intro { background: white; }
+  .forest-theme .intro::before { display: none; }
+  .forest-theme .intro { display: block; min-height: 0; }
+}
