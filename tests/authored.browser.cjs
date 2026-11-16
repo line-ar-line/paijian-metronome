@@ -41,6 +41,7 @@ async function assertNoSelectedScore(page, label) {
 }
 
 async function assertRecoveredExample(page, id = 'ode-duet') {
+  if (!(await page.locator('#example-select').isVisible())) await page.locator('#score-settings > summary').click();
   await page.locator('#example-select').selectOption(id);
   const expectedSummary = id === 'ode-duet' ? '94 个音符 · 16 小节' : '42 个音符 · 12 小节';
   assert.equal(await page.locator('#score-summary').innerText(), expectedSummary);
@@ -172,6 +173,7 @@ test('bundled authored score works with all score JSON requests blocked, preserv
       await page.setViewportSize({ width, height: 844 });
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `authored score and expanded original image fit ${width}px`);
     }
+    if (!(await page.locator('#example-select').isVisible())) await page.locator('#score-settings > summary').click();
     await page.locator('#example-select').selectOption('twinkle');
     assert.match(await page.locator('#score-summary').innerText(), /42 个音符 · 12 小节/);
     assert.equal(await page.locator('#favorite-score').isDisabled(), true);
@@ -186,7 +188,10 @@ test('bundled authored score works with all score JSON requests blocked, preserv
     await page.waitForFunction(() => document.getElementById('score-summary').textContent.includes('189 个音符'));
     assert.equal(await page.locator('#favorite-score').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#original-score').isVisible(), true);
-    assert.equal(await page.locator('#page-select option').count(), 5);
+    const mobilePages = await page.locator('#page-select option').count();
+    assert.ok(mobilePages > 0);
+    await page.locator('#page-select').selectOption(String(mobilePages - 1));
+    assert.equal(await page.locator('#score-preview [data-measure="28"]').count(), 1, 'mobile reflow retains the final printed measure');
     await page.goto(base + 'score.html?score=nonexistent-score');
     await page.waitForFunction(() => document.getElementById('workshop-message').dataset.kind === 'error');
     assert.match(await page.locator('#workshop-message').innerText(), /没有找到这份已发布曲谱/);

@@ -8,15 +8,16 @@
   <title>制谱 · 拍间</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5949'/%3E%3Cpath d='M21 42V24m11 24V16m11 26V24' stroke='%23f5f5ef' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css?v=community-1">
-  <link rel="stylesheet" href="score/workshop.css">
-  <link rel="stylesheet" href="score/composer.css">
+  <link rel="stylesheet" href="score/workshop.css?v=practice-ui-20261116">
+  <link rel="stylesheet" href="score/composer.css?v=practice-ui-20261116">
   <script src="score/score-model.js" defer></script>
   <script src="score/document.js?v=xu-body-5" defer></script>
-  <script src="score/renderer.js?v=xu-body-5" defer></script>
-  <script src="score/player.js" defer></script>
+  <script src="score/renderer.js?v=practice-ui-20261116" defer></script>
+  <script src="score/player.js?v=practice-ui-20261116" defer></script>
   <script src="score/export.js" defer></script>
   <script src="curated/index.js?v=xu-body-5" defer></script>
-  <script src="score/composer.js?v=xu-body-5" defer></script>
+  <script src="score/notation-tools.js?v=practice-ui-20261116" defer></script>
+  <script src="score/composer.js?v=practice-ui-20261116" defer></script>
 </head>
 <body class="composer-page">
   <div class="page-shell composer-shell">
@@ -66,6 +67,17 @@
                 <label class="composer-field" for="composer-meter"><span>拍号</span><select id="composer-meter"><option value="2/4">2/4</option><option value="3/4">3/4</option><option value="4/4" selected>4/4</option><option value="6/8">6/8</option><option value="9/8">9/8</option><option value="12/8">12/8</option></select></label>
                 <label class="composer-field instrument-field" for="composer-instrument"><span>琴型</span><select id="composer-instrument"><option value="17C">17 音 C 调</option><option value="21C">21 音 C 调</option></select></label>
               </div>
+              <section id="notation-toolbar" class="notation-toolbar" aria-label="点选制谱工具">
+                <div class="notation-tool-settings">
+                  <label>编辑声部<select id="notation-voice" aria-label="工具栏编辑声部"></select></label>
+                  <label>八度<select id="notation-octave"><option value="_">低八度</option><option value="" selected>中音</option><option value="'">高八度</option><option value="''">倍高音</option></select></label>
+                  <label>时值<select id="notation-duration"><option value="0.25">¼ 拍</option><option value="0.5">½ 拍</option><option value="0.75">¾ 拍</option><option value="1" selected>1 拍</option><option value="1.5">1½ 拍</option><option value="2">2 拍</option><option value="3">3 拍</option><option value="4">4 拍</option></select></label>
+                  <label>组合<select id="notation-mode"><option value="single">单音</option><option value="chord">和弦</option><option value="glissando">向上滑音</option></select></label>
+                </div>
+                <div class="notation-keyboard" aria-label="选择数字音符"><button type="button" class="secondary-button" data-note-degree="1" aria-label="音符 1">1</button><button type="button" class="secondary-button" data-note-degree="2" aria-label="音符 2">2</button><button type="button" class="secondary-button" data-note-degree="3" aria-label="音符 3">3</button><button type="button" class="secondary-button" data-note-degree="4" aria-label="音符 4">4</button><button type="button" class="secondary-button" data-note-degree="5" aria-label="音符 5">5</button><button type="button" class="secondary-button" data-note-degree="6" aria-label="音符 6">6</button><button type="button" class="secondary-button" data-note-degree="7" aria-label="音符 7">7</button></div>
+                <div class="notation-tool-actions"><button id="notation-rest" class="secondary-button" type="button">0 休止</button><button id="notation-bar" class="secondary-button" type="button">｜小节线</button><button id="notation-insert-chord" class="secondary-button" type="button" disabled>插入组合</button><button id="notation-clear-chord" class="secondary-button" type="button">清空组合</button><button id="notation-undo" class="secondary-button" type="button" disabled>撤销</button><button id="notation-redo" class="secondary-button" type="button" disabled>重做</button></div>
+                <p id="notation-selection" role="status" class="composer-note">单音模式：点击数字即可插入；也可点击下方预览的音符，定位到对应文字。</p>
+              </section>
               <div id="composer-voices" class="composer-voices"></div>
               <div class="voice-tools"><button id="add-voice" class="secondary-button" type="button">＋ 添加声部</button><span>最多 4 声部；每一行声部从同一拍开始。</span></div>
               <section id="composer-unmetered" class="credits-field" aria-labelledby="unmetered-heading" hidden>

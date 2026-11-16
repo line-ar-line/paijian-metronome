@@ -203,3 +203,5 @@
   .catalog-personal-tools { gap: 8px; margin: 10px 0; }
   .catalog-personal-tools p { flex-basis: 100%; }
 }
+
+@media (max-width: 540px) { .catalog-filters { margin-top: 0; gap: 4px; } }

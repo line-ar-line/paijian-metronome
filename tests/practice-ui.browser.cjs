@@ -32,7 +32,7 @@ test('mobile score links open a compact practice view while settings and exports
     await page.goto(base + '/score.html?score=xu');
     await page.locator('#score-preview svg').waitFor();
     assert.equal(await page.locator('#practice-toggle').getAttribute('aria-pressed'), 'true');
-    assert.ok((await page.locator('#score-preview').boundingBox()).y < 800);
+    assert.ok((await page.locator('#score-preview').boundingBox()).y < 640);
     assert.equal(await page.locator('#score-settings').getAttribute('open'), null);
     await page.locator('#score-settings > summary').click();
     assert.equal(await page.locator('#instrument-select').isVisible(), true);
@@ -134,5 +134,71 @@ test('the compact catalog exposes recent practice, favorites and authored kalimb
     assert.equal(await page.locator('#catalog-composer').isVisible(), true);
     await page.locator('#catalog-all').click();
     assert.equal(await page.locator('.catalog-piece').count(), 24);
+  });
+});
+
+test('point-and-click composing inserts rhythms, chords and glissandi, locates notes, and undoes unfinished edits', async () => {
+  await session(async (page, base) => {
+    await page.goto(base + '/composer.html');
+    await page.locator('#voice-notation-0').waitFor();
+    await page.locator('#new-draft').click();
+    const input = page.locator('#voice-notation-0');
+    for (const note of [1, 2, 3, 4]) await page.locator(`[data-note-degree="${note}"]`).click();
+    assert.equal(await input.inputValue(), '1 2 3 4');
+    await page.waitForFunction(() => !document.getElementById('composer-play').disabled);
+    await page.locator('#notation-bar').click();
+    await page.locator('#notation-mode').selectOption('glissando');
+    for (const note of [1, 3, 5]) await page.locator(`[data-note-degree="${note}"]`).click();
+    await page.locator('#notation-duration').selectOption('2');
+    await page.locator('#notation-insert-chord').click();
+    await page.locator('#notation-rest').click();
+    assert.equal(await input.inputValue(), '1 2 3 4 | ~(1,3,5):2 0:2');
+    await page.waitForFunction(() => !document.getElementById('composer-play').disabled);
+    await page.locator('#composer-preview [data-token-id="v0-b0-e1-t0"]').click();
+    assert.equal(await input.evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd)), '2');
+    await page.locator('#notation-mode').selectOption('single');
+    await page.locator('#notation-octave').selectOption("'");
+    await page.locator('#notation-duration').selectOption('1');
+    await page.locator('[data-note-degree="7"]').click();
+    assert.equal(await input.inputValue(), "1 7' 3 4 | ~(1,3,5):2 0:2");
+    await page.locator('#notation-undo').click();
+    assert.equal(await input.inputValue(), '1 2 3 4 | ~(1,3,5):2 0:2');
+    await page.locator('#notation-redo').click();
+    assert.ok((await input.inputValue()).includes("7'"));
+    await input.fill('1:');
+    await page.locator('#notation-undo').click();
+    assert.ok((await input.inputValue()).includes("7'"));
+    await page.locator('#notation-redo').click();
+    assert.equal(await input.inputValue(), '1:');
+    await page.reload();
+    await page.locator('#voice-notation-0').waitFor();
+    assert.equal(await input.inputValue(), '1:');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  });
+});
+
+test('preview editing locates a written tie continuation and toolbar edits target the chosen voice', async () => {
+  await session(async (page, base) => {
+    await page.goto(base + '/composer.html');
+    await page.locator('#new-draft').click();
+    const first = page.locator('#voice-notation-0');
+    await first.fill('1:4~ | 1:4');
+    await page.waitForFunction(() => !document.getElementById('composer-play').disabled);
+    await page.locator('#add-voice').click();
+    await page.waitForFunction(() => !document.getElementById('composer-play').disabled);
+    await page.locator('#composer-preview [data-token-id="v0-b1-e0-t0"]').click();
+    assert.equal(await first.evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd)), '1:4');
+    await page.locator('#voice-name-1').fill('低音');
+    assert.equal(await page.locator('#notation-voice option[value="1"]').innerText(), '低音');
+    await page.locator('#notation-voice').selectOption('1');
+    const second = page.locator('#voice-notation-1');
+    await second.evaluate(el => el.setSelectionRange(0, el.value.length));
+    await page.locator('#notation-duration').selectOption('4');
+    await page.locator('[data-note-degree="5"]').click();
+    assert.equal(await second.inputValue(), '5:4');
+    assert.equal(await first.inputValue(), '1:4~ | 1:4');
+    await second.press('ControlOrMeta+z');
+    assert.equal(await second.inputValue(), '0:4 | 0:4');
+    assert.equal(await first.inputValue(), '1:4~ | 1:4');
   });
 });

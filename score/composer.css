@@ -78,3 +78,21 @@
 @media (max-width: 1100px) { .composer-layout { grid-template-columns: 215px minmax(0, 1fr); gap: 20px; } .composer-metadata { grid-template-columns: 1fr 1fr 1fr; } .composer-metadata .title-field { grid-column: 1/-1; } .composer-card { padding: 19px; } }
 @media (max-width: 800px) { .composer-shell { max-width: none; padding: 0 22px; } .composer-layout { grid-template-columns: 1fr; } .draft-sidebar { grid-template-columns: 1fr; } .draft-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 15px; } .draft-card .composer-section-title { margin: 0; } .draft-card>.full-width { width: auto; } .draft-list { grid-column: 1/-1; margin: 0 -4px; max-height: 155px; } .draft-card .composer-note { grid-column: 1/-1; margin: 0; } .draft-actions { grid-column: 1; } #import-json { grid-column: 2; grid-row: 3; } .syntax-guide { grid-row: 2; } .composer-intro .instrument-tag { display: none; } .composer-intro h1 { font-size: 27px; } .composer-intro .intro-copy { line-height: 1.8; } }
 @media (max-width: 540px) { .composer-shell { padding: 0 14px; } .composer-page .site-header { height: auto; min-height: 104px; flex-wrap: wrap; gap: 10px; padding: 15px 0 12px; } .composer-page .site-nav { width: 100%; justify-content: space-between; } .composer-page .site-nav a { flex: 1; text-align: center; padding: 8px 6px; font-size: 11px; } .composer-intro { padding: 26px 0 23px; } .composer-intro h1 { font-size: 24px; } .composer-card { padding: 16px; } .draft-card { gap: 11px 8px; } .draft-actions { gap: 5px; } .draft-card .secondary-button { padding-left: 8px; padding-right: 8px; font-size: 10px; } .composer-metadata { gap: 12px 9px; grid-template-columns: 75px 75px minmax(0, 1fr); } .composer-metadata select { padding: 0 7px; font-size: 11px; } .composer-section-title { gap: 8px; } #save-status { max-width: 180px; } .voice-heading label { gap: 5px; } .voice-name { max-width: 150px; } .notation-input { font-size: 14px; padding: 12px; } .composer-preview-toolbar { align-items: stretch; flex-direction: column; gap: 9px; } .composer-preview-toolbar>.play-button { flex: auto; } .composer-export-actions>button { flex: 1; } .preview-title h2 { font-size: 17px; } .repeat-row { gap: 7px; } .repeat-row label { max-width: 30%; width: 75px; } .composer-page-navigation { gap: 10px; } .composer-page-navigation>.follow-pages { margin-left: 0; } .publish-note { padding: 18px 16px; } }
+
+.notation-toolbar { margin-top: 20px; border: 1px solid #d6e0cb; border-radius: 12px; background: #f0f4e8; padding: 14px; }
+.notation-tool-settings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.notation-tool-settings label { display: grid; gap: 6px; font-size: 12px; color: #536b47; min-width: 0; }
+.notation-tool-settings select { width: 100%; min-width: 0; min-height: 44px; font-size: 13px; padding: 8px; }
+.notation-keyboard { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; margin: 14px 0; }
+.notation-keyboard .secondary-button { font: 24px Georgia, serif; min-width: 0; padding: 5px; min-height: 48px; }
+.notation-keyboard [aria-pressed="true"] { background: #dce8cd; border-color: #789467; }
+.notation-tool-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.notation-tool-actions .secondary-button { min-height: 44px; }
+#composer-preview .note-group[role=button] { cursor: pointer; outline: none; }
+#composer-preview .note-group[role=button]:focus-visible .note-focus { stroke: #3b5949; stroke-width: 2px; }
+@media (max-width: 540px) {
+  .notation-tool-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notation-toolbar { padding: 12px; }
+  .notation-keyboard { gap: 4px; }
+  .composer-page input, .composer-page textarea, .notation-tool-settings select { font-size: 16px; }
+}

@@ -131,6 +131,10 @@
     let activeNotes = [];
     let nodesBySource = new Map();
     let barToPage = [];
+    let activeVoice = 0;
+    let chordPitches = [];
+    let editHistory = [];
+    let historyIndex = -1;
     const player = new root.ScorePlayer({
       onActiveNotes(event) { activeNotes = event.notes; paintHighlight(); },
       onProgress: updateProgress,
@@ -192,6 +196,7 @@
       if (!pages.length) return;
       pageIndex = Math.max(0, Math.min(index, pages.length - 1));
       $('composer-preview').innerHTML = root.ScoreRenderer.render(pages[pageIndex], renderOptions);
+      $('composer-preview').querySelector('svg')?.setAttribute('role', 'group');
       nodesBySource = new Map();
       $('composer-preview').querySelectorAll('[data-source-id]').forEach(group => {
         const id = group.dataset.sourceId;
@@ -200,6 +205,10 @@
         nodesBySource.get(id).push(group);
       });
       paintHighlight();
+      $('composer-preview').querySelectorAll('.note-group[data-token-id^="v"]').forEach(group => {
+        group.setAttribute('role', 'button'); group.setAttribute('tabindex', '0');
+        group.setAttribute('aria-label', '定位到这个音符的编辑位置');
+      });
       $('composer-page-select').value = String(pageIndex);
       $('composer-previous-page').disabled = pageIndex === 0;
       $('composer-next-page').disabled = pageIndex === pages.length - 1;
@@ -322,6 +331,10 @@
         return section;
       }));
       $('add-voice').disabled = documentData.voices.length >= 4;
+      activeVoice = Math.min(activeVoice, documentData.voices.length - 1);
+      $('notation-voice').replaceChildren(...documentData.voices.map((voice, index) => new Option(voice.name || `声部 ${index + 1}`, index)));
+      $('notation-voice').value = String(activeVoice);
+      syncNotationTools();
     }
     function renderRepeats() {
       $('composer-repeats').replaceChildren(...(documentData.repeats || []).map((repeat, index) => {
@@ -393,6 +406,8 @@
     function edited(alreadyCollected = false) {
       stop(); message('');
       if (!alreadyCollected) documentData = collect();
+      rememberEdit();
+      Array.from($('notation-voice').options).forEach((option, index) => { option.textContent = documentData.voices[index]?.name || `声部 ${index + 1}`; });
       mutateStore(() => drafts.update(documentData));
       renderDraftList();
       $('composer-play').disabled = true;
@@ -400,10 +415,8 @@
       $('composer-summary').textContent = '正在更新预览…';
       timer = root.setTimeout(refreshPreview, 160);
     }
-    function fillCurrent() {
+    function fillDocument() {
       stop(); message('');
-      const draft = drafts.current();
-      documentData = draft?.document || blankDocument();
       $('composer-title').value = documentData.title ?? '';
       $('composer-bpm').value = documentData.bpm ?? 80;
       const meter = Array.isArray(documentData.meter) ? documentData.meter.join('/') : '4/4';
@@ -417,7 +430,103 @@
       if (drafts.error) storageWarning(drafts.error);
       else $('save-status').textContent = '已自动保存到此浏览器';
     }
+    function fillCurrent() {
+      documentData = drafts.current()?.document || blankDocument();
+      editHistory = []; historyIndex = -1; activeVoice = 0; chordPitches = [];
+      fillDocument(); rememberEdit();
+    }
     function create(document) { stop(); mutateStore(() => drafts.create(document)); fillCurrent(); }
+    function syncHistory() {
+      $('notation-undo').disabled = historyIndex <= 0;
+      $('notation-redo').disabled = historyIndex >= editHistory.length - 1;
+    }
+    function rememberEdit() {
+      const raw = JSON.stringify(documentData);
+      if (editHistory[historyIndex] === raw) return;
+      editHistory.splice(historyIndex + 1);
+      editHistory.push(raw); historyIndex = editHistory.length - 1;
+      while (editHistory.length > 2 && (editHistory.length > 60 || editHistory.reduce((sum, item) => sum + item.length, 0) > 4000000)) { editHistory.shift(); historyIndex--; }
+      syncHistory();
+    }
+    function travelHistory(delta) {
+      const next = historyIndex + delta;
+      if (next < 0 || next >= editHistory.length) return;
+      const input = $(`voice-notation-${activeVoice}`);
+      const caret = input?.selectionStart || 0;
+      historyIndex = next; documentData = JSON.parse(editHistory[next]);
+      fillDocument(); mutateStore(() => drafts.update(documentData)); renderDraftList(); syncHistory();
+      const target = $(`voice-notation-${activeVoice}`);
+      target?.focus({ preventScroll: true }); target?.setSelectionRange(Math.min(caret, target.value.length), Math.min(caret, target.value.length));
+    }
+    function syncNotationTools() {
+      const mode = $('notation-mode').value;
+      $('notation-insert-chord').disabled = mode === 'single' || chordPitches.length < 2;
+      $('notation-insert-chord').textContent = mode === 'glissando' ? '插入滑音' : '插入和弦';
+      $('notation-clear-chord').disabled = !chordPitches.length;
+      $('notation-toolbar').querySelectorAll('[data-note-degree]').forEach(button => button.setAttribute('aria-pressed', String(mode !== 'single' && chordPitches.includes(button.dataset.noteDegree + $('notation-octave').value))));
+      $('notation-selection').textContent = mode === 'single'
+        ? '单音模式：点击数字即可插入；也可点击下方预览的音符，定位到对应文字。'
+        : `已选音：${chordPitches.join('、') || '无'}。选择至少两个音后插入，允许先切换八度再选音。`;
+    }
+    function insertNotation(token) {
+      const input = $(`voice-notation-${activeVoice}`);
+      if (!input) return;
+      const change = root.NotationTools.insert(input.value, input.selectionStart, input.selectionEnd, token);
+      if (change.value.length > input.maxLength) { message('该声部已达到文字长度上限，请先导出备份。', true); return; }
+      input.value = change.value; input.focus({ preventScroll: true }); input.setSelectionRange(change.caret, change.caret);
+      edited();
+    }
+    const durationSuffix = () => $('notation-duration').value === '1' ? '' : `:${$('notation-duration').value}`;
+    $('notation-toolbar').addEventListener('pointerdown', event => { if (event.target.closest('button')) event.preventDefault(); });
+    $('notation-toolbar').addEventListener('click', event => {
+      const degree = event.target.closest('[data-note-degree]')?.dataset.noteDegree;
+      if (!degree) return;
+      const pitch = degree + $('notation-octave').value;
+      if ($('notation-mode').value === 'single') insertNotation(pitch + durationSuffix());
+      else {
+        if (chordPitches.includes(pitch)) chordPitches = chordPitches.filter(item => item !== pitch);
+        else if (chordPitches.length < 8) chordPitches.push(pitch);
+        else message('一个和弦最多选择 8 个音。', true);
+        syncNotationTools();
+      }
+    });
+    $('notation-mode').addEventListener('change', () => { if ($('notation-mode').value === 'single') chordPitches = []; syncNotationTools(); });
+    $('notation-octave').addEventListener('change', syncNotationTools);
+    $('notation-voice').addEventListener('change', () => { activeVoice = Number($('notation-voice').value); });
+    $('notation-rest').addEventListener('click', () => insertNotation('0' + durationSuffix()));
+    $('notation-bar').addEventListener('click', () => insertNotation('|'));
+    $('notation-insert-chord').addEventListener('click', () => {
+      if (chordPitches.length < 2) return;
+      insertNotation(`${$('notation-mode').value === 'glissando' ? '~' : ''}(${chordPitches.join(',')})${durationSuffix()}`);
+      chordPitches = []; syncNotationTools();
+    });
+    $('notation-clear-chord').addEventListener('click', () => { chordPitches = []; syncNotationTools(); });
+    $('notation-undo').addEventListener('click', () => travelHistory(-1));
+    $('notation-redo').addEventListener('click', () => travelHistory(1));
+    $('composer-form').addEventListener('focusin', event => {
+      if (!event.target.matches('#composer-voices .notation-input')) return;
+      activeVoice = Number(event.target.dataset.voiceIndex); $('notation-voice').value = String(activeVoice);
+    });
+    $('composer-form').addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' || (key === 'y' && event.ctrlKey)) { event.preventDefault(); travelHistory(key === 'y' || event.shiftKey ? 1 : -1); }
+    });
+    function locatePreview(event) {
+      const group = event.target.closest('.note-group[data-token-id^="v"]');
+      const match = group?.dataset.tokenId.match(/^v(\d+)-b(\d+)-e(\d+)-t/);
+      if (!match) return;
+      const [, voice, bar, index] = match.map(Number);
+      const input = $(`voice-notation-${voice}`);
+      const token = root.NotationTools.locate(input.value, bar, index);
+      if (!token) return;
+      player.stop('edit'); activeVoice = voice; $('notation-voice').value = String(voice);
+      input.focus({ preventScroll: true }); input.setSelectionRange(token.start, token.end);
+      input.scrollIntoView({ block: 'center', behavior: 'instant' });
+      $('notation-selection').textContent = `已定位声部 ${voice + 1} · 第 ${bar + 1} 小节 · 第 ${index + 1} 个音符：${token.text}`;
+    }
+    $('composer-preview').addEventListener('click', locatePreview);
+    $('composer-preview').addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); locatePreview(event); } });
     function download(blob, filename) {
       const url = root.URL.createObjectURL(blob);
       const anchor = element('a', { href: url, download: filename });
@@ -426,8 +535,8 @@
     }
 
     $('composer-form').addEventListener('submit', event => event.preventDefault());
-    $('composer-form').addEventListener('input', () => edited());
-    $('composer-form').addEventListener('change', event => { if (event.target.tagName === 'SELECT') edited(); });
+    $('composer-form').addEventListener('input', event => { if (!event.target.closest('#notation-toolbar')) edited(); });
+    $('composer-form').addEventListener('change', event => { if (event.target.tagName === 'SELECT' && !event.target.closest('#notation-toolbar')) edited(); });
     $('new-draft').addEventListener('click', () => { create(blankDocument()); $('composer-title').focus(); $('composer-title').select(); });
     $('new-example').addEventListener('click', () => create(starterDocument()));
     $('duplicate-draft').addEventListener('click', () => { const copy = collect(); copy.title = `${copy.title || '未命名曲谱'} · 副本`.slice(0, 80); create(copy); });

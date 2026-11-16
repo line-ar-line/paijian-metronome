@@ -225,3 +225,11 @@
 .practice-options .practice-check { display: flex; align-items: center; }
 .practice-options input[type=checkbox] { accent-color: var(--green); width: 18px; height: 18px; }
 .practice-options p { font-size: 11px; line-height: 1.8; color: #617752; }
+
+@media (max-width: 540px) {
+  .practice-focus .site-header { height: auto; min-height: 0; padding: 12px 0; }
+  .practice-focus .site-header .brand { display: none; }
+  .practice-focus .site-nav { width: 100%; }
+  .practice-focus #page-range, .practice-focus .playback-hint { display: none; }
+  .practice-focus .reading-tools span { display: none; }
+}
