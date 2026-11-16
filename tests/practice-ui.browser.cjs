@@ -201,6 +201,9 @@ test('leaving a loop honors clicked measures, seeking and full-song restart incl
 
 test('the compact catalog exposes recent practice, favorites and authored kalimba scores', async () => {
   await session(async (page, base) => {
+    await page.goto(base + '/library.html?view=recent');
+    await page.waitForFunction(() => !document.getElementById('catalog-empty').hidden);
+    assert.match(await page.locator('#catalog-empty-title').innerText(), /还没有最近练习记录/);
     await page.goto(base + '/score.html?score=xu');
     await page.locator('#score-preview svg').waitFor();
     await page.locator('#score-play').click();
@@ -211,6 +214,12 @@ test('the compact catalog exposes recent practice, favorites and authored kalimb
     assert.equal(await page.locator('#catalog-advanced').getAttribute('open'), null);
     await page.locator('#catalog-recent').click();
     assert.equal(await page.locator('.catalog-piece').count(), 1);
+    assert.equal(await page.locator('.catalog-piece').getAttribute('data-piece-id'), 'xu');
+    await page.locator('#catalog-query').fill('no-such-piece-12345');
+    assert.match(await page.locator('#catalog-empty-title').innerText(), /没有匹配结果/);
+    assert.match(await page.locator('#catalog-empty-copy').innerText(), /已有 1 首最近练习记录，记录仍保留/);
+    await page.locator('#catalog-empty-reset').click();
+    assert.equal(await page.locator('#catalog-query').inputValue(), '');
     assert.equal(await page.locator('.catalog-piece').getAttribute('data-piece-id'), 'xu');
     await page.reload();
     await page.locator('.catalog-piece').waitFor();

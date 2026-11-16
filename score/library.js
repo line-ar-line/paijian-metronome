@@ -221,8 +221,16 @@
     $('catalog-empty').hidden = matched.length > 0;
     $('catalog-empty-title').textContent = state.favorites ? (favoriteCount ? '收藏中没有匹配的曲谱' : '还没有收藏曲谱') : '没有找到匹配的曲目';
     $('catalog-empty-copy').textContent = state.favorites && !favoriteCount ? '点击曲谱上的星标，把想练的曲子留在这里。' : '试试更短的曲名、英文作曲家姓名，或减少筛选条件。';
-    if (state.collection === 'recent' && !matched.length) { $('catalog-empty-title').textContent = '暂时没有匹配的最近练习'; $('catalog-empty-copy').textContent = recent.error || '播放一首曲库中的曲子后，它会出现在这里；记录保存在本机，最多 20 首。'; }
+    const recentCount = entries.filter(entry => recent.ids.includes(entry.id)).length;
+    const recentNoMatch = state.collection === 'recent' && recentCount > 0 && !matched.length;
+    if (state.collection === 'recent' && !matched.length) {
+      $('catalog-empty-title').textContent = recentCount ? '最近练过的曲目中没有匹配结果' : '还没有最近练习记录';
+      $('catalog-empty-copy').textContent = recent.error || (recentCount
+        ? `已有 ${recentCount} 首最近练习记录，记录仍保留。试试清除搜索或减少筛选条件。`
+        : '播放一首曲库中的曲子后，它会出现在这里；记录保存在本机，最多 20 首。');
+    }
     $('catalog-empty-reset').textContent = state.favorites && !favoriteCount ? '去找曲谱' : '查看全部曲目';
+    if (recentNoMatch) $('catalog-empty-reset').textContent = '清除搜索与筛选';
     $('catalog-empty-reset').hidden = false;
     $('catalog-pagination').hidden = totalPages <= 1;
     $('catalog-previous').disabled = state.page <= 1;
@@ -236,12 +244,13 @@
     remember();
   }
 
-  function reset() {
-    Object.assign(state, { query: '', composer: '', instrument: '', texture: '', sort: 'default', page: 1, favorites: false, collection: '' });
+  function resetFilters(collection = '') {
+    Object.assign(state, { query: '', composer: '', instrument: '', texture: '', sort: 'default', page: 1, favorites: false, collection });
     $('catalog-query').value = '';
     $('catalog-composer').value = ''; $('catalog-instrument').value = ''; $('catalog-texture').value = ''; $('catalog-sort').value = 'default';
     render();
   }
+  function reset() { resetFilters(); }
 
   function changePage(value) {
     state.page = value; render();
@@ -276,7 +285,10 @@
     for (const [id, collection] of [['catalog-all', ''], ['catalog-recent', 'recent'], ['catalog-kalimba', 'kalimba']]) $(id).addEventListener('click', () => { state.collection = collection; state.favorites = false; state.page = 1; render(); });
     window.addEventListener('storage', event => { if (event.key === window.RecentPractice?.key || event.key === null) render(); });
     $('catalog-reset').addEventListener('click', reset);
-    $('catalog-empty-reset').addEventListener('click', reset);
+    $('catalog-empty-reset').addEventListener('click', () => {
+      const recentIds = window.RecentPractice?.getState().ids || [];
+      resetFilters(state.collection === 'recent' && entries.some(entry => recentIds.includes(entry.id)) ? 'recent' : '');
+    });
     $('catalog-previous').addEventListener('click', () => changePage(state.page - 1));
     $('catalog-next').addEventListener('click', () => changePage(state.page + 1));
     $('catalog-page-select').addEventListener('change', event => changePage(Number(event.target.value)));
