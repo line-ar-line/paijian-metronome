@@ -90,6 +90,10 @@
 .notation-tool-actions .secondary-button { min-height: 44px; }
 #composer-preview .note-group[role=button] { cursor: pointer; outline: none; }
 #composer-preview .note-group[role=button]:focus-visible .note-focus { stroke: #3b5949; stroke-width: 2px; }
+.notation-bar-status { margin: 12px 0 0; font-size: 12px; line-height: 1.8; color: #405e3e; }
+.notation-bar-status[data-kind="incomplete"], .notation-inline-error { color: #8b603e; }
+.notation-inline-error { margin: 8px 0 0; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.notation-inline-error[hidden] { display: none; }
 @media (max-width: 540px) {
   .notation-tool-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .notation-toolbar { padding: 12px; }

@@ -290,3 +290,33 @@ test('preview editing locates a written tie continuation and toolbar edits targe
     assert.equal(await first.inputValue(), '1:4~ | 1:4');
   });
 });
+
+test('composing reports missing beats beside the keyboard and follows the editing measure', async () => {
+  await session(async (page, base) => {
+    await page.goto(base + '/composer.html');
+    await page.locator('#new-draft').click();
+    const input = page.locator('#voice-notation-0');
+    await page.locator('[data-note-degree="1"]').click();
+    assert.match(await page.locator('#notation-bar-status').innerText(), /第 1 小节：1 \/ 4 拍，还差 3 拍/);
+    const keyboard = await page.locator('.notation-keyboard').boundingBox();
+    const status = await page.locator('#notation-bar-status').boundingBox();
+    assert.ok(status.y - (keyboard.y + keyboard.height) < 300);
+    await page.waitForFunction(() => !document.getElementById('notation-inline-error').hidden);
+    assert.match(await page.locator('#notation-inline-error').innerText(), /1 拍，需要 4 拍/);
+    await page.locator('#notation-duration').selectOption('3');
+    await page.locator('#notation-rest').click();
+    assert.match(await page.locator('#notation-bar-status').innerText(), /4 \/ 4 拍，已写满/);
+    await page.waitForFunction(() => !document.getElementById('composer-play').disabled);
+    assert.equal(await page.locator('#notation-inline-error').isVisible(), false);
+    await page.locator('#notation-bar').click();
+    assert.match(await page.locator('#notation-bar-status').innerText(), /第 2 小节：0 \/ 4 拍，还差 4 拍/);
+    await page.locator('#notation-duration').selectOption('1');
+    await page.locator('[data-note-degree="2"]').click();
+    await input.fill('1 0:3 | 2:');
+    await page.waitForFunction(() => document.getElementById('notation-bar-status').textContent.includes('音符格式待完善'));
+    assert.equal(await input.inputValue(), '1 0:3 | 2:');
+    await page.locator('#notation-undo').click();
+    assert.equal(await input.inputValue(), '1 0:3 | 2');
+    assert.match(await page.locator('#notation-bar-status').innerText(), /第 2 小节：1 \/ 4 拍/);
+  });
+});

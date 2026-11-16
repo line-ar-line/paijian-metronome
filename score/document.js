@@ -51,7 +51,7 @@
     const octave = match[3] ? (match[3][0] === "'" ? 1 : -1) * match[3].length : 0;
     return 60 + semitones[Number(match[2])] + octave * 12 + (match[1] ? 1 : 0);
   }
-  function parseVoice(voice, barTicks) {
+  function parseVoice(voice, barTicks, allowIncomplete = false) {
     let text = voice.notation.trim().replace(/\r/g, '');
     if (text.endsWith('|')) text = text.slice(0, -1).trim();
     if (!text) throw new Error(`「${voice.name}」还没有音符。`);
@@ -74,9 +74,16 @@
         tick += event.ticks;
         return event;
       });
-      if (tick !== barTicks) throw new Error(`「${voice.name}」第 ${index + 1} 小节有 ${tick / 4} 拍，需要 ${barTicks / 4} 拍。用 0 补休止，或修改音符时值。`);
+      if (!allowIncomplete && tick !== barTicks) throw new Error(`「${voice.name}」第 ${index + 1} 小节有 ${tick / 4} 拍，需要 ${barTicks / 4} 拍。用 0 补休止，或修改音符时值。`);
       return events;
     });
+  }
+  function measureProgress(notation, meter) {
+    const capacity = meter[0] * 4 / meter[1];
+    if (!notation.trim()) return { beats: 0, capacity };
+    const bars = parseVoice({ name: '当前声部', notation }, capacity * 4, true);
+    if (bars.length !== 1) throw new Error('请只传入一个小节。');
+    return { beats: bars[0].reduce((sum, event) => sum + event.ticks / 4, 0), capacity };
   }
   function compileUnmetered(section, sectionIndex, instrument) {
     const voices = section.voices.map(voice => {
@@ -173,5 +180,5 @@
     const score = { bars, notes, warnings, stats: { inputNotes: notes.length, outputNotes: notes.length, unplayable, voiceCount: voices.length, maxPolyphony, quantized: 0, removedPolyphony: 0, clippedOverlaps: 0, ...(unmeteredSections.length ? { unmeteredNotes: unmeteredNotes.length, unmeteredUnplayable: unmeteredNotes.filter(note => !note.playable).length } : {}) }, voiceNames: document.voices.map(v => v.name), authored: true, playbackBarMap, totalBeats: count * barTicks / 4, sourceTotalBeats: count * barTicks / 4, barBeats: barTicks / 4, options: { instrument: document.instrument, mode: 'polyphonic', meter: document.meter, title: document.title }, ...(unmeteredSections.length ? { unmeteredSections } : {}) };
     return { document, score, playbackNotes, totalBeats, warnings };
   }
-  return { normalize, compile };
+  return { normalize, compile, measureProgress };
 });

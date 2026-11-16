@@ -244,6 +244,7 @@
       root.clearTimeout(timer);
       timer = null;
       $('notation-error').hidden = true;
+      $('notation-inline-error').hidden = true;
       $('composer-play').textContent = `▶ ${playLabel()}`;
       $('composer-performance-note').hidden = !hasUnmetered();
       $('composer-performance-note').textContent = hasUnmetered() ? [documentData.description, '试听正文；未定节奏间奏保留全部音高与列对齐，不参与试听。'].filter(Boolean).join(' ') : '';
@@ -277,6 +278,8 @@
         clearPreview('修正上方提示后，预览会自动更新。你的编辑内容仍保留在草稿中。');
         $('notation-error').textContent = error.message || '暂时无法生成曲谱，请检查数字谱格式。';
         $('notation-error').hidden = false;
+        $('notation-inline-error').textContent = $('notation-error').textContent;
+        $('notation-inline-error').hidden = false;
         $('composer-form').querySelectorAll('.notation-input').forEach(input => input.setAttribute('aria-invalid', 'true'));
         $('composer-playback-status').textContent = '请先修正格式，再试听或导出谱图。';
       }
@@ -413,6 +416,8 @@
       $('composer-play').disabled = true;
       $('composer-export-svg').disabled = true;
       $('composer-summary').textContent = '正在更新预览…';
+      $('notation-inline-error').hidden = true;
+      updateMeasureProgress();
       timer = root.setTimeout(refreshPreview, 160);
     }
     function fillDocument() {
@@ -427,6 +432,7 @@
       renderVoices(); renderRepeats(); renderUnmetered(); renderDraftList();
       pageIndex = 0;
       refreshPreview();
+      updateMeasureProgress();
       if (drafts.error) storageWarning(drafts.error);
       else $('save-status').textContent = '已自动保存到此浏览器';
     }
@@ -457,6 +463,7 @@
       fillDocument(); mutateStore(() => drafts.update(documentData)); renderDraftList(); syncHistory();
       const target = $(`voice-notation-${activeVoice}`);
       target?.focus({ preventScroll: true }); target?.setSelectionRange(Math.min(caret, target.value.length), Math.min(caret, target.value.length));
+      updateMeasureProgress();
     }
     function syncNotationTools() {
       const mode = $('notation-mode').value;
@@ -467,6 +474,22 @@
       $('notation-selection').textContent = mode === 'single'
         ? '单音模式：点击数字即可插入；也可点击下方预览的音符，定位到对应文字。'
         : `已选音：${chordPitches.join('、') || '无'}。选择至少两个音后插入，允许先切换八度再选音。`;
+    }
+    function updateMeasureProgress() {
+      const input = $(`voice-notation-${activeVoice}`);
+      if (!input) return;
+      const bar = input.value.slice(0, input.selectionStart).split('|').length - 1;
+      const label = `${documentData.voices[activeVoice]?.name || `声部 ${activeVoice + 1}`} · 第 ${bar + 1} 小节`;
+      const status = $('notation-bar-status');
+      try {
+        const { beats, capacity } = root.ScoreDocument.measureProgress(input.value.split('|')[bar] || '', documentData.meter);
+        const remaining = capacity - beats;
+        status.dataset.kind = remaining ? 'incomplete' : 'complete';
+        status.textContent = `${label}：${beats} / ${capacity} 拍${remaining > 0 ? `，还差 ${remaining} 拍。可继续加音符，或用 0 补休止。` : remaining < 0 ? `，多出 ${-remaining} 拍。请缩短时值或移到下一小节。` : '，已写满。'}这里的一拍为四分音符。`;
+      } catch (error) {
+        status.dataset.kind = 'incomplete';
+        status.textContent = `${label}：音符格式待完善。${error.message || '请检查音高与时值。'}`;
+      }
     }
     function insertNotation(token) {
       const input = $(`voice-notation-${activeVoice}`);
@@ -492,7 +515,7 @@
     });
     $('notation-mode').addEventListener('change', () => { if ($('notation-mode').value === 'single') chordPitches = []; syncNotationTools(); });
     $('notation-octave').addEventListener('change', syncNotationTools);
-    $('notation-voice').addEventListener('change', () => { activeVoice = Number($('notation-voice').value); });
+    $('notation-voice').addEventListener('change', () => { activeVoice = Number($('notation-voice').value); updateMeasureProgress(); });
     $('notation-rest').addEventListener('click', () => insertNotation('0' + durationSuffix()));
     $('notation-bar').addEventListener('click', () => insertNotation('|'));
     $('notation-insert-chord').addEventListener('click', () => {
@@ -506,7 +529,11 @@
     $('composer-form').addEventListener('focusin', event => {
       if (!event.target.matches('#composer-voices .notation-input')) return;
       activeVoice = Number(event.target.dataset.voiceIndex); $('notation-voice').value = String(activeVoice);
+      updateMeasureProgress();
     });
+    $('composer-voices').addEventListener('click', updateMeasureProgress);
+    $('composer-voices').addEventListener('keyup', updateMeasureProgress);
+    $('composer-voices').addEventListener('select', updateMeasureProgress);
     $('composer-form').addEventListener('keydown', event => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing) return;
       const key = event.key.toLowerCase();
@@ -522,6 +549,7 @@
       if (!token) return;
       player.stop('edit'); activeVoice = voice; $('notation-voice').value = String(voice);
       input.focus({ preventScroll: true }); input.setSelectionRange(token.start, token.end);
+      updateMeasureProgress();
       input.scrollIntoView({ block: 'center', behavior: 'instant' });
       $('notation-selection').textContent = `已定位声部 ${voice + 1} · 第 ${bar + 1} 小节 · 第 ${index + 1} 个音符：${token.text}`;
     }
