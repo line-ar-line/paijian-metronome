@@ -184,3 +184,31 @@
 .export-actions a { text-decoration: none; display: inline-flex; align-items: center; }
 .export-actions [hidden] { display: none; }
 #favorite-score[aria-pressed="true"] { color: #3b5949; background: #e5edda; }
+
+/* Practice keeps the score close; settings remain available through native disclosures. */
+.score-settings { min-width: 0; }
+.score-settings > summary, .score-more > summary { cursor: pointer; color: var(--green); font-size: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #fafbf5; }
+.score-settings[open] > summary { margin-bottom: 12px; }
+.score-more { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.score-more > summary { min-height: 44px; }
+.score-more[open] > summary { margin-bottom: 8px; }
+.score-more .export-actions { max-width: 360px; }
+.score-quick-tools { display: flex; gap: 8px; }
+#practice-toggle[aria-pressed="true"] { background: #e5edda; color: #3b5949; }
+.practice-focus .workshop-intro, .practice-focus .score-topbar, .practice-focus .score-bottom-note, .practice-focus .scroll-hint { display: none; }
+.practice-focus .workshop-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; padding-top: 18px; }
+.practice-focus .workshop-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
+.practice-focus .reading-guide { grid-column: 1/-1; }
+.practice-focus .full-score-info { margin: 0 0 12px; }
+.practice-focus .score-toolbar { flex-wrap: wrap; align-items: flex-start; }
+.practice-focus .score-title-field { max-width: none; }
+.practice-focus .score-more { margin-left: auto; }
+@media (max-width: 820px) { .score-settings .workshop-controls { margin-top: 12px; } }
+@media (max-width: 540px) {
+  .practice-focus .workshop-controls { grid-template-columns: minmax(0, 1fr); }
+  .score-quick-tools .secondary-button, .score-more > summary { min-height: 44px; }
+  .score-more .export-actions { padding-top: 6px; }
+  .practice-focus .playback-hint { margin: 8px 2px; }
+}
+
+@media (max-width: 540px) { .score-more[open] { flex-basis: 100%; } }

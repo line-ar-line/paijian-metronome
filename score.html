@@ -29,6 +29,8 @@
     <main>
       <section class="intro workshop-intro" aria-labelledby="workshop-title"><div><p class="eyebrow">A MELODY, AT YOUR FINGERTIPS</p><h1 id="workshop-title">把旋律，放在指尖。</h1><p class="intro-copy">导入一首 MIDI，把旋律与伴奏一起变成完整数字谱。</p></div><span class="instrument-tag">17 音 C 调 · 多音转谱</span></section>
       <div class="workshop-layout">
+        <details id="score-settings" class="score-settings" open>
+        <summary>导入文件与琴型设置</summary>
         <aside class="workshop-controls" aria-label="曲谱生成设置">
           <section class="control-card">
             <div class="settings-heading"><h2>先选一首曲子</h2><span>01</span></div>
@@ -54,6 +56,7 @@
 
           <section class="reading-guide"><span class="guide-symbol" aria-hidden="true">1 2 3</span><h2>读懂这页谱</h2><p>数字对应 C 调琴键；上方圆点升高八度，下方圆点降低八度。</p><p><b>0</b> 休止　<b>—</b> 延长一拍<br>下划线缩短时值，弧线内的音只拨一次。</p><p><b>多音谱：</b>上下声部按拍点对齐，竖直对齐的音同时拨；某一声部延音时，其他声部可以继续弹。</p><p class="guide-footnote">声部行是自动排版，不是左右手指法。节奏按十六分音符网格规整，三连音与复杂指法需人工校对。单音 MIDI 本身没有伴奏，切换模式不会凭空生成和声。</p></section>
         </aside>
+        </details>
 
         <section class="score-workspace" aria-label="数字谱预览">
           <div id="workshop-message" class="workshop-message" role="status" hidden></div>
@@ -62,7 +65,8 @@
           <p id="full-score-info" class="full-score-info"></p>
           <div class="score-toolbar">
             <label class="score-title-field"><span class="sr-only">曲谱标题</span><input id="score-name" class="text-input" type="text" maxlength="80" value="" placeholder="正在准备曲谱…" disabled></label>
-            <div class="export-actions"><button id="favorite-score" class="secondary-button" type="button" aria-pressed="false">☆ 收藏</button><a id="edit-authored" class="secondary-button" href="composer.html" hidden>编辑副本</a><button id="export-json" class="secondary-button" type="button" hidden>可编辑 JSON</button><button id="export-png" class="secondary-button" type="button">全谱图片</button><button id="export-svg" class="secondary-button" type="button">全谱 SVG</button><button id="print-score" class="secondary-button" type="button">打印 / PDF</button></div>
+            <div class="score-quick-tools"><button id="practice-toggle" class="secondary-button" type="button" aria-pressed="false">专注练琴</button><button id="favorite-score" class="secondary-button" type="button" aria-pressed="false">☆ 收藏</button></div>
+            <details id="score-more" class="score-more" open><summary>导出与编辑</summary><div class="export-actions"><a id="edit-authored" class="secondary-button" href="composer.html" hidden>编辑副本</a><button id="export-json" class="secondary-button" type="button" hidden>可编辑 JSON</button><button id="export-png" class="secondary-button" type="button">全谱图片</button><button id="export-svg" class="secondary-button" type="button">全谱 SVG</button><button id="print-score" class="secondary-button" type="button">打印 / PDF</button></div></details>
           </div>
           <div class="page-navigation" aria-label="全谱分页"><div class="page-buttons"><button id="previous-page" class="secondary-button" type="button" aria-label="上一页">←</button><label class="sr-only" for="page-select">选择谱页</label><select id="page-select"></select><button id="next-page" class="secondary-button" type="button" aria-label="下一页">→</button></div><span id="page-range"></span><label class="follow-pages"><input id="follow-pages" type="checkbox" checked>播放时自动跟随</label></div>
           <div class="score-player" aria-label="曲谱播放">

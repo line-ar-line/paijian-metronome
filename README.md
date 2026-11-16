@@ -154,3 +154,7 @@ node --test tests/engine.test.cjs tests/midi.test.cjs tests/score-model.test.cjs
 - 长期公开保存：导出 JSON，再执行 `node tools/add-score.cjs 曲谱.json my-song`，将生成的曲谱和目录变更提交到 `main`。GitHub Pages 部署后即可通过固定链接跨设备访问。详见 [发布说明](scores/README.md)。静态网页不持有 GitHub 写凭据，也不会把本地草稿误报成已上传。
 
 验证：`node --test tests/document.test.cjs tests/user-library.test.cjs tests/composer-storage.test.cjs`；浏览器验证为 `tests/composer.test.cjs` 和 `tests/favorites.browser.cjs`（需要 Playwright 与 Chrome）。
+
+## 专注练琴
+
+手机从曲库或分享链接打开数字谱时，默认进入专注模式：收起导入、琴型设置和导出区，直接查看曲名、播放与谱面。“导入文件与琴型设置”“导出与编辑”可随时展开；“退出专注”恢复完整工坊。桌面可点击“专注练琴”，也可在链接加入 `practice=1`。

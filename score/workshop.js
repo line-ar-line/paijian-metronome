@@ -686,7 +686,16 @@
   });
   favorites.subscribe(syncFavorite);
   window.addEventListener('pagehide', stop);
+  function setPracticeFocus(enabled) {
+    document.body.classList.toggle('practice-focus', enabled);
+    $('practice-toggle').setAttribute('aria-pressed', String(enabled));
+    $('practice-toggle').textContent = enabled ? '退出专注' : '专注练琴';
+    $('score-settings').open = !enabled;
+    $('score-more').open = !enabled;
+  }
+  $('practice-toggle').addEventListener('click', () => setPracticeFocus(!document.body.classList.contains('practice-focus')));
   const query = new URLSearchParams(location.search);
+  setPracticeFocus(query.get('practice') === '1' || (matchMedia('(max-width: 820px)').matches && ['score', 'piece', 'example'].some(key => query.has(key))));
   const initialExample = query.get('example');
   if (query.has('score')) openPublishedScore(query.get('score'));
   else if (query.has('piece')) openCatalogPiece(query.get('piece'));
