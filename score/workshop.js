@@ -23,9 +23,12 @@
   let scrubbing = false;
   let resumeAfterScrub = false;
   let pendingScoreLoad = null;
-  const scoreControlIds = ['score-play', 'score-restart', 'playback-progress', 'score-bpm', 'score-name', 'page-select', 'previous-page', 'next-page', 'export-svg', 'export-png', 'export-json', 'print-score', 'score-mode', 'instrument-select', 'score-meter', 'transpose', 'suggest-transpose', 'track-select'];
+  let practiceRange = null;
+  let loopRound = 1;
+  let countInRemaining = 0;
+  const scoreControlIds = ['score-play', 'score-restart', 'playback-progress', 'score-bpm', 'score-name', 'page-select', 'previous-page', 'next-page', 'export-svg', 'export-png', 'export-json', 'print-score', 'score-mode', 'instrument-select', 'score-meter', 'transpose', 'suggest-transpose', 'track-select', 'loop-enabled', 'loop-start', 'loop-end', 'loop-tempo-step', 'practice-count-in'];
   const favorites = globalThis.ScoreUserLibrary;
-  const player = new ScorePlayer({ onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '播放暂时无法启动，请重试。') });
+  const player = new ScorePlayer({ onCountIn: ({ remaining }) => { countInRemaining = remaining; }, onActiveNotes: highlight, onProgress: progress, onStateChange: playbackState, onError: (error) => message(error.message || '播放暂时无法启动，请重试。') });
 
   function message(value, kind = 'error') {
     $('workshop-message').textContent = value;
@@ -44,6 +47,7 @@
     panel.append(heading, description); $('score-preview').replaceChildren(panel);
   }
   function beginScoreLoad(kind, id) {
+    practiceRange = null;
     scrubbing = false; resumeAfterScrub = false; stop();
     score = undefined; state = undefined; pages = []; pageIndex = 0;
     barToPage = []; nodesBySource.clear(); positionBeat = 0; currentBar = -1; scoreRevision++;
@@ -86,13 +90,13 @@
   }
   function seconds(beats) { return beats * 60 / (state?.bpm || 80); }
   function hasUnmetered() { return Boolean(score?.unmeteredSections?.length); }
-  function totalBeats() { return state?.compiled?.totalBeats || score?.sourceTotalBeats || 0; }
+  function totalBeats() { return (practiceRange ? score?.sourceTotalBeats : state?.compiled?.totalBeats || score?.sourceTotalBeats) || 0; }
   function playLabel() { return positionBeat > 0 && positionBeat < totalBeats() ? '继续播放' : '播放'; }
   function clock(value) { return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`; }
   function barAt(beat) {
     if (!score?.bars.length) return -1;
     const playedBar = Math.floor(beat / score.barBeats);
-    return score.playbackBarMap
+    return !practiceRange && score.playbackBarMap
       ? score.playbackBarMap[Math.min(playedBar, score.playbackBarMap.length - 1)]
       : Math.min(score.bars.length - 1, playedBar);
   }
@@ -140,6 +144,7 @@
   }
   function progress({ beat, totalBeats: length }) {
     if (scrubbing || !score) return;
+    length = totalBeats();
     positionBeat = clamp(beat, 0, length);
     updateTime(positionBeat, length);
     const bar = barAt(positionBeat);
@@ -147,7 +152,7 @@
     currentBar = bar;
     if (changed) paintCurrentBar();
     if (player.isPlaying) {
-      $('playback-status').textContent = `正在播放${hasUnmetered() ? '正文' : ''} · ${positionLabel(positionBeat)}`;
+      $('playback-status').textContent = countInRemaining ? `预备 · ${countInRemaining} 拍后开始` : `正在播放${hasUnmetered() ? '正文' : ''} · ${positionLabel(positionBeat)}`;
       if ($('follow-pages').checked && changed) followBar(bar);
     }
   }
@@ -225,12 +230,23 @@
       if (!scrubbing) $('playback-status').textContent = reason === 'ended'
         ? `${hasUnmetered() ? '正文' : '全曲'}播放结束 · 点击播放可从头再练。`
         : `已暂停 · ${positionLabel(positionBeat)}`;
+      if (reason === 'ended' && practiceRange) {
+        const generation = playGeneration;
+        queueMicrotask(() => {
+          if (!practiceRange || generation !== playGeneration) return;
+          state.bpm = Math.min(240, state.bpm + Number($('loop-tempo-step').value));
+          $('score-bpm').value = state.bpm;
+          loopRound++;
+          updatePracticeStatus();
+          startPlayback(practiceRange.start);
+        });
+      }
       if (reason === 'interrupted' || reason === 'stalled') message('浏览器或音频设备中断了播放。请保持页面在前台，点击“继续播放”接着练习。');
     }
     syncPlayButton();
   }
   function stop(reason = 'pause') {
-    playGeneration++; starting = false; player.stop(reason);
+    playGeneration++; starting = false; countInRemaining = 0; player.stop(reason);
     $('score-play').removeAttribute('aria-busy');
     syncPlayButton();
   }
@@ -240,14 +256,19 @@
     message('');
     // Stop first so the old clock cannot overwrite a newly chosen position.
     stop('seek');
-    positionBeat = clamp(beat, 0, totalBeats());
+    positionBeat = practiceRange ? clamp(beat, practiceRange.start, practiceRange.end) : clamp(beat, 0, totalBeats());
+    if (practiceRange && positionBeat >= practiceRange.end) positionBeat = practiceRange.start;
     currentBar = -1;
     progress({ beat: positionBeat, totalBeats: totalBeats() });
     starting = true;
     const generation = ++playGeneration;
     $('score-play').setAttribute('aria-busy', 'true');
     syncPlayButton();
-    try { await player.play(state.compiled?.playbackNotes || score.notes, { bpm: state.bpm, volume: .55, totalBeats: totalBeats(), startBeat: positionBeat }); }
+    try {
+      const notes = practiceRange && state.document ? ScoreDocument.compile({ ...state.document, bpm: state.bpm, repeats: [] }).playbackNotes : state.compiled?.playbackNotes || score.notes;
+      await player.play(notes, { bpm: state.bpm, volume: .55, totalBeats: totalBeats(), startBeat: positionBeat,
+        ...(practiceRange ? { endBeat: practiceRange.end } : {}), countInBeats: $('practice-count-in').checked ? score.barBeats : 0 });
+    }
     catch (error) { message(error.message || '无法启动音频，请在新版浏览器中重试。'); }
     finally {
       if (generation === playGeneration) {
@@ -287,7 +308,7 @@
   function playMeasure(index) {
     if (!score) return;
     let performanceBar = index;
-    if (score.playbackBarMap) {
+    if (!practiceRange && score.playbackBarMap) {
       const occurrences = score.playbackBarMap.flatMap((bar, played) => bar === index ? [played] : []);
       const now = Math.floor(positionBeat / score.barBeats);
       performanceBar = occurrences.find(played => played >= now) ?? occurrences[0];
@@ -383,6 +404,29 @@
     list.forEach((item) => { const li = document.createElement('li'); li.textContent = item; ul.append(li); });
     details.append(summary, ul); $('score-warnings').append(details);
   }
+  function updatePracticeStatus() {
+    $('practice-status').textContent = practiceRange
+      ? `循环第 ${practiceRange.first}–${practiceRange.last} 小节 · 第 ${loopRound} 轮 · ${state.bpm} BPM`
+      : '尚未开启分段循环。';
+  }
+  function configurePractice() {
+    stop();
+    practiceRange = null; loopRound = 1;
+    const first = Number($('loop-start').value), last = Number($('loop-end').value);
+    if ($('loop-enabled').checked) {
+      if (!score || !Number.isInteger(first) || !Number.isInteger(last) || first < 1 || last < first || last > score.bars.length) {
+        $('loop-enabled').checked = false;
+        message('请填写有效的小节范围：起始不小于 1，结束不早于起始且不超过全曲。');
+      } else {
+        practiceRange = { first, last, start: (first - 1) * score.barBeats, end: Math.min(last * score.barBeats, score.sourceTotalBeats) };
+        message('');
+      }
+    }
+    positionBeat = practiceRange?.start || 0; currentBar = -1;
+    if (score) progress({ beat: positionBeat, totalBeats: totalBeats() });
+    syncPlayButton(); updatePracticeStatus();
+  }
+  for (const id of ['loop-enabled', 'loop-start', 'loop-end', 'loop-tempo-step', 'practice-count-in']) $(id).addEventListener('change', configurePractice);
   function paginateView(anchorBar = 0) {
     const scale = Number($('score-text-size').value);
     const compact = matchMedia('(max-width: 820px)').matches || scale !== 1;
@@ -424,6 +468,10 @@
         `数字谱由拍间转换：起止规整为十六分音符、统一练习速度；${transposition}；${state.mode === 'polyphonic' ? '保留所选音轨的多音' : '最高音单音简化'}。`,
       ];
     }
+    $('loop-enabled').checked = false;
+    for (const id of ['loop-start', 'loop-end']) $(id).max = score.bars.length;
+    $('loop-start').value = 1; $('loop-end').value = Math.min(4, score.bars.length);
+    updatePracticeStatus();
     paginateView(0);
     const groups = (score.unmeteredSections || []).reduce((total, section) => total + section.groups.length, 0);
     $('score-summary').textContent = hasUnmetered() ? `正文 ${score.stats.outputNotes} 个音符 · 间奏 ${score.stats.unmeteredNotes} 个音符` : `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
@@ -451,7 +499,7 @@
       }
       scrubbing = false; resumeAfterScrub = false;
       stop(); positionBeat = 0; currentBar = -1;
-      state = candidate; score = result; scoreRevision++; render(); message(''); return true;
+      state = candidate; score = result; practiceRange = null; scoreRevision++; render(); message(''); return true;
     } catch (error) {
       if (state) controls();
       message(error.message || '无法转换这段旋律，请尝试其他音轨。');

@@ -217,3 +217,11 @@
 .reading-tools select { width: 90px; min-height: 44px; }
 .reading-tools span { font-size: 11px; }
 @media (max-width: 820px) { .score-preview svg { min-width: 0; max-width: none; } }
+
+.practice-options { margin: 12px 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fafbf5; }
+.practice-options summary { cursor: pointer; font-size: 12px; color: var(--green); min-height: 24px; }
+.practice-options-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 14px; }
+.practice-options label { display: grid; gap: 8px; font-size: 12px; color: #617752; }
+.practice-options .practice-check { display: flex; align-items: center; }
+.practice-options input[type=checkbox] { accent-color: var(--green); width: 18px; height: 18px; }
+.practice-options p { font-size: 11px; line-height: 1.8; color: #617752; }

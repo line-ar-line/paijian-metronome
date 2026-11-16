@@ -75,6 +75,17 @@
             <div class="playback-progress"><div class="progress-label"><span id="playback-status">准备好，从第一小节开始。</span><span id="playback-time">0:00 / 0:00</span></div><input id="playback-progress" type="range" min="0" max="1" step="0.01" value="0" aria-label="播放进度，可拖动跳转"></div>
             <label class="tempo-field" for="score-bpm"><span>速度 <small>♩ BPM</small></span><input id="score-bpm" class="text-input" type="number" min="30" max="240" step="1" value="80"></label>
           </div>
+          <details class="practice-options"><summary>分段循环与预备拍</summary>
+            <div class="practice-options-grid">
+              <label class="practice-check"><input id="loop-enabled" type="checkbox">循环指定小节</label>
+              <label>起始小节<input id="loop-start" class="text-input" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
+              <label>结束小节<input id="loop-end" class="text-input" type="number" min="1" step="1" value="4" inputmode="numeric"></label>
+              <label>每轮提速<select id="loop-tempo-step"><option value="0">保持速度</option><option value="2">＋2 BPM</option><option value="4">＋4 BPM</option></select></label>
+              <label class="practice-check"><input id="practice-count-in" type="checkbox">每次开始前预备一小节</label>
+            </div>
+            <p>起止均含所选小节。循环练习按谱面顺序播放，暂不展开原曲反复；关闭循环恢复全曲。提速上限 240 BPM。</p>
+            <p id="practice-status" role="status">尚未开启分段循环。</p>
+          </details>
           <p class="playback-hint">点击任意小节，从那里开始播放；拖动进度条可跳转。反复段会按当前或下一次出现的位置播放。</p>
           <div class="score-paper"><div class="paper-edge" aria-hidden="true"></div><div id="score-preview" class="score-preview"></div></div>
           <p class="scroll-hint">小屏幕上可以左右滑动查看谱面。</p>

@@ -558,3 +558,31 @@ test('a seek started by the completing progress callback is not stopped by old c
   assert.equal(f.notes.at(-1).index, 1);
   f.player.stop();
 });
+
+test('bounded practice validates the full score and clips both ends of held notes without admitting later attacks', () => {
+  const source = [{ midi: 60, start: 1, duration: 5, sourceId: 'held' }, { midi: 64, start: 4, duration: 2, sourceId: 'outside' }];
+  const bounded = normalizeScore(source, { startBeat: 2, endBeat: 4, totalBeats: 8 });
+  assert.equal(bounded.totalBeats, 4);
+  assert.deepEqual(bounded.entries.map(e => [e.note.sourceId, e.note.start, e.note.duration]), [['held', 2, 2]]);
+  assert.throws(() => normalizeScore(source, { startBeat: 3, endBeat: 3 }), /终点/);
+  assert.throws(() => normalizeScore(source, { endBeat: 20 }), /终点/);
+  assert.throws(() => normalizeScore([...source, { midi: 500, start: 7, duration: 1 }], { endBeat: 4 }), /音高/);
+});
+
+test('count-in uses the audio clock, delays score attacks and can be cancelled before the first note', async () => {
+  const f = setup();
+  await f.player.play(melody, { bpm: 120, countInBeats: 4 });
+  assert.equal(f.context.oscillators.length, 4, 'only the four count-in clicks are scheduled initially');
+  assert.deepEqual(f.context.oscillators.map(o => o.startTime), [.04, .54, 1.04, 1.54]);
+  advance(f, 1.9);
+  assert.equal(f.notes.length, 0);
+  advance(f, .3);
+  assert.equal(f.notes[0].note.midi, 60);
+  assert.ok(f.context.oscillators.some(o => Math.abs(o.startTime - 2.04) < 1e-8));
+  f.player.stop();
+  const cancelled = setup();
+  await cancelled.player.play(melody, { countInBeats: 4 });
+  cancelled.player.stop(); advance(cancelled, 5);
+  assert.equal(cancelled.notes.length, 0);
+  assert.ok(cancelled.context.oscillators.every(o => o.disconnected));
+});

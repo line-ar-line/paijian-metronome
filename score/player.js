@@ -22,6 +22,8 @@
     const bpm = options.bpm === undefined ? 80 : options.bpm;
     const volume = options.volume === undefined ? 0.6 : options.volume;
     const requestedStart = options.startBeat === undefined ? 0 : options.startBeat;
+    const countInBeats = options.countInBeats ?? 0;
+    if (!Number.isFinite(countInBeats) || countInBeats < 0 || countInBeats > 16) throw new Error('预备拍须为 0–16 拍。');
     if (!Number.isFinite(bpm) || bpm <= 0) throw new Error('播放速度必须是有效的正数。');
     if (!Number.isFinite(volume)) throw new Error('音量必须是有效的数字。');
     if (!Number.isFinite(requestedStart) || requestedStart < 0) throw new Error('播放起点必须是大于或等于 0 的有效拍数。');
@@ -54,14 +56,18 @@
     // Validate the complete source before seeking. The shared audio/visual
     // entries retain absolute beats and original indices, including separate
     // occurrences of the same sourceId in an expanded repeat.
-    const totalBeats = Math.max(noteEnd, options.totalBeats || 0);
+    const sourceBeats = Math.max(noteEnd, options.totalBeats || 0);
+    if (options.endBeat !== undefined && (!Number.isFinite(options.endBeat) || options.endBeat <= requestedStart || options.endBeat > sourceBeats)) throw new Error('循环终点须晚于起点，且不超过完整曲谱。');
+    const totalBeats = options.endBeat ?? sourceBeats;
     const startBeat = Math.min(requestedStart, totalBeats);
     const remaining = startBeat === 0 ? entries : entries.filter(entry => entry.note.start + entry.note.duration > startBeat).map(entry => {
       if (entry.note.start >= startBeat) return entry;
       return { ...entry, note: { ...entry.note, start: startBeat, duration: entry.note.start + entry.note.duration - startBeat } };
     });
+    const bounded = options.endBeat === undefined ? remaining : remaining.filter(entry => entry.note.start < totalBeats).map(entry => ({ ...entry, note: { ...entry.note, duration: Math.min(entry.note.duration, totalBeats - entry.note.start) } }));
     return {
-      entries: remaining,
+      entries: bounded,
+      countInBeats,
       startBeat,
       bpm: clamp(bpm, 30, 240),
       volume: clamp(volume, 0, 1),
@@ -80,6 +86,7 @@
       this.onActiveNotes = callbacks.onActiveNotes || (() => {});
       this.onStateChange = callbacks.onStateChange || (() => {});
       this.onProgress = callbacks.onProgress || (() => {});
+      this.onCountIn = callbacks.onCountIn || (() => {});
       this.onError = callbacks.onError || (() => {});
       this._dependencies = dependencies;
       this._context = null;
@@ -146,7 +153,11 @@
         this._master = this._context.createGain();
         this._master.gain.setValueAtTime(this._volume, this._context.currentTime);
         this._master.connect(this._context.destination);
-        this._startTime = this._context.currentTime + START_DELAY - this._score.startBeat * 60 / this._score.bpm;
+        const beatSeconds = 60 / this._score.bpm;
+        this._countInStart = this._context.currentTime + START_DELAY;
+        this._countInLast = -1;
+        this._startTime = this._countInStart + this._score.countInBeats * beatSeconds - this._score.startBeat * beatSeconds;
+        for (let beat = 0; beat < this._score.countInBeats; beat++) this._partial(beat === 0 ? 1046.5 : 784, this._countInStart + beat * beatSeconds, .06, .12, false);
         this._endTime = this._startTime + this._score.totalBeats * 60 / this._score.bpm;
         this._lastTick = this._context.currentTime;
         this._nextIndex = 0;
@@ -257,6 +268,9 @@
     }
 
     _reportProgress(audibleTime) {
+      const count = Math.floor((audibleTime - this._countInStart) * this._score.bpm / 60);
+      const remaining = Math.max(0, Math.ceil(this._score.countInBeats - Math.max(0, count)));
+      if (remaining !== this._countInLast) { this._countInLast = remaining; this.onCountIn({ remaining }); }
       const beat = clamp((audibleTime - this._startTime) * this._score.bpm / 60, this._score.startBeat, this._score.totalBeats);
       // Output timestamp jitter should never make the playhead go backwards.
       this._lastProgress = Math.max(this._lastProgress, beat);

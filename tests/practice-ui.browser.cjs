@@ -74,3 +74,39 @@ test('mobile reflow preserves every measure, enlarges notes and keeps the readin
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   });
 });
+
+test('measure loops count in, repeat at increasing tempo and stop without restarting', async () => {
+  await session(async (page, base) => {
+    await page.addInitScript(() => {
+      let Original;
+      window.practicePlays = [];
+      Object.defineProperty(window, 'ScorePlayer', { get: () => Original, set: Value => {
+        Original = class extends Value {
+          constructor(...args) { super(...args); window.practicePlayer = this; }
+          play(notes, options) { window.practicePlays.push({ ...options }); return super.play(notes, options); }
+        };
+      } });
+    });
+    await page.goto(base + '/score.html?score=xu');
+    await page.locator('#score-preview svg').waitFor();
+    await page.locator('#score-bpm').fill('232'); await page.locator('#score-bpm').dispatchEvent('change');
+    await page.locator('.practice-options > summary').click();
+    await page.locator('#loop-start').fill('2'); await page.locator('#loop-start').dispatchEvent('change');
+    await page.locator('#loop-end').fill('2'); await page.locator('#loop-end').dispatchEvent('change');
+    await page.locator('#loop-tempo-step').selectOption('4');
+    await page.locator('#practice-count-in').check();
+    await page.locator('#loop-enabled').check();
+    await page.locator('#score-play').click();
+    await page.waitForFunction(() => practicePlays.length >= 3);
+    const plays = await page.evaluate(() => practicePlays.slice(0, 3));
+    assert.deepEqual(plays.map(p => [p.startBeat, p.endBeat, p.bpm, p.countInBeats]), [[3, 6, 232, 3], [3, 6, 236, 3], [3, 6, 240, 3]]);
+    await page.locator('#score-play').click();
+    const stopped = await page.evaluate(() => practicePlays.length);
+    await page.waitForTimeout(400);
+    assert.equal(await page.evaluate(() => practicePlays.length), stopped);
+    assert.equal(await page.evaluate(() => practicePlayer.isPlaying), false);
+    await page.locator('#loop-start').fill('10'); await page.locator('#loop-start').dispatchEvent('change');
+    assert.equal(await page.locator('#loop-enabled').isChecked(), false);
+    assert.match(await page.locator('#workshop-message').innerText(), /有效的小节范围/);
+  });
+});
