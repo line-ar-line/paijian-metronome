@@ -148,6 +148,57 @@ test('mobile practice fits ordinary measures and follows active notes on wider p
   });
 });
 
+test('leaving a loop honors clicked measures, seeking and full-song restart including repeat offsets', async () => {
+  await session(async (page, base) => {
+    await page.addInitScript(() => {
+      let Player; window.reviewPlays = [];
+      Object.defineProperty(window, 'ScorePlayer', { get: () => Player, set: Original => {
+        Player = class extends Original {
+          constructor(...args) { super(...args); window.reviewPlayer = this; }
+          play(notes, options) { reviewPlays.push({ ...options }); return super.play(notes, options); }
+        };
+      } });
+    });
+    await page.goto(base + '/score.html?score=heixiu-rhapsody');
+    await page.locator('#score-preview svg').waitFor();
+    await page.locator('.practice-options > summary').click();
+    for (const [id, value] of [['loop-start', '2'], ['loop-end', '3']]) {
+      await page.locator('#' + id).fill(value); await page.locator('#' + id).dispatchEvent('change');
+    }
+    await page.locator('#loop-enabled').check();
+    await page.locator('.practice-options > summary').click();
+    assert.match(await page.locator('#playback-loop').innerText(), /循环 2–3 小节/);
+    await page.locator('#score-preview [data-measure="4"]').focus();
+    await page.locator('#score-preview [data-measure="4"]').press('Enter');
+    await page.waitForFunction(() => reviewPlayer.isPlaying);
+    assert.equal(await page.evaluate(() => reviewPlays.at(-1).startBeat), 16);
+    assert.equal(await page.evaluate(() => reviewPlays.at(-1).endBeat), undefined);
+    assert.match(await page.locator('#playback-loop').innerText(), /已退出循环/);
+    await page.locator('#score-play').click();
+    await page.locator('.practice-options > summary').click();
+    for (const [id, value] of [['loop-start', '13'], ['loop-end', '20']]) {
+      await page.locator('#' + id).fill(value); await page.locator('#' + id).dispatchEvent('change');
+    }
+    await page.locator('#loop-enabled').check();
+    await page.locator('#playback-progress').evaluate(el => {
+      el.value = '84'; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change'));
+    });
+    assert.equal(await page.locator('#loop-enabled').isChecked(), false);
+    assert.equal(Number(await page.locator('#playback-progress').inputValue()), 116);
+    assert.equal(await page.evaluate(() => reviewPlayer.isPlaying), false);
+    await page.locator('#loop-enabled').check();
+    await page.locator('#score-restart').click();
+    await page.waitForFunction(() => reviewPlayer.isPlaying);
+    assert.equal(await page.evaluate(() => reviewPlays.at(-1).startBeat), 0);
+    assert.equal(await page.evaluate(() => reviewPlays.at(-1).endBeat), undefined);
+    await page.locator('#score-play').click();
+    await page.locator('#loop-enabled').check();
+    await page.locator('#exit-loop').click();
+    assert.equal(Number(await page.locator('#playback-progress').inputValue()), 48);
+    assert.equal(await page.evaluate(() => reviewPlayer.isPlaying), false);
+  });
+});
+
 test('the compact catalog exposes recent practice, favorites and authored kalimba scores', async () => {
   await session(async (page, base) => {
     await page.goto(base + '/score.html?score=xu');

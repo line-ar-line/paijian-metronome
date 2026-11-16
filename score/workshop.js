@@ -48,6 +48,7 @@
   }
   function beginScoreLoad(kind, id) {
     practiceRange = null;
+    updatePracticeStatus();
     scrubbing = false; resumeAfterScrub = false; stop();
     score = undefined; state = undefined; pages = []; pageIndex = 0;
     barToPage = []; nodesBySource.clear(); positionBeat = 0; currentBar = -1; scoreRevision++;
@@ -319,9 +320,10 @@
   }
   function commitSeek() {
     if (!scrubbing) return;
-    const beat = Number($('playback-progress').value);
+    let beat = Number($('playback-progress').value);
     const resume = resumeAfterScrub;
     scrubbing = false; resumeAfterScrub = false;
+    if (practiceRange && (beat < practiceRange.start || beat >= practiceRange.end)) beat = exitPracticeAt(beat);
     progress({ beat, totalBeats: totalBeats() });
     $('playback-status').textContent = `已定位 · ${positionLabel(beat)}`;
     syncPlayButton();
@@ -330,6 +332,10 @@
   }
   function playMeasure(index) {
     if (!score) return;
+    if (practiceRange && (index + 1 < practiceRange.first || index + 1 > practiceRange.last)) {
+      startPlayback(exitPracticeAt(index * score.barBeats));
+      return;
+    }
     let performanceBar = index;
     if (!practiceRange && score.playbackBarMap) {
       const occurrences = score.playbackBarMap.flatMap((bar, played) => bar === index ? [played] : []);
@@ -428,9 +434,24 @@
     details.append(summary, ul); $('score-warnings').append(details);
   }
   function updatePracticeStatus() {
-    $('practice-status').textContent = practiceRange
+    const status = practiceRange
       ? `循环第 ${practiceRange.first}–${practiceRange.last} 小节 · 第 ${loopRound} 轮 · ${state.bpm} BPM`
       : '尚未开启分段循环。';
+    $('practice-status').textContent = status;
+    $('playback-loop').hidden = !practiceRange;
+    $('playback-loop-label').textContent = practiceRange ? `循环 ${practiceRange.first}–${practiceRange.last} 小节 · 第 ${loopRound} 轮` : '';
+    $('exit-loop').hidden = !practiceRange;
+  }
+  function exitPracticeAt(sourceBeat) {
+    practiceRange = null; loopRound = 1;
+    $('loop-enabled').checked = false;
+    updatePracticeStatus();
+    $('playback-loop').hidden = false;
+    $('playback-loop-label').textContent = '已退出循环 · 已恢复全曲范围';
+    if (sourceBeat >= score.sourceTotalBeats) return totalBeats();
+    const bar = Math.floor(sourceBeat / score.barBeats);
+    const performanceBar = score.playbackBarMap ? score.playbackBarMap.indexOf(bar) : bar;
+    return Math.max(0, performanceBar) * score.barBeats + sourceBeat % score.barBeats;
   }
   function configurePractice() {
     stop();
@@ -751,7 +772,14 @@
   });
   $('score-name').addEventListener('change', (event) => apply({ title: shorten(event.target.value.trim(), 80) || '未命名曲谱' }));
   $('score-play').addEventListener('click', togglePlayback);
-  $('score-restart').addEventListener('click', () => startPlayback(0));
+  $('score-restart').addEventListener('click', () => startPlayback(practiceRange ? exitPracticeAt(0) : 0));
+  $('exit-loop').addEventListener('click', () => {
+    const resume = player.isPlaying || starting;
+    stop();
+    positionBeat = exitPracticeAt(positionBeat); currentBar = -1;
+    progress({ beat: positionBeat }); syncPlayButton();
+    if (resume) startPlayback(positionBeat);
+  });
   $('playback-progress').addEventListener('pointerdown', beginScrub);
   $('playback-progress').addEventListener('input', previewSeek);
   $('playback-progress').addEventListener('change', commitSeek);

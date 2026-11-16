@@ -72,6 +72,10 @@
 .score-play { width: 95px; min-height: 47px; font-size: 12px; border-radius: 8px; }
 .score-play>span:first-child { font-size: 13px; }
 .playback-progress { flex: 1; min-width: 0; }
+.playback-loop { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; font-size: 11px; color: #3b5949; }
+.playback-loop[hidden] { display: none; }
+.playback-loop .secondary-button { min-height: 36px; padding: 5px 9px; }
+.playback-loop .secondary-button[hidden] { display: none; }
 .progress-label { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 9px; color: #7d8b70; margin-bottom: 2px; }
 #playback-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
 #playback-progress { --played: 0%; display: block; appearance: none; width: 100%; height: 28px; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; touch-action: none; }
