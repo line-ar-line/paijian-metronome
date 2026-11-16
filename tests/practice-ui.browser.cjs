@@ -45,3 +45,32 @@ test('mobile score links open a compact practice view while settings and exports
     assert.equal(await page.locator('#export-svg').isVisible(), true);
   });
 });
+
+
+test('mobile reflow preserves every measure, enlarges notes and keeps the reading position after rotation', async () => {
+  await session(async (page, base) => {
+    await page.goto(base + '/score.html?score=xu');
+    await page.locator('#score-preview svg').waitFor();
+    await page.waitForFunction(() => document.querySelector('#score-preview svg').getBoundingClientRect().width < 400);
+    const measureIds = [];
+    const count = await page.locator('#page-select option').count();
+    for (let i = 0; i < count; i++) {
+      await page.locator('#page-select').selectOption(String(i));
+      measureIds.push(...await page.locator('#score-preview [data-measure]').evaluateAll(nodes => nodes.map(n => Number(n.dataset.measure))));
+    }
+    assert.deepEqual(measureIds, Array.from({ length: 73 }, (_, i) => i));
+    await page.locator('#page-select').selectOption('0');
+    const before = await page.locator('#score-preview .note-number').first().boundingBox();
+    await page.locator('#score-text-size').selectOption('1.4');
+    await page.waitForFunction(() => document.querySelector('#score-preview svg').getBoundingClientRect().width > 390);
+    const after = await page.locator('#score-preview .note-number').first().boundingBox();
+    assert.ok(after.height > before.height * 1.3);
+    await page.locator('#score-text-size').selectOption('1');
+    await page.locator('#page-select').selectOption('2');
+    const anchor = Number(await page.locator('#score-preview [data-measure]').first().getAttribute('data-measure'));
+    await page.setViewportSize({ width: 740, height: 390 });
+    await page.waitForFunction(bar => !!document.querySelector(`#score-preview [data-measure="${bar}"]`), anchor);
+    assert.equal(await page.locator('#score-play').getAttribute('aria-pressed'), 'false');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  });
+});

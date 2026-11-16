@@ -17,6 +17,7 @@
   let activeSources = new Set();
   let activeGroups = [];
   let renderOptions;
+  let viewOptions;
   let positionBeat = 0;
   let currentBar = -1;
   let scrubbing = false;
@@ -166,8 +167,14 @@
   function showPage(index) {
     if (!pages.length) return;
     pageIndex = clamp(index || 0, 0, pages.length - 1);
-    svgText = ScoreRenderer.render(pages[pageIndex], renderOptions);
+    svgText = ScoreRenderer.render(pages[pageIndex], viewOptions);
     $('score-preview').innerHTML = svgText;
+    const rendered = $('score-preview').querySelector('svg');
+    if (rendered) {
+      const scale = Number($('score-text-size').value);
+      rendered.style.width = viewOptions.compact ? `${Number(rendered.getAttribute('width')) * scale}px` : '100%';
+      rendered.style.minWidth = viewOptions.compact ? '0' : '';
+    }
     nodesBySource = new Map();
     $('score-preview').querySelectorAll('[data-source-id]').forEach((group) => {
       const id = group.dataset.sourceId;
@@ -376,6 +383,35 @@
     list.forEach((item) => { const li = document.createElement('li'); li.textContent = item; ul.append(li); });
     details.append(summary, ul); $('score-warnings').append(details);
   }
+  function paginateView(anchorBar = 0) {
+    const scale = Number($('score-text-size').value);
+    const compact = matchMedia('(max-width: 820px)').matches || scale !== 1;
+    viewOptions = compact ? { ...renderOptions, compact: true, width: Math.max(240, $('score-preview').clientWidth / scale) } : { ...renderOptions };
+    pages = ScoreRenderer.paginate(score, viewOptions);
+    barToPage = new Array(score.bars.length);
+    pages.forEach((page, index) => page.bars.forEach((bar) => { barToPage[bar.index] = index; }));
+    $('page-select').replaceChildren(...pages.map((page, index) => {
+      const option = document.createElement('option'); option.value = String(index);
+      option.textContent = `第 ${index + 1} / ${pages.length} 页${page.unmeteredSection ? ` · ${page.unmeteredSection.title}` : ''}`; return option;
+    }));
+    showPage(barToPage[anchorBar] ?? 0);
+  }
+  let layoutFrame;
+  function reflowScore() {
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      if (!score || !renderOptions) return;
+      const anchor = player.isPlaying && currentBar >= 0 ? currentBar : pages[pageIndex]?.bars[0]?.index || 0;
+      paginateView(anchor);
+      if (player.isPlaying && $('follow-pages').checked) followBar(currentBar, true);
+    });
+  }
+  $('score-text-size').addEventListener('change', reflowScore);
+  let layoutWidth = 0;
+  new ResizeObserver(entries => {
+    const width = entries[0].contentRect.width;
+    if (Math.abs(width - layoutWidth) > 1) { layoutWidth = width; reflowScore(); }
+  }).observe(document.querySelector('.score-paper'));
   function render() {
     setScoreReady(true);
     renderOptions = { title: state.title, bpm: state.bpm, instrument: state.instrument, meter: state.meter, subtitle: `${state.subtitle} · ${state.mode === 'polyphonic' ? '保留多音' : '单音简化'}` };
@@ -388,14 +424,7 @@
         `数字谱由拍间转换：起止规整为十六分音符、统一练习速度；${transposition}；${state.mode === 'polyphonic' ? '保留所选音轨的多音' : '最高音单音简化'}。`,
       ];
     }
-    pages = ScoreRenderer.paginate(score, renderOptions);
-    barToPage = new Array(score.bars.length);
-    pages.forEach((page, index) => page.bars.forEach((bar) => { barToPage[bar.index] = index; }));
-    $('page-select').replaceChildren(...pages.map((page, index) => {
-      const option = document.createElement('option'); option.value = String(index);
-      option.textContent = `第 ${index + 1} / ${pages.length} 页${page.unmeteredSection ? ` · ${page.unmeteredSection.title}` : ''}`; return option;
-    }));
-    showPage(0);
+    paginateView(0);
     const groups = (score.unmeteredSections || []).reduce((total, section) => total + section.groups.length, 0);
     $('score-summary').textContent = hasUnmetered() ? `正文 ${score.stats.outputNotes} 个音符 · 间奏 ${score.stats.unmeteredNotes} 个音符` : `${score.stats.outputNotes} 个音符 · ${score.bars.length} 小节`;
     $('full-score-info').textContent = hasUnmetered() ? `完整数字谱 · 正文 ${score.bars.length} 小节 + 间奏 ${groups} 组 / ${pages.length} 页 · 试听正文，导出包含全部页` : state.document ? `完整编配 · 谱面 ${score.bars.length} 小节 / ${pages.length} 页 · 含反复播放 ${score.playbackBarMap.length} 小节` : `已转完源文件全时长 · ${score.bars.length} 小节 / ${pages.length} 页 · 导出包含所有页`;
@@ -574,7 +603,7 @@
     buttons.forEach((button) => { button.disabled = true; });
     const button = format === 'png' ? buttons[0] : buttons[1];
     const originalLabel = button.textContent;
-    const exportPages = [...pages];
+    const exportPages = ScoreRenderer.paginate(score, renderOptions);
     const revision = scoreRevision;
     const options = { ...renderOptions };
     const baseName = filename(format);
@@ -603,7 +632,7 @@
   function printScore() {
     if (!score) return;
     stop();
-    $('print-scores').replaceChildren(...pages.map((pageScore) => {
+    $('print-scores').replaceChildren(...ScoreRenderer.paginate(score, renderOptions).map((pageScore) => {
       const page = document.createElement('div'); page.className = 'print-page';
       page.innerHTML = ScoreRenderer.render(pageScore, renderOptions);
       return page;

@@ -259,7 +259,7 @@ test('playback follows offscreen measures vertically and horizontally, while the
       const viewport = document.getElementById('score-preview'), box = viewport.getBoundingClientRect(), bar = node.getBoundingClientRect();
       return { scroll: viewport.scrollLeft, left: bar.left, right: bar.right, viewportLeft: box.left, viewportRight: box.right, overflow: document.documentElement.scrollWidth > innerWidth };
     });
-    assert.ok(mobile.scroll > 0, 'a bar to the right scrolls the score container on mobile');
+    assert.ok(mobile.scroll <= 1, 'regular mobile measures reflow to fit without horizontal scrolling');
     assert.ok(mobile.right > mobile.viewportLeft && mobile.left < mobile.viewportRight, 'the current bar is horizontally visible');
     assert.equal(mobile.overflow, false, 'the document itself never gains horizontal overflow');
 
