@@ -111,6 +111,43 @@ test('measure loops count in, repeat at increasing tempo and stop without restar
   });
 });
 
+test('mobile practice fits ordinary measures and follows active notes on wider pages', async () => {
+  await session(async (page, base) => {
+    await page.addInitScript(() => {
+      let Player;
+      Object.defineProperty(window, 'ScorePlayer', { get: () => Player, set: Original => {
+        Player = class extends Original { constructor(...args) { super(...args); window.reviewPlayer = this; } };
+      } });
+    });
+    await page.goto(base + '/score.html?score=heixiu-rhapsody');
+    await page.locator('#score-preview svg').waitFor();
+    await page.waitForFunction(() => document.querySelector('#score-preview').scrollWidth <= document.querySelector('#score-preview').clientWidth + 1);
+    assert.equal(await page.locator('#score-overflow-hint').isVisible(), false);
+    const digit = await page.locator('#score-preview .note-number').first().boundingBox();
+    assert.ok(digit.height >= 20);
+    await page.locator('#score-text-size').selectOption('1.4');
+    await page.waitForFunction(() => !document.getElementById('score-overflow-hint').hidden);
+    for (let index = 0; index < await page.locator('#page-select option').count(); index++) {
+      await page.locator('#page-select').selectOption(String(index));
+      if (await page.locator('#score-preview [data-measure="12"]').count()) break;
+    }
+    await page.locator('#score-preview [data-measure="12"]').focus();
+    await page.locator('#score-preview [data-measure="12"]').press('Enter');
+    await page.waitForFunction(() => reviewPlayer.isPlaying);
+    await page.evaluate(() => {
+      const notes = [...document.querySelectorAll('#score-preview [data-measure="12"] .note-group[data-source-id]')].filter(node => node.dataset.sourceId);
+      window.reviewLastSource = notes.sort((a, b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left)[0].dataset.sourceId;
+      reviewPlayer.onActiveNotes({ notes: [{ sourceId: reviewLastSource }], beat: 51.5 });
+    });
+    assert.ok(await page.locator('#score-preview').evaluate(el => el.scrollLeft > 100));
+    await page.locator('#follow-pages').uncheck();
+    await page.locator('#score-preview').evaluate(el => { el.scrollLeft = 0; });
+    await page.evaluate(() => reviewPlayer.onActiveNotes({ notes: [{ sourceId: reviewLastSource }], beat: 51.5 }));
+    assert.equal(await page.locator('#score-preview').evaluate(el => el.scrollLeft), 0);
+    await page.locator('#score-play').click();
+  });
+});
+
 test('the compact catalog exposes recent practice, favorites and authored kalimba scores', async () => {
   await session(async (page, base) => {
     await page.goto(base + '/score.html?score=xu');

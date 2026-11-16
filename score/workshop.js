@@ -59,6 +59,7 @@
     $('example-select').value = '';
     $('page-select').replaceChildren(); $('page-range').textContent = '';
     $('score-warnings').replaceChildren();
+    $('score-overflow-hint').hidden = true;
     for (const name of ['original-score', 'edit-authored', 'export-json', 'score-performance-note', 'track-field', 'score-load-actions']) $(name).hidden = true;
     $('favorite-score').textContent = '☆ 收藏'; $('favorite-score').setAttribute('aria-pressed', 'false');
     updateTime(0, 0); $('playback-status').textContent = '曲谱加载后即可播放。';
@@ -125,7 +126,6 @@
     if (!group) return;
     const preview = $('score-preview');
     const bounds = group.getBoundingClientRect();
-    const viewport = preview.getBoundingClientRect();
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const behavior = immediate || pageChanged || reducedMotion ? 'instant' : 'smooth';
     // Leave space for the sticky player; only move when the next measure needs it.
@@ -133,9 +133,25 @@
     if (bounds.top < top || bounds.bottom > innerHeight - 32) {
       window.scrollTo({ top: Math.max(0, window.scrollY + bounds.top - top - 16), behavior });
     }
+    if (bounds.width > preview.clientWidth - 24) followActiveNotes(bar, behavior, group);
+    else revealHorizontally(bounds, behavior);
+  }
+  function revealHorizontally(bounds, behavior = 'instant') {
+    const preview = $('score-preview');
+    const viewport = preview.getBoundingClientRect();
     if (bounds.left < viewport.left + 12 || bounds.right > viewport.right - 12) {
-      preview.scrollTo({ left: Math.max(0, preview.scrollLeft + bounds.left - viewport.left - 16), behavior });
+      const inset = bounds.width > preview.clientWidth - 24 ? 16 : Math.max(16, (preview.clientWidth - bounds.width) / 3);
+      preview.scrollTo({ left: Math.max(0, preview.scrollLeft + bounds.left - viewport.left - inset), behavior });
     }
+  }
+  function followActiveNotes(bar, behavior = 'instant', fallback) {
+    if (!$('follow-pages').checked || !player.isPlaying || scrubbing) return;
+    const candidates = activeGroups.filter(group => Number(group.closest('[data-measure]')?.dataset.measure) === bar);
+    // A held accompaniment can remain active as the melody moves to the right.
+    const note = candidates.map(group => group.querySelector('.note-number')).filter(Boolean)
+      .sort((a, b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left)[0]
+      || fallback?.querySelector('.note-number');
+    if (note) revealHorizontally(note.getBoundingClientRect(), behavior);
   }
   function cancelFollowScroll() {
     window.scrollTo({ top: window.scrollY, left: window.scrollX, behavior: 'instant' });
@@ -160,9 +176,10 @@
     activeGroups.forEach((group) => group.classList.remove('is-active'));
     activeGroups = []; activeSources.clear();
   }
-  function highlight({ notes }) {
+  function highlight({ notes, beat }) {
     activeSources = new Set(notes.map(note => note.sourceId));
     paintHighlight();
+    followActiveNotes(barAt(beat));
   }
   function paintHighlight() {
     activeGroups.forEach((group) => group.classList.remove('is-active'));
@@ -177,9 +194,13 @@
     const rendered = $('score-preview').querySelector('svg');
     if (rendered) {
       const scale = Number($('score-text-size').value);
-      rendered.style.width = viewOptions.compact ? `${Number(rendered.getAttribute('width')) * scale}px` : '100%';
+      const naturalWidth = Number(rendered.getAttribute('width'));
+      // Fit ordinary measures without making dense notation smaller than 21px.
+      const screenWidth = scale === 1 ? Math.max($('score-preview').clientWidth, naturalWidth * 21 / 31) : naturalWidth * scale;
+      rendered.style.width = viewOptions.compact ? `${Math.min(naturalWidth * scale, screenWidth)}px` : '100%';
       rendered.style.minWidth = viewOptions.compact ? '0' : '';
     }
+    $('score-overflow-hint').hidden = $('score-preview').scrollWidth <= $('score-preview').clientWidth + 1;
     nodesBySource = new Map();
     $('score-preview').querySelectorAll('[data-source-id]').forEach((group) => {
       const id = group.dataset.sourceId;
