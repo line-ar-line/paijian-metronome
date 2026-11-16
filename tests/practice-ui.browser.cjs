@@ -11,7 +11,7 @@ async function session(run, width = 390) {
   const server = http.createServer((req, res) => {
     const file = path.resolve(root, '.' + new URL(req.url, 'http://localhost').pathname);
     if (!file.startsWith(root + path.sep)) { res.writeHead(404).end(); return; }
-    try { res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' }).end(fs.readFileSync(file)); }
+    try { const bytes = fs.readFileSync(file); res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' }).end(bytes); }
     catch { res.writeHead(404).end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -108,5 +108,31 @@ test('measure loops count in, repeat at increasing tempo and stop without restar
     await page.locator('#loop-start').fill('10'); await page.locator('#loop-start').dispatchEvent('change');
     assert.equal(await page.locator('#loop-enabled').isChecked(), false);
     assert.match(await page.locator('#workshop-message').innerText(), /有效的小节范围/);
+  });
+});
+
+test('the compact catalog exposes recent practice, favorites and authored kalimba scores', async () => {
+  await session(async (page, base) => {
+    await page.goto(base + '/score.html?score=xu');
+    await page.locator('#score-preview svg').waitFor();
+    await page.locator('#score-play').click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('paijian.recent-practice.v1'))?.ids[0] === 'xu');
+    await page.goto(base + '/library.html');
+    await page.locator('.catalog-piece').first().waitFor();
+    assert.ok((await page.locator('.catalog-piece').first().boundingBox()).y < 800);
+    assert.equal(await page.locator('#catalog-advanced').getAttribute('open'), null);
+    await page.locator('#catalog-recent').click();
+    assert.equal(await page.locator('.catalog-piece').count(), 1);
+    assert.equal(await page.locator('.catalog-piece').getAttribute('data-piece-id'), 'xu');
+    await page.reload();
+    await page.locator('.catalog-piece').waitFor();
+    assert.equal(await page.locator('#catalog-recent').getAttribute('aria-pressed'), 'true');
+    await page.locator('#catalog-kalimba').click();
+    assert.equal(await page.locator('.catalog-piece').count(), 2);
+    assert.equal(await page.locator('.catalog-piece[data-piece-id^="mutopia-"]').count(), 0);
+    await page.locator('#catalog-advanced > summary').click();
+    assert.equal(await page.locator('#catalog-composer').isVisible(), true);
+    await page.locator('#catalog-all').click();
+    assert.equal(await page.locator('.catalog-piece').count(), 24);
   });
 });

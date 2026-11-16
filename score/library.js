@@ -24,6 +24,7 @@
     sort: ['default', 'title', 'composer', 'coverage'].includes(parameters.get('sort')) ? parameters.get('sort') : 'default',
     page: Math.max(1, Number.parseInt(parameters.get('page'), 10) || 1),
     favorites: parameters.get('favorites') === '1',
+    collection: ['recent', 'kalimba'].includes(parameters.get('view')) ? parameters.get('view') : '',
   };
   let entries = [];
   let matched = [];
@@ -173,28 +174,33 @@
   function remember() {
     try {
       const url = new URL(location.href);
-      for (const key of ['q', 'composer', 'instrument', 'texture', 'sort', 'page', 'favorites']) url.searchParams.delete(key);
+      for (const key of ['q', 'composer', 'instrument', 'texture', 'sort', 'page', 'favorites', 'view']) url.searchParams.delete(key);
       if (state.query) url.searchParams.set('q', state.query);
       for (const key of ['composer', 'instrument', 'texture']) if (state[key]) url.searchParams.set(key, state[key]);
       if (state.sort !== 'default') url.searchParams.set('sort', state.sort);
       if (state.page > 1) url.searchParams.set('page', state.page);
       if (state.favorites) url.searchParams.set('favorites', '1');
+      if (state.collection) url.searchParams.set('view', state.collection);
       history.replaceState(null, '', url);
     } catch { /* Some local-file browsers disallow URL state updates. */ }
   }
 
   function render() {
     const terms = normalized(state.query).split(' ').filter(Boolean);
+    const recent = window.RecentPractice?.getState() || { ids: [], error: '' };
     matched = entries.filter((entry) => (
       terms.every(term => entry.searchText.includes(term)) &&
       (!state.composer || entry.composer === state.composer) &&
       (!state.instrument || entry.instrument === state.instrument) &&
       (!state.texture || (state.texture === 'single' ? entry.maxPolyphony === 1 : entry.maxPolyphony > 1)) &&
-      (!state.favorites || favorites?.has(entry.id))
+      (!state.favorites || favorites?.has(entry.id)) &&
+      (state.collection !== 'recent' || recent.ids.includes(entry.id)) &&
+      (state.collection !== 'kalimba' || entry.format === 'paijian-score')
     ));
     if (state.sort === 'title') matched.sort((a, b) => collator.compare(a.title, b.title) || a.index - b.index);
     else if (state.sort === 'composer') matched.sort((a, b) => collator.compare(a.composer, b.composer) || collator.compare(a.title, b.title) || a.index - b.index);
     else if (state.sort === 'coverage') matched.sort((a, b) => (b.ratio ?? -1) - (a.ratio ?? -1) || a.index - b.index);
+    if (state.collection === 'recent' && state.sort === 'default') matched.sort((a, b) => recent.ids.indexOf(a.id) - recent.ids.indexOf(b.id));
     const totalPages = Math.ceil(matched.length / PAGE_SIZE);
     state.page = Math.min(Math.max(1, state.page), Math.max(1, totalPages));
     const from = (state.page - 1) * PAGE_SIZE;
@@ -202,16 +208,20 @@
     const fragment = document.createDocumentFragment();
     visible.forEach(entry => fragment.append(pieceCard(entry)));
     $('catalog-grid').replaceChildren(fragment);
-    const filtered = Boolean(state.query.trim() || state.composer || state.instrument || state.texture || state.favorites);
+    const filtered = Boolean(state.query.trim() || state.composer || state.instrument || state.texture || state.favorites || state.collection);
     const favoriteCount = entries.filter(entry => favorites?.has(entry.id)).length;
     $('catalog-favorite-count').textContent = number(favoriteCount);
     $('catalog-favorites-only').setAttribute('aria-pressed', String(state.favorites));
-    $('catalog-results-title').textContent = state.favorites ? '我的收藏' : filtered ? '筛选结果' : '所有曲目';
+    $('catalog-all').setAttribute('aria-pressed', String(!state.collection && !state.favorites));
+    $('catalog-recent').setAttribute('aria-pressed', String(state.collection === 'recent'));
+    $('catalog-kalimba').setAttribute('aria-pressed', String(state.collection === 'kalimba'));
+    $('catalog-results-title').textContent = state.collection === 'recent' ? '最近练过' : state.collection === 'kalimba' ? '卡林巴专用谱' : state.favorites ? '我的收藏' : filtered ? '筛选结果' : '所有曲目';
     $('catalog-result-count').textContent = matched.length ? `${number(matched.length)} 份曲谱 · 正在显示第 ${number(from + 1)}–${number(from + visible.length)} 份` : '0 份匹配曲谱';
     $('catalog-reset').hidden = !filtered && state.sort === 'default';
     $('catalog-empty').hidden = matched.length > 0;
     $('catalog-empty-title').textContent = state.favorites ? (favoriteCount ? '收藏中没有匹配的曲谱' : '还没有收藏曲谱') : '没有找到匹配的曲目';
     $('catalog-empty-copy').textContent = state.favorites && !favoriteCount ? '点击曲谱上的星标，把想练的曲子留在这里。' : '试试更短的曲名、英文作曲家姓名，或减少筛选条件。';
+    if (state.collection === 'recent' && !matched.length) { $('catalog-empty-title').textContent = '暂时没有匹配的最近练习'; $('catalog-empty-copy').textContent = recent.error || '播放一首曲库中的曲子后，它会出现在这里；记录保存在本机，最多 20 首。'; }
     $('catalog-empty-reset').textContent = state.favorites && !favoriteCount ? '去找曲谱' : '查看全部曲目';
     $('catalog-empty-reset').hidden = false;
     $('catalog-pagination').hidden = totalPages <= 1;
@@ -227,7 +237,7 @@
   }
 
   function reset() {
-    Object.assign(state, { query: '', composer: '', instrument: '', texture: '', sort: 'default', page: 1, favorites: false });
+    Object.assign(state, { query: '', composer: '', instrument: '', texture: '', sort: 'default', page: 1, favorites: false, collection: '' });
     $('catalog-query').value = '';
     $('catalog-composer').value = ''; $('catalog-instrument').value = ''; $('catalog-texture').value = ''; $('catalog-sort').value = 'default';
     render();
@@ -262,12 +272,15 @@
     for (const [id, key] of [['catalog-composer', 'composer'], ['catalog-instrument', 'instrument'], ['catalog-texture', 'texture'], ['catalog-sort', 'sort']]) {
       $(id).addEventListener('change', (event) => { state[key] = event.target.value; state.page = 1; render(); });
     }
+    if (matchMedia('(max-width: 820px)').matches && !state.composer && !state.instrument && !state.texture) $('catalog-advanced').open = false;
+    for (const [id, collection] of [['catalog-all', ''], ['catalog-recent', 'recent'], ['catalog-kalimba', 'kalimba']]) $(id).addEventListener('click', () => { state.collection = collection; state.favorites = false; state.page = 1; render(); });
+    window.addEventListener('storage', event => { if (event.key === window.RecentPractice?.key || event.key === null) render(); });
     $('catalog-reset').addEventListener('click', reset);
     $('catalog-empty-reset').addEventListener('click', reset);
     $('catalog-previous').addEventListener('click', () => changePage(state.page - 1));
     $('catalog-next').addEventListener('click', () => changePage(state.page + 1));
     $('catalog-page-select').addEventListener('change', event => changePage(Number(event.target.value)));
-    $('catalog-favorites-only').addEventListener('click', () => { state.favorites = !state.favorites; state.page = 1; render(); });
+    $('catalog-favorites-only').addEventListener('click', () => { state.favorites = !state.favorites; state.collection = ''; state.page = 1; render(); });
     $('catalog-grid').addEventListener('click', event => {
       const button = event.target.closest('button[data-favorite-id]');
       if (!button || !favorites) return;

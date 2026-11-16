@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="score/library.css?v=library-2">
   <script src="catalog/index.js" defer></script>
   <script src="curated/index.js?v=xu-body-5" defer></script>
+  <script src="score/recent-practice.js" defer></script>
   <script src="score/user-library.js?v=library-2" defer></script>
   <script src="score/library.js?v=score-load-1" defer></script>
 </head>
@@ -24,11 +25,12 @@
         <div class="catalog-panel-heading"><div><span class="library-pill">内置曲库</span><h2 id="catalog-title">下一首，想练什么？</h2></div><a href="#external-sources" class="catalog-more-link">去外部曲库找更多 ↗</a></div>
         <form id="catalog-filters" class="catalog-filters" role="search" aria-label="搜索内置曲库">
           <div class="catalog-search-field"><label for="catalog-query">曲名 / 作曲家</label><div class="catalog-search-input"><span aria-hidden="true">⌕</span><input id="catalog-query" class="text-input" type="search" placeholder="搜索曲名、作曲家或作品编号…" autocomplete="off" maxlength="160"><button type="submit" class="catalog-search-button">搜索</button></div></div>
+          <details id="catalog-advanced" class="catalog-advanced" open><summary>详细筛选</summary><div class="catalog-advanced-fields">
           <div class="catalog-filter-field"><label for="catalog-composer">作曲家</label><select id="catalog-composer"><option value="">全部作曲家</option></select></div>
           <div class="catalog-filter-field"><label for="catalog-instrument">原编制</label><select id="catalog-instrument"><option value="">全部编制</option></select></div>
           <div class="catalog-filter-field"><label for="catalog-texture">音符组合</label><select id="catalog-texture"><option value="">全部曲目</option><option value="single">单音旋律</option><option value="polyphonic">含多音 / 伴奏</option></select></div>
-        </form>
-        <div class="catalog-personal-tools"><button id="catalog-favorites-only" class="catalog-favorites-toggle" type="button" aria-pressed="false"><span aria-hidden="true">☆</span><span>只看收藏</span><span id="catalog-favorite-count" class="catalog-favorite-count">0</span></button><p>收藏保存在当前浏览器中。</p></div>
+        </div></details></form>
+        <div class="catalog-personal-tools"><button id="catalog-all" class="catalog-collection" type="button" aria-pressed="true">全部</button><button id="catalog-recent" class="catalog-collection" type="button" aria-pressed="false">最近练过</button><button id="catalog-kalimba" class="catalog-collection" type="button" aria-pressed="false">卡林巴专用谱</button><button id="catalog-favorites-only" class="catalog-favorites-toggle" type="button" aria-pressed="false"><span aria-hidden="true">☆</span><span>只看收藏</span><span id="catalog-favorite-count" class="catalog-favorite-count">0</span></button><p>收藏与最近练习记录保存在当前浏览器中。</p></div>
         <p id="catalog-favorite-message" class="catalog-favorite-message" role="status" aria-live="polite" hidden></p>
         <details class="catalog-explanation"><summary>关于完整范围与卡林巴可弹性</summary><p>原图整理谱提供对应图片供核对。MIDI 曲目保留来源文件中的旋律与伴奏，范围按作品或乐章标题标注，并非已经改编好的 17 音卡林巴成品谱。</p><p>“C17 原调覆盖”表示音符中落在标准 17 音 C 调琴键上的比例。覆盖率高也可能有密集和弦；打开数字谱后，可尝试整体移调、选择声部或自行改编。</p></details>
       </section>

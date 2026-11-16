@@ -222,6 +222,8 @@
   }
   function playbackState({ state: playback, reason }) {
     if (playback === 'playing') {
+      const id = favoriteId();
+      if (id && globalThis.RecentPractice && !RecentPractice.record(id)) message('播放已开始，但最近练习记录未能保存，请检查浏览器存储设置。');
       starting = false;
       if ($('follow-pages').checked && !scrubbing) followBar(currentBar, true);
     } else {
@@ -770,9 +772,13 @@
     $('score-settings').open = !enabled;
     $('score-more').open = !enabled;
   }
-  $('practice-toggle').addEventListener('click', () => setPracticeFocus(!document.body.classList.contains('practice-focus')));
+  let practiceChoice = null;
+  $('practice-toggle').addEventListener('click', () => { practiceChoice = !document.body.classList.contains('practice-focus'); setPracticeFocus(practiceChoice); });
   const query = new URLSearchParams(location.search);
-  setPracticeFocus(query.get('practice') === '1' || (matchMedia('(max-width: 820px)').matches && ['score', 'piece', 'example'].some(key => query.has(key))));
+  const practiceMedia = matchMedia('(max-width: 820px)');
+  const linkedScore = ['score', 'piece', 'example'].some(key => query.has(key));
+  setPracticeFocus(query.get('practice') === '1' || (practiceMedia.matches && linkedScore));
+  practiceMedia.addEventListener('change', event => { if (practiceChoice === null && query.get('practice') !== '1') setPracticeFocus(event.matches && linkedScore); });
   const initialExample = query.get('example');
   if (query.has('score')) openPublishedScore(query.get('score'));
   else if (query.has('piece')) openCatalogPiece(query.get('piece'));
